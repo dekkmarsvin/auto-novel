@@ -26,5 +26,5 @@ web-extension/src/_metadata/
 data/
 .env
 
-# for develop
-.local.yml
+# for development
+*.local.yml
