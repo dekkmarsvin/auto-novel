@@ -3,10 +3,12 @@ name: CI-Server
 on:
   push:
     branches:
+      - main
       - work
     paths:
       - server/**
   workflow_dispatch:
+  
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-server
@@ -41,7 +43,7 @@ jobs:
         with:
           context: server
           push: true
-          tags: ghcr.io/kotoban/auto-novel-server-dev:latest
+          tags: ghcr.io/kotoban/auto-novel-server:latest
 
       - name: Delete all containers from repository without tags
         uses: Chizkiyahu/delete-untagged-ghcr-action@v2
