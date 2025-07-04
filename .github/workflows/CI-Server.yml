@@ -45,12 +45,12 @@ jobs:
           push: true
           tags: ghcr.io/dekkmarsvin/auto-novel-server:latest
 
-      - name: Delete all containers from repository without tags
-        uses: Chizkiyahu/delete-untagged-ghcr-action@v2
+      - name: Delete all containers from package without tags
+        uses: Chizkiyahu/delete-untagged-ghcr-action@v6
         with:
-          token: ${{ secrets.DELETE_PACKAGES_TOKEN }}
-          repository_owner: ${{ github.repository_owner }}
-          repository: ${{ github.repository }}
-          untagged_only: true
-          owner_type: user
-          except_untagged_multiplatform: true
+            token: ${{ github.token }}
+            repository_owner: ${{ github.repository_owner }}
+            repository: ${{ github.repository }}
+            package_name: the-package-name
+            untagged_only: true
+            owner_type: org # or user
