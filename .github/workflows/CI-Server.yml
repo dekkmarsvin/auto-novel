@@ -43,7 +43,7 @@ jobs:
         with:
           context: server
           push: true
-          tags: ghcr.io/kotoban/auto-novel-server:latest
+          tags: ghcr.io/dekkmarsvin/auto-novel-server:latest
 
       - name: Delete all containers from repository without tags
         uses: Chizkiyahu/delete-untagged-ghcr-action@v2
