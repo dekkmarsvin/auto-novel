@@ -6,6 +6,7 @@ import com.mongodb.client.model.ReturnDocument
 import com.mongodb.client.model.Updates.*
 import com.mongodb.client.model.Projections.*
 import com.mongodb.client.result.UpdateResult
+import org.bson.Document
 import infra.*
 import infra.common.Page
 import infra.oplog.WebNovelTocMergeHistory
@@ -347,6 +348,23 @@ class WebNovelMetadataRepository(
             )
     }
 
+    data class IdAndKeywords(val id: ObjectId, val keywords: List<String>)
+
+    suspend fun getIdAndKeywords(
+        providerId: String,
+        novelId: String,
+    ): IdAndKeywords? {
+        val doc = webNovelMetadataCollection
+            .withDocumentClass<Document>()
+            .find(byId(providerId, novelId))
+            .projection(fields(include("_id"), include(WebNovel::keywords.field())))
+            .firstOrNull() ?: return null
+
+        val id = doc.getObjectId("_id")
+        val keywords = doc.getList("keywords", String::class.java) ?: emptyList<String>()
+        return IdAndKeywords(id, keywords.toList())
+    }
+    
     suspend fun listGlossaryByTags(
         tags: List<String>,
         excludeId: ObjectId?,
@@ -357,10 +375,14 @@ class WebNovelMetadataRepository(
         if (excludeId != null) filters.add(ne(WebNovel::id.field(), excludeId))
 
         return webNovelMetadataCollection
+            .withDocumentClass<Document>()
             .find(and(filters))
-            .projection(fields(include(WebNovel::glossary.field(), WebNovel::id.field())))
+            .projection(fields(include(WebNovel::glossary.field())))
             .toList()
-            .map { it.glossary }
+            .map { doc ->
+                val g = doc.get("glossary", Document::class.java) ?: Document()
+                g.entries.associate { (k, v) -> k to v.toString() }
+            }
     }
 }
 

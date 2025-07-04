@@ -17,6 +17,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
+import org.bson.Document
 import java.util.*
 
 class WenkuNovelMetadataRepository(
@@ -220,6 +221,20 @@ class WenkuNovelMetadataRepository(
             )
     }
 
+    data class IdAndKeywords(val id: ObjectId, val keywords: List<String>)
+
+    suspend fun getIdAndKeywords(novelId: String): IdAndKeywords? {
+        val doc = wenkuNovelMetadataCollection
+            .withDocumentClass<Document>()
+            .find(WenkuNovel.byId(novelId))
+            .projection(fields(include("_id"), include(WenkuNovel::keywords.field())))
+            .firstOrNull() ?: return null
+
+        val id = doc.getObjectId("_id")
+        val keywords = doc.getList("keywords", String::class.java) ?: emptyList<String>()
+        return IdAndKeywords(id, keywords.toList())
+    }
+    
     suspend fun listGlossaryByTags(
         tags: List<String>,
         excludeId: ObjectId?,
@@ -230,10 +245,14 @@ class WenkuNovelMetadataRepository(
         if (excludeId != null) filters.add(ne(WenkuNovel::id.field(), excludeId))
 
         return wenkuNovelMetadataCollection
+            .withDocumentClass<Document>()
             .find(and(filters))
-            .projection(fields(include(WenkuNovel::glossary.field(), WenkuNovel::id.field())))
+            .projection(fields(include(WenkuNovel::glossary.field())))
             .toList()
-            .map { it.glossary }
+            .map { doc ->
+                val g = doc.get("glossary", Document::class.java) ?: Document()
+                g.entries.associate { (k, v) -> k to v.toString() }
+            }
     }
 
     suspend fun notifyUpdate(novelId: String) {
