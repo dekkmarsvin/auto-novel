@@ -293,6 +293,7 @@ private val disgustingFascistNovelList = mapOf(
         "n0646ie",
         "n8926ic",
         "n4583he",
+        "n6465co",
     ),
     Kakuyomu.id to listOf(
         "16816927860373250234",
@@ -642,7 +643,6 @@ class WebNovelApi(
     ): Map<String, String> {
         val info = metadataRepo.getIdAndKeywords(providerId, novelId) ?: throwNovelNotFound()
         val glossaries = metadataRepo.listGlossaryByTags(info.keywords, info.id)
-
         val counts = mutableMapOf<String, MutableMap<String, Int>>()
         glossaries.forEach { g ->
             g.forEach { (jp, zh) ->

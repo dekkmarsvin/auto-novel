@@ -234,7 +234,7 @@ class WenkuNovelMetadataRepository(
         val keywords = doc.getList("keywords", String::class.java) ?: emptyList<String>()
         return IdAndKeywords(id, keywords.toList())
     }
-
+    
     suspend fun listGlossaryByTags(
         tags: List<String>,
         excludeId: ObjectId?,

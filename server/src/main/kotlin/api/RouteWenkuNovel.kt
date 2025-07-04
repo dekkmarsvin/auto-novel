@@ -480,7 +480,6 @@ class WenkuNovelApi(
     ): Map<String, String> {
         val info = metadataRepo.getIdAndKeywords(novelId) ?: throwNovelNotFound()
         val glossaries = metadataRepo.listGlossaryByTags(info.keywords, info.id)
-
         val counts = mutableMapOf<String, MutableMap<String, Int>>()
         glossaries.forEach { g ->
             g.forEach { (jp, zh) ->
