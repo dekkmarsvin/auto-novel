@@ -51,6 +51,9 @@ const updateNovel = (id: string, json: WenkuNovelCreateBody) =>
 const updateGlossary = (id: string, json: { [key: string]: string }) =>
   client.put(`wenku/${id}/glossary`, { json });
 
+const importGlossaryFromTag = (id: string) =>
+  client.get(`wenku/${id}/glossary-by-tag`).json<{ [key: string]: string }>();
+
 const createVolume = (
   novelId: string,
   volumeId: string,
@@ -146,6 +149,7 @@ export const WenkuNovelRepository = {
   createNovel,
   updateNovel,
   updateGlossary,
+  importGlossaryFromTag,
   createVolume,
   deleteVolume,
   //
