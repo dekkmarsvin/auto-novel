@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.ReturnDocument
 import com.mongodb.client.model.Updates.*
+import com.mongodb.client.model.Projections.*
 import infra.*
 import infra.common.Page
 import infra.web.WebNovel
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 import java.util.*
 
@@ -216,6 +218,22 @@ class WenkuNovelMetadataRepository(
                 WenkuNovel.byId(novelId),
                 pull(WenkuNovel::webIds.field(), webId),
             )
+    }
+
+    suspend fun listGlossaryByTags(
+        tags: List<String>,
+        excludeId: ObjectId?,
+    ): List<Map<String, String>> {
+        if (tags.isEmpty()) return emptyList()
+
+        val filters = mutableListOf<Bson>(`in`(WenkuNovel::keywords.field(), tags))
+        if (excludeId != null) filters.add(ne(WenkuNovel::id.field(), excludeId))
+
+        return wenkuNovelMetadataCollection
+            .find(and(filters))
+            .projection(fields(include(WenkuNovel::glossary.field(), WenkuNovel::id.field())))
+            .toList()
+            .map { it.glossary }
     }
 
     suspend fun notifyUpdate(novelId: String) {
