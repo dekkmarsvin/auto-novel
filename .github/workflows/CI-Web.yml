@@ -47,7 +47,7 @@ jobs:
       - name: Delete all containers from repository without tags
         uses: Chizkiyahu/delete-untagged-ghcr-action@v6
         with:
-            token: ${{ secrets.PAT_TOKEN }}
+            token: ${{ github.token }}
             repository_owner: ${{ github.repository_owner }}
             repository: ${{ github.repository }}
             untagged_only: true
