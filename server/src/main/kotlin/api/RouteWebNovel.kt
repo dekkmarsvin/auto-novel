@@ -56,6 +56,9 @@ private class WebNovelRes {
         @Resource("/glossary")
         class Glossary(val parent: Id)
 
+        @Resource("/glossary-by-tag")
+        class GlossaryByTag(val parent: Id)
+
         @Resource("/chapter/{chapterId}")
         class Chapter(val parent: Id, val chapterId: String)
 
@@ -189,6 +192,15 @@ fun Route.routeWebNovel() {
                     providerId = loc.parent.providerId,
                     novelId = loc.parent.novelId,
                     glossary = body,
+                )
+            }
+        }
+
+        get<WebNovelRes.Id.GlossaryByTag> { loc ->
+            call.tryRespond {
+                service.getGlossaryFromTag(
+                    providerId = loc.parent.providerId,
+                    novelId = loc.parent.novelId,
                 )
             }
         }
@@ -622,6 +634,24 @@ class WebNovelApi(
                 new = glossary,
             )
         )
+    }
+
+    suspend fun getGlossaryFromTag(
+        providerId: String,
+        novelId: String,
+    ): Map<String, String> {
+        val novel = metadataRepo.get(providerId, novelId) ?: throwNovelNotFound()
+        val glossaries = metadataRepo.listGlossaryByTags(novel.keywords, novel.id)
+
+        val counts = mutableMapOf<String, MutableMap<String, Int>>()
+        glossaries.forEach { g ->
+            g.forEach { (jp, zh) ->
+                val map = counts.getOrPut(jp) { mutableMapOf() }
+                map[zh] = (map[zh] ?: 0) + 1
+            }
+        }
+
+        return counts.mapValues { it.value.maxByOrNull { p -> p.value }!!.key }
     }
 
     // File

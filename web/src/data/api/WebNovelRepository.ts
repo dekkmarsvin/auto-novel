@@ -79,6 +79,11 @@ const updateGlossary = (
   json: { [key: string]: string },
 ) => client.put(`novel/${providerId}/${novelId}/glossary`, { json });
 
+const importGlossaryFromTag = (providerId: string, novelId: string) =>
+  client
+    .get(`novel/${providerId}/${novelId}/glossary-by-tag`)
+    .json<{ [key: string]: string }>();
+
 // Translate
 const createTranslationApi = (
   providerId: string,
@@ -179,6 +184,7 @@ export const WebNovelRepository = {
 
   updateNovel,
   updateGlossary,
+  importGlossaryFromTag,
 
   createTranslationApi,
 
