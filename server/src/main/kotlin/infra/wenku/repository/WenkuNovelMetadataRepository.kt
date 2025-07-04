@@ -221,6 +221,20 @@ class WenkuNovelMetadataRepository(
             )
     }
 
+    data class IdAndKeywords(val id: ObjectId, val keywords: List<String>)
+
+    suspend fun getIdAndKeywords(novelId: String): IdAndKeywords? {
+        val doc = wenkuNovelMetadataCollection
+            .withDocumentClass<Document>()
+            .find(WenkuNovel.byId(novelId))
+            .projection(fields(include("_id"), include(WenkuNovel::keywords.field())))
+            .firstOrNull() ?: return null
+
+        val id = doc.getObjectId("_id")
+        val keywords = doc.getList("keywords", String::class.java) ?: emptyList<String>()
+        return IdAndKeywords(id, keywords.toList())
+    }
+
     suspend fun listGlossaryByTags(
         tags: List<String>,
         excludeId: ObjectId?,

@@ -478,8 +478,8 @@ class WenkuNovelApi(
     suspend fun getGlossaryFromTag(
         novelId: String,
     ): Map<String, String> {
-        val novel = metadataRepo.get(novelId) ?: throwNovelNotFound()
-        val glossaries = metadataRepo.listGlossaryByTags(novel.keywords, novel.id)
+        val info = metadataRepo.getIdAndKeywords(novelId) ?: throwNovelNotFound()
+        val glossaries = metadataRepo.listGlossaryByTags(info.keywords, info.id)
 
         val counts = mutableMapOf<String, MutableMap<String, Int>>()
         glossaries.forEach { g ->

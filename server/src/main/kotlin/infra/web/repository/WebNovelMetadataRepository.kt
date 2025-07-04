@@ -348,6 +348,23 @@ class WebNovelMetadataRepository(
             )
     }
 
+    data class IdAndKeywords(val id: ObjectId, val keywords: List<String>)
+
+    suspend fun getIdAndKeywords(
+        providerId: String,
+        novelId: String,
+    ): IdAndKeywords? {
+        val doc = webNovelMetadataCollection
+            .withDocumentClass<Document>()
+            .find(byId(providerId, novelId))
+            .projection(fields(include("_id"), include(WebNovel::keywords.field())))
+            .firstOrNull() ?: return null
+
+        val id = doc.getObjectId("_id")
+        val keywords = doc.getList("keywords", String::class.java) ?: emptyList<String>()
+        return IdAndKeywords(id, keywords.toList())
+    }
+
     suspend fun listGlossaryByTags(
         tags: List<String>,
         excludeId: ObjectId?,
