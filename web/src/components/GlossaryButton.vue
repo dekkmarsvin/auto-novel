@@ -136,6 +136,30 @@ const importGlossary = () => {
   }
 };
 
+const importGlossaryFromTag = async () => {
+  const gnid = props.gnid;
+  if (!gnid) return;
+  let data: Glossary = {};
+  if (gnid.type === 'web') {
+    data = await Locator.webNovelRepository.importGlossaryFromTag(
+      gnid.providerId,
+      gnid.novelId,
+    );
+  } else if (gnid.type === 'wenku') {
+    data = await Locator.wenkuNovelRepository.importGlossaryFromTag(
+      gnid.novelId,
+    );
+  } else {
+    return;
+  }
+  for (const jp in data) {
+    if (!(jp in glossary.value)) {
+      glossary.value[jp] = data[jp];
+    }
+  }
+  message.success('导入成功');
+};
+
 const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
   downloadFile(
     `${gnidHint.value ?? 'glossary'}.json`,
@@ -212,6 +236,13 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
             :round="false"
             size="small"
             @action="importGlossary"
+          />
+          <c-button
+            v-if="props.gnid"
+            label="自Tag导入"
+            :round="false"
+            size="small"
+            @action="importGlossaryFromTag"
           />
           <c-button
             label="下载json文件"

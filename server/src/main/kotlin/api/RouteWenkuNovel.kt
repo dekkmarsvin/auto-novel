@@ -44,6 +44,9 @@ private class WenkuNovelRes {
         @Resource("/glossary")
         class Glossary(val parent: Id)
 
+        @Resource("/glossary-by-tag")
+        class GlossaryByTag(val parent: Id)
+
         @Resource("/volume/{volumeId}")
         class Volume(val parent: Id, val volumeId: String)
 
@@ -125,6 +128,10 @@ fun Route.routeWenkuNovel() {
             call.tryRespond {
                 service.updateGlossary(user = user, novelId = loc.parent.novelId, glossary = body)
             }
+        }
+
+        get<WenkuNovelRes.Id.GlossaryByTag> { loc ->
+            call.tryRespond { service.getGlossaryFromTag(loc.parent.novelId) }
         }
 
         rateLimit(RateLimitNames.CreateWenkuVolume) {
@@ -466,6 +473,23 @@ class WenkuNovelApi(
                 new = glossary,
             )
         )
+    }
+
+    suspend fun getGlossaryFromTag(
+        novelId: String,
+    ): Map<String, String> {
+        val novel = metadataRepo.get(novelId) ?: throwNovelNotFound()
+        val glossaries = metadataRepo.listGlossaryByTags(novel.keywords, novel.id)
+
+        val counts = mutableMapOf<String, MutableMap<String, Int>>()
+        glossaries.forEach { g ->
+            g.forEach { (jp, zh) ->
+                val map = counts.getOrPut(jp) { mutableMapOf() }
+                map[zh] = (map[zh] ?: 0) + 1
+            }
+        }
+
+        return counts.mapValues { it.value.maxByOrNull { p -> p.value }!!.key }
     }
 
     private suspend fun validateNovelId(novelId: String) {

@@ -4,6 +4,7 @@ import com.mongodb.client.model.Filters.*
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.ReturnDocument
 import com.mongodb.client.model.Updates.*
+import com.mongodb.client.model.Projections.*
 import com.mongodb.client.result.UpdateResult
 import infra.*
 import infra.common.Page
@@ -344,6 +345,22 @@ class WebNovelMetadataRepository(
                 byId(providerId, novelId),
                 set(WebNovel::wenkuId.field(), wenkuId),
             )
+    }
+
+    suspend fun listGlossaryByTags(
+        tags: List<String>,
+        excludeId: ObjectId?,
+    ): List<Map<String, String>> {
+        if (tags.isEmpty()) return emptyList()
+
+        val filters = mutableListOf<Bson>(`in`(WebNovel::keywords.field(), tags))
+        if (excludeId != null) filters.add(ne(WebNovel::id.field(), excludeId))
+
+        return webNovelMetadataCollection
+            .find(and(filters))
+            .projection(fields(include(WebNovel::glossary.field(), WebNovel::id.field())))
+            .toList()
+            .map { it.glossary }
     }
 }
 
