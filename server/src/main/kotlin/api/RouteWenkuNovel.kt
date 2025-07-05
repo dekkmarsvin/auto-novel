@@ -22,6 +22,7 @@ import io.ktor.server.request.*
 import io.ktor.server.resources.*
 import io.ktor.server.resources.post
 import io.ktor.server.resources.put
+import util.japaneseTermThreshold
 import io.ktor.server.routing.*
 import io.ktor.utils.io.*
 import kotlinx.serialization.Serializable
@@ -488,7 +489,11 @@ class WenkuNovelApi(
             }
         }
 
-        return counts.mapValues { it.value.maxByOrNull { p -> p.value }!!.key }
+        return counts.mapNotNull { (jp, m) ->
+            val (zh, c) = m.maxByOrNull { it.value }!!
+            val threshold = util.japaneseTermThreshold(jp)
+            if (c >= threshold) jp to zh else null
+        }.toMap()
     }
 
     private suspend fun validateNovelId(novelId: String) {

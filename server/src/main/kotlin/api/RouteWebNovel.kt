@@ -28,6 +28,7 @@ import io.ktor.server.resources.put
 import io.ktor.server.routing.*
 import io.ktor.server.util.*
 import io.ktor.util.*
+import util.japaneseTermThreshold
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
 import org.koin.ktor.ext.inject
@@ -651,7 +652,11 @@ class WebNovelApi(
             }
         }
 
-        return counts.mapValues { it.value.maxByOrNull { p -> p.value }!!.key }
+        return counts.mapNotNull { (jp, m) ->
+            val (zh, c) = m.maxByOrNull { it.value }!!
+            val threshold = util.japaneseTermThreshold(jp)
+            if (c >= threshold) jp to zh else null
+        }.toMap()
     }
 
     // File
