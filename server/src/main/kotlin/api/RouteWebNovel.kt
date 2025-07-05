@@ -651,7 +651,10 @@ class WebNovelApi(
             }
         }
 
-        return counts.mapValues { it.value.maxByOrNull { p -> p.value }!!.key }
+        return counts.mapNotNull { (jp, m) ->
+            val (zh, c) = m.maxByOrNull { it.value }!!
+            if (c > 1) jp to zh else null
+        }.toMap()
     }
 
     // File
