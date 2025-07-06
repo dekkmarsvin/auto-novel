@@ -25,6 +25,7 @@ const handleUpdateValue = (path: string) => router.push({ path });
         <n-tab name="/admin/user">用户</n-tab>
         <n-tab name="/admin/operation">操作历史</n-tab>
         <n-tab name="/admin/web-toc-merge-history">合并历史</n-tab>
+        <n-tab name="/admin/glossary">术语表管理</n-tab>
       </n-tabs>
       <router-view />
     </template>

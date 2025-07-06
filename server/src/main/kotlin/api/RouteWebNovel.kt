@@ -9,6 +9,7 @@ import infra.oplog.OperationHistoryRepository
 import infra.user.User
 import infra.user.UserFavoredRepository
 import infra.web.*
+import infra.glossary.TagGlossaryRepository
 import infra.web.datasource.providers.Hameln
 import infra.web.datasource.providers.Kakuyomu
 import infra.web.datasource.providers.NovelIdShouldBeReplacedException
@@ -329,6 +330,7 @@ class WebNovelApi(
     private val historyRepo: WebNovelReadHistoryRepository,
     private val wenkuMetadataRepo: WenkuNovelMetadataRepository,
     private val operationHistoryRepo: OperationHistoryRepository,
+    private val tagGlossaryRepo: TagGlossaryRepository,
 ) {
     suspend fun list(
         user: User?,
@@ -643,7 +645,8 @@ class WebNovelApi(
         novelId: String,
     ): Map<String, String> {
         val info = metadataRepo.getIdAndKeywords(providerId, novelId) ?: throwNovelNotFound()
-        val glossaries = metadataRepo.listGlossaryByTags(info.keywords, info.id)
+        val glossaries = metadataRepo.listGlossaryByTags(info.keywords, info.id) +
+            tagGlossaryRepo.listByTags(info.keywords).map { it.glossary }
         val counts = mutableMapOf<String, MutableMap<String, Int>>()
         glossaries.forEach { g ->
             g.forEach { (jp, zh) ->

@@ -275,6 +275,11 @@ const router = createRouter({
               component: () =>
                 import('./pages/admin/AdminWebTocMergeHistory.vue'),
             },
+            {
+              path: 'glossary',
+              component: () =>
+                import('./pages/admin/AdminGlossaryManagement.vue'),
+            },
           ],
         },
 
