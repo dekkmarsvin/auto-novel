@@ -83,6 +83,7 @@ fun main() {
             routeArticle()
             routeComment()
             routeOperationHistory()
+            routeTagGlossary()
             //
             routeUser()
             routeUserFavoredWeb()
@@ -141,6 +142,7 @@ val appModule = module {
     singleOf(::ArticleRepository)
     singleOf(::CommentRepository)
     singleOf(::OperationHistoryRepository)
+    singleOf(::TagGlossaryRepository)
 
     singleOf(::UserRepository)
     singleOf(::UserCodeRepository)
@@ -165,6 +167,7 @@ val appModule = module {
     singleOf(::ArticleApi)
     singleOf(::CommentApi)
     singleOf(::OperationHistoryApi)
+    singleOf(::TagGlossaryApi)
 
     singleOf(::UserApi)
     singleOf(::UserFavoredWebApi)

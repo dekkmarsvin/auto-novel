@@ -97,6 +97,8 @@ object MongoCollectionNames {
     const val SAKURA_WEB_INCORRECT_CASE = "sakura-incorrect-case"
     const val USER = "user"
 
+    const val GLOSSARY = "glossary"
+
     const val WEB_NOVEL = "metadata"
     const val WEB_FAVORITE = "web-favorite"
     const val WEB_READ_HISTORY = "web-read-history"

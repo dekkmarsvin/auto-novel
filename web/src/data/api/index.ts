@@ -6,6 +6,7 @@ export { OperationRepository } from './OperationRepository';
 export { UserRepository } from './UserRepository';
 export { WebNovelRepository } from './WebNovelRepository';
 export { WenkuNovelRepository } from './WenkuNovelRepository';
+export { TagGlossaryRepository } from './TagGlossaryRepository';
 
 export const formatError = (error: unknown) => {
   if (error instanceof HTTPError) {
