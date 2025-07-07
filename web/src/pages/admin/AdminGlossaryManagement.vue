@@ -76,7 +76,7 @@ const remove = async (id: string) => {
 <template>
   <n-button type="primary" @click="load">刷新</n-button>
   <n-divider />
-  <n-table v-if="glossariesResult?.ok" :bordered="false">
+  <n-table v-if="glossariesResult?.value?.ok" :bordered="false">
     <thead>
       <tr>
         <th>tag</th>
