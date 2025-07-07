@@ -6,6 +6,7 @@ import infra.*
 import infra.article.ArticleRepository
 import infra.comment.CommentRepository
 import infra.oplog.OperationHistoryRepository
+import infra.glossary.TagGlossaryRepository
 import infra.web.repository.WebNovelFavoredRepository
 import infra.wenku.repository.WenkuNovelFavoredRepository
 import infra.web.repository.WebNovelReadHistoryRepository
