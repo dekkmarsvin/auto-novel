@@ -76,7 +76,7 @@ const remove = async (id: string) => {
 <template>
   <n-button type="primary" @click="load">刷新</n-button>
   <n-divider />
-  <n-table v-if="glossariesResult?.value?.ok" :bordered="false">
+  <n-table v-if="glossariesResult.value?.ok" :bordered="false">
     <thead>
       <tr>
         <th>tag</th>
@@ -86,7 +86,7 @@ const remove = async (id: string) => {
       </tr>
     </thead>
     <tbody>
-      <tr v-for="g in glossariesResult.value" :key="g.id">
+      <tr v-for="g in glossariesResult.value?.value ?? []" :key="g.id">
         <td>{{ g.tag }}</td>
         <td>{{ g.adminOnly }}</td>
         <td>{{ Object.keys(g.glossary).length }}</td>
