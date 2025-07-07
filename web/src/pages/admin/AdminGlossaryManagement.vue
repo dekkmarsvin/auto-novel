@@ -65,10 +65,9 @@ const create = async () => {
 
 const remove = async (id: string) => {
   await TagGlossaryRepository.remove(id);
-  if (glossariesResult.value?.ok) {
-    glossariesResult.value.value = glossariesResult.value.value.filter(
-      (it) => it.id !== id,
-    );
+  const result = glossariesResult.value;
+  if (result && result.ok) {
+    result.value = result.value.filter((it) => it.id !== id);
   }
 };
 </script>
@@ -76,29 +75,35 @@ const remove = async (id: string) => {
 <template>
   <n-button type="primary" @click="load">刷新</n-button>
   <n-divider />
-  <n-table v-if="glossariesResult?.value?.ok" :bordered="false">
-    <thead>
-      <tr>
-        <th>tag</th>
-        <th>adminOnly</th>
-        <th>terms</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="g in glossariesResult.value" :key="g.id">
-        <td>{{ g.tag }}</td>
-        <td>{{ g.adminOnly }}</td>
-        <td>{{ Object.keys(g.glossary).length }}</td>
-        <td>
-          <n-button size="small" @click="openEdit(g)">编辑</n-button>
-          <n-button size="small" type="error" @click="remove(g.id)">
-            删除
-          </n-button>
-        </td>
-      </tr>
-    </tbody>
-  </n-table>
+  <c-result
+    :result="glossariesResult"
+    :show-empty="(items: TagGlossary[]) => items.length === 0"
+    v-slot="{ value }"
+  >
+    <n-table :bordered="false">
+      <thead>
+        <tr>
+          <th>tag</th>
+          <th>adminOnly</th>
+          <th>terms</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="g in value" :key="g.id">
+          <td>{{ g.tag }}</td>
+          <td>{{ g.adminOnly }}</td>
+          <td>{{ Object.keys(g.glossary).length }}</td>
+          <td>
+            <n-button size="small" @click="openEdit(g)">编辑</n-button>
+            <n-button size="small" type="error" @click="remove(g.id)">
+              删除
+            </n-button>
+          </td>
+        </tr>
+      </tbody>
+    </n-table>
+  </c-result>
 
   <n-modal v-model:show="showEdit" preset="dialog" title="编辑术语表">
     <n-input v-model:value="editRaw" type="textarea" :rows="5" />
