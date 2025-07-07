@@ -86,6 +86,7 @@ const remove = async (id: string) => {
           <th>tag</th>
           <th>adminOnly</th>
           <th>terms</th>
+          <th>术语表</th>
           <th>操作</th>
         </tr>
       </thead>
@@ -94,6 +95,11 @@ const remove = async (id: string) => {
           <td>{{ g.tag }}</td>
           <td>{{ g.adminOnly }}</td>
           <td>{{ Object.keys(g.glossary).length }}</td>
+          <td>
+            <pre style="white-space: pre-wrap; margin: 0"
+              >{{ Glossary.toText(g.glossary) }}
+            </pre>
+          </td>
           <td>
             <n-button size="small" @click="openEdit(g)">编辑</n-button>
             <n-button size="small" type="error" @click="remove(g.id)">
