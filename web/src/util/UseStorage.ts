@@ -1,4 +1,4 @@
-import { useEventListener } from '@vueuse/core';
+import { pausableWatch, useEventListener } from '@vueuse/core';
 
 export function useLocalStorage<T extends object>(key: string, defaults: T) {
   return useStorage<T>(key, defaults, window.localStorage);
@@ -29,7 +29,7 @@ function useStorage<T extends object>(
     onError(e);
   }
 
-  const { pause: pauseWatch, resume: resumeWatch } = watch(
+  const { pause: pauseWatch, resume: resumeWatch } = pausableWatch(
     data,
     () => write(data.value),
     { flush: 'pre', deep: true },
@@ -52,8 +52,9 @@ function useStorage<T extends object>(
         if (ev.newValue !== serializer.write(data.value)) data.value = read(ev);
       } catch (e) {
         onError(e);
+      } finally {
+        nextTick(resumeWatch);
       }
-      nextTick(resumeWatch);
     },
     { passive: true },
   );
