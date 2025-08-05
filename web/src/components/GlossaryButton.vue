@@ -251,7 +251,7 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
             @action="downloadGlossaryAsJsonFile"
           />
           <c-button
-            v-if="whoami.isMaintainer"
+            v-if="whoami.isAdmin"
             secondary
             type="error"
             label="清空"
