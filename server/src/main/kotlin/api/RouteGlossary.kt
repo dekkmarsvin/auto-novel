@@ -1,12 +1,10 @@
 package api
 
 import api.plugins.authenticateDb
-import api.plugins.shouldBeAtLeast
-import api.plugins.shouldBeOldAss
 import api.plugins.user
-import infra.glossary.TagGlossary
+import api.plugins.User
+import api.plugins.shouldBeAtLeast
 import infra.glossary.TagGlossaryRepository
-import infra.user.UserDbModel
 import infra.user.UserRole
 import io.ktor.resources.*
 import io.ktor.server.application.*
@@ -63,7 +61,7 @@ class TagGlossaryApi(private val repo: TagGlossaryRepository) {
         val adminOnly: Boolean,
     )
 
-    suspend fun list(user: UserDbModel, tag: String?): List<TagGlossaryDto> {
+    suspend fun list(user: User, tag: String?): List<TagGlossaryDto> {
         user.shouldBeAtLeast(UserRole.Admin)
         return repo.list(tag).map {
             TagGlossaryDto(
@@ -82,7 +80,7 @@ class TagGlossaryApi(private val repo: TagGlossaryRepository) {
         val adminOnly: Boolean = false,
     )
 
-    suspend fun create(user: UserDbModel, body: CreateBody): String {
+    suspend fun create(user: User, body: CreateBody): String {
         user.shouldBeAtLeast(UserRole.Admin)
         return repo.create(body.tag, body.glossary, body.adminOnly).toHexString()
     }
@@ -93,7 +91,7 @@ class TagGlossaryApi(private val repo: TagGlossaryRepository) {
         val adminOnly: Boolean? = null,
     )
 
-    suspend fun update(user: UserDbModel, id: String, body: UpdateBody) {
+    suspend fun update(user: User, id: String, body: UpdateBody) {
         val g = repo.get(id) ?: return
         if (g.adminOnly) {
             user.shouldBeAtLeast(UserRole.Admin)
@@ -103,7 +101,7 @@ class TagGlossaryApi(private val repo: TagGlossaryRepository) {
         repo.update(id, body.glossary, body.adminOnly)
     }
 
-    suspend fun delete(user: UserDbModel, id: String) {
+    suspend fun delete(user: User, id: String) {
         val g = repo.get(id) ?: return
         if (g.adminOnly) {
             user.shouldBeAtLeast(UserRole.Admin)
