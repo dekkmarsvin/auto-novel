@@ -42,6 +42,7 @@ fun User.shouldBeOldAss() {
 
 fun Application.authentication(secret: String) = install(Authentication) {
     jwt {
+        println("JWT verifier: Algorithm=HMAC256, Secret=$secret")
         verifier(
             JWT.require(Algorithm.HMAC256(secret)).build()
         )
