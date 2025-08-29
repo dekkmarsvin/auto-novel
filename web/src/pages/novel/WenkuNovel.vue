@@ -6,8 +6,8 @@ import { Locator } from '@/data';
 import coverPlaceholder from '@/image/cover_placeholder.png';
 import { GenericNovelId } from '@/model/Common';
 import { doAction, useIsWideScreen } from '@/pages/util';
+import { useWenkuNovelStore, useWhoamiStore } from '@/stores';
 
-import { useWenkuNovelStore } from './WenkuNovelStore';
 import TranslateOptions from './components/TranslateOptions.vue';
 
 const { novelId } = defineProps<{ novelId: string }>();
@@ -22,7 +22,9 @@ const message = useMessage();
 const vars = useThemeVars();
 
 const { setting } = Locator.settingRepository();
-const { whoami } = Locator.authRepository();
+
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 const store = useWenkuNovelStore(novelId);
 const { novelResult } = storeToRefs(store);

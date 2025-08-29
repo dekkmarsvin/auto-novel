@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 import {
   CommentOutlined,
-  MoreVertOutlined,
   DeleteOutlined,
+  MoreVertOutlined,
 } from '@vicons/material';
 
-import { Locator } from '@/data';
 import { Comment1 } from '@/model/Comment';
+import { useBlacklistStore, useWhoamiStore } from '@/stores';
 
 const { comment, topLevel } = defineProps<{
   comment: Comment1;
@@ -23,8 +23,12 @@ const emit = defineEmits<{
   reply: [Comment1];
 }>();
 
-const { whoami } = Locator.authRepository();
-const blockUserCommentRepository = Locator.blockUserCommentRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
+
+const blacklistStore = useBlacklistStore();
+const { blacklist } = storeToRefs(blacklistStore);
+
 const options = computed(() => {
   const options = [
     {
@@ -45,11 +49,7 @@ const options = computed(() => {
       });
     }
   }
-  if (
-    blockUserCommentRepository.ref.value.usernames.includes(
-      comment.user.username,
-    )
-  ) {
+  if (blacklist.value.usernames.includes(comment.user.username)) {
     options.push({
       label: '解除屏蔽',
       key: 'unblock',
@@ -88,9 +88,7 @@ const isDeletable = computed(() => {
 });
 
 const isBlocked = computed(() => {
-  return blockUserCommentRepository.ref.value.usernames.includes(
-    comment.user.username,
-  );
+  return blacklist.value.usernames.includes(comment.user.username);
 });
 </script>
 

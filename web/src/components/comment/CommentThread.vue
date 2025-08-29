@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { Locator } from '@/data';
 import { CommentRepository } from '@/data/api';
 import { Comment1 } from '@/model/Comment';
+import { copyToClipBoard, doAction } from '@/pages//util';
+import { useBlacklistStore, useDraftStore } from '@/stores';
 import { runCatching } from '@/util/result';
-import { doAction, copyToClipBoard } from '@/pages//util';
 
 const { site, comment } = defineProps<{
   site: string;
@@ -16,10 +16,10 @@ const message = useMessage();
 const currentPage = ref(1);
 const pageCount = ref(Math.floor((comment.numReplies + 9) / 10));
 
-const draftRepo = Locator.draftRepository();
+const draftStore = useDraftStore();
 const draftId = `comment-${site}`;
 
-const blockUserCommentRepository = Locator.blockUserCommentRepository();
+const blacklistStore = useBlacklistStore();
 
 const emit = defineEmits<{
   deleted: [];
@@ -49,8 +49,8 @@ function onReplied() {
   if (currentPage >= pageCount) {
     loadReplies(currentPage.value);
   }
-  draftRepo.addDraft.cancel();
-  draftRepo.removeDraft(draftId);
+  draftStore.addDraft.cancel();
+  draftStore.removeDraft(draftId);
 }
 
 const copyComment = (comment: Comment1) =>
@@ -93,7 +93,7 @@ const unhideComment = (comment: Comment1) =>
 const blockUserComment = async (comment: Comment1) =>
   doAction(
     (async () => {
-      blockUserCommentRepository.add(comment.user.username);
+      blacklistStore.add(comment.user.username);
     })(),
     '屏蔽用户',
     message,
@@ -102,7 +102,7 @@ const blockUserComment = async (comment: Comment1) =>
 const unblockUserComment = async (comment: Comment1) =>
   doAction(
     (async () => {
-      blockUserCommentRepository.remove(comment.user.username);
+      blacklistStore.remove(comment.user.username);
     })(),
     '解除屏蔽用户',
     message,

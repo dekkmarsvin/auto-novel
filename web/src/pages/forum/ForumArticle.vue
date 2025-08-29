@@ -1,11 +1,18 @@
 <script lang="ts" setup>
-import { Locator } from '@/data';
+import { useBlacklistStore, useWhoamiStore } from '@/stores';
 
 import { useArticleStore } from './ForumArticleStore';
+import { doAction } from '@/pages//util';
 
 const { articleId } = defineProps<{ articleId: string }>();
 
-const { whoami } = Locator.authRepository();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
+
+const blacklistStore = useBlacklistStore();
+const { blacklist } = storeToRefs(blacklistStore);
+
+const message = useMessage();
 
 const store = useArticleStore(articleId);
 const { articleResult } = storeToRefs(store);
@@ -15,6 +22,24 @@ store.loadArticle().then((result) => {
     document.title = result.value.title;
   }
 });
+
+const blockUserComment = async (username: string) =>
+  doAction(
+    (async () => {
+      blacklistStore.add(username);
+    })(),
+    '屏蔽用户',
+    message,
+  );
+
+const unblockUserComment = async (username: string) =>
+  doAction(
+    (async () => {
+      blacklistStore.remove(username);
+    })(),
+    '解除屏蔽用户',
+    message,
+  );
 </script>
 
 <template>
@@ -32,6 +57,22 @@ store.loadArticle().then((result) => {
             编辑
           </c-a>
         </template>
+        <n-button
+          v-if="blacklistStore.isBlocked(article.user.username)"
+          text
+          type="primary"
+          @click="unblockUserComment(article.user.username)"
+        >
+          解除屏蔽
+        </n-button>
+        <n-button
+          v-else
+          text
+          type="primary"
+          @click="blockUserComment(article.user.username)"
+        >
+          屏蔽
+        </n-button>
       </n-p>
       <n-divider />
 

@@ -1,7 +1,8 @@
 import { setTokenGetter } from '@/data/api/client';
 import { useUserData } from '@/util';
+import { LSKey } from './key';
 
-export const createAuthRepository = () => {
+export const useWhoamiStore = defineStore(LSKey.Auth, () => {
   const { userData, refresh, logout } = useUserData('n');
   setTokenGetter(() => userData.value?.profile?.token ?? '');
 
@@ -55,4 +56,4 @@ export const createAuthRepository = () => {
     refresh,
     logout,
   };
-};
+});
