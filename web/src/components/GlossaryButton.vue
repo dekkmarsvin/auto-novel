@@ -140,14 +140,12 @@ const importGlossaryFromTag = async () => {
   if (!gnid) return;
   let data: Glossary = {};
   if (gnid.type === 'web') {
-    data = await Locator.webNovelRepository.importGlossaryFromTag(
+    data = await WebNovelApi.importGlossaryFromTag(
       gnid.providerId,
       gnid.novelId,
     );
   } else if (gnid.type === 'wenku') {
-    data = await Locator.wenkuNovelRepository.importGlossaryFromTag(
-      gnid.novelId,
-    );
+    data = await WenkuNovelApi.importGlossaryFromTag(gnid.novelId);
   } else {
     return;
   }
