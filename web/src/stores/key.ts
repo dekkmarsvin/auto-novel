@@ -1,3 +1,5 @@
+import { shouldUseNewStorageKeys } from '@/util/origin';
+
 const LSKeyLegacy = {
   Auth: 'authInfo',
   Blacklist: 'blockComment',
@@ -29,4 +31,5 @@ const LSKeyNew = {
 } as const;
 
 export const LSKey =
-  window.location.origin === 'https://n.novelia.cc' ? LSKeyNew : LSKeyLegacy;
+  shouldUseNewStorageKeys ? LSKeyNew : LSKeyLegacy;
+

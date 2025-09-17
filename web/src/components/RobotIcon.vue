@@ -1,6 +1,9 @@
 <script lang="ts" setup>
+import { getOfficialAssetUrl } from '@/util/origin';
+
 const vars = useThemeVars();
 const showGirl = ref(false);
+const girlImageUrl = getOfficialAssetUrl('/files-extra/girl.6e4fe22c238737fd028247f8f0cfd4ee.webp');
 </script>
 
 <template>
@@ -41,7 +44,7 @@ const showGirl = ref(false);
 
   <img
     v-if="showGirl"
-    src="https://n.novelia.cc/files-extra/girl.6e4fe22c238737fd028247f8f0cfd4ee.webp"
+    :src="girlImageUrl"
     style="
       width: 200px;
       position: fixed;

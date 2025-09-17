@@ -1,11 +1,37 @@
 const notify = (e) => alert(e.message || e);
 
+const resolveOriginDomain = () => {
+  try {
+    const manifest = chrome.runtime.getManifest();
+    if (manifest && typeof manifest.homepage_url === 'string') {
+      try {
+        return new URL(manifest.homepage_url).origin;
+      } catch (_error) {
+        return manifest.homepage_url.replace(/\/$/, '');
+      }
+    }
+  } catch (_error) {}
+  return 'https://books.kotoban.top';
+};
+
+const originDomain = resolveOriginDomain();
+let originHostname = 'books.kotoban.top';
+try {
+  originHostname = new URL(originDomain).hostname;
+} catch (_error) {}
+
 function isUrlFromMySite(url) {
-  return (
-    url.includes("fishhawk.top") ||
-    url.includes("novelia.cc") ||
-    url.includes("localhost")
-  );
+  try {
+    const { hostname } = new URL(url);
+    return (
+      hostname.includes('fishhawk.top') ||
+      hostname === originHostname ||
+      hostname.endsWith('.' + originHostname) ||
+      hostname === 'localhost'
+    );
+  } catch (_error) {
+    return false;
+  }
 }
 
 function shouldHandleRequest(d) {
@@ -341,9 +367,10 @@ chrome.browserAction.onClicked.addListener(() => {
       const novelId = provider(url);
       if (novelId !== undefined) {
         chrome.tabs.create({
-          url: `https://n.novelia.cc/novel/${providerId}/${novelId}`,
+          url: `${originDomain}/novel/${providerId}/${novelId}`,
         });
       }
     }
   });
 });
+

@@ -1,8 +1,9 @@
+import { isLegacyHost, officialBaseDomain } from '@/util/origin';
 import ky from 'ky';
 
-export const AuthUrl = window.location.hostname.includes('fishhawk.top')
+export const AuthUrl = isLegacyHost
   ? 'https://auth.fishhawk.top'
-  : 'https://auth.novelia.cc';
+  : `https://auth.${officialBaseDomain}`;
 
 const client = ky.create({
   prefixUrl: AuthUrl + '/api/v1',

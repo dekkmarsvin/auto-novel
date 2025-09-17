@@ -6,20 +6,31 @@ import AutoImport from 'unplugin-auto-import/vite';
 import imagemin from 'unplugin-imagemin/vite';
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
 import Components from 'unplugin-vue-components/vite';
-import { defineConfig, PluginOption, ServerOptions, UserConfig } from 'vite';
+import { defineConfig, loadEnv, PluginOption, ServerOptions, UserConfig } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import tsconfigPaths from 'vite-tsconfig-paths';
+
+const DEFAULT_REMOTE_ORIGIN = 'https://books.kotoban.top';
+
+const normalizeOrigin = (originFromEnv?: string) => {
+  if (!originFromEnv) return DEFAULT_REMOTE_ORIGIN;
+  try {
+    return new URL(originFromEnv).origin;
+  } catch {
+    return DEFAULT_REMOTE_ORIGIN;
+  }
+};
 
 const enableSonda = process.env.ENABLE_SONDA === '1';
 const enableLocalServer = process.env.LOCAL != undefined;
 
-const defineServerOptions = (): ServerOptions => {
+const defineServerOptions = (remoteOrigin: string): ServerOptions => {
   return {
     proxy: {
       '/api': {
         target: enableLocalServer
           ? 'http://localhost:8081'
-          : 'https://n.novelia.cc',
+          : remoteOrigin,
         changeOrigin: true,
         bypass: (req, _res, _options) => {
           if (
@@ -41,7 +52,7 @@ const defineServerOptions = (): ServerOptions => {
         },
       },
       '/files-temp': {
-        target: 'https://n.novelia.cc',
+        target: remoteOrigin,
         changeOrigin: true,
       },
     },
@@ -75,6 +86,9 @@ const filesProxyPlugin = (): PluginOption => ({
 });
 
 export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const remoteOrigin = normalizeOrigin(env.ORIGIN_DOMAIN ?? env.VITE_ORIGIN_DOMAIN);
+
   const userConfig: UserConfig = {
     build: {
       target: ['es2015'],
@@ -131,7 +145,7 @@ export default defineConfig(({ command, mode }) => {
   };
 
   if (command === 'serve') {
-    userConfig.server = defineServerOptions();
+    userConfig.server = defineServerOptions(remoteOrigin);
     if (enableLocalServer) {
       userConfig.plugins.push(filesProxyPlugin());
     }
@@ -149,3 +163,4 @@ export default defineConfig(({ command, mode }) => {
 
   return userConfig;
 });
+

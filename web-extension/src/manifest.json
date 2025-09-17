@@ -6,6 +6,7 @@
   "permissions": [
     "<all_urls>",
     "*://*.novelia.cc/*",
+    "*://*.kotoban.top/*",
     "*://*.fishhawk.top/*",
     "*://*.baidu.com/*",
     "*://*.youdao.com/*",
@@ -64,9 +65,11 @@
     "256": "icons/256.png",
     "512": "icons/512.png"
   },
-  "homepage_url": "https://n.novelia.cc/",
+  "homepage_url": "https://books.kotoban.top/",
   "browser_action": {},
   "background": {
     "scripts": ["worker.js"]
   }
 }
+
+

@@ -1,10 +1,10 @@
+import { isLegacyHost, officialBaseDomain } from '@/util/origin';
 import { Page } from '@/model/Page';
 import { UserRole } from '@/model/User';
 import { client } from './client';
 
-export const AuthUrl = window.location.hostname.includes('fishhawk.top')
-  ? 'https://auth.fishhawk.top'
-  : 'https://auth.novelia.cc';
+const baseDomain = isLegacyHost ? 'fishhawk.top' : officialBaseDomain;
+export const AuthUrl = `https://auth.${baseDomain}`;
 
 const clientAuth = client.extend({
   prefixUrl: AuthUrl + '/api/v1',

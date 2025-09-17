@@ -1,8 +1,11 @@
 <script lang="ts" setup>
 import { LSKey } from '@/data/LocalStorage';
+import { getOfficialAssetUrl, officialOrigin } from '@/util/origin';
 
-const newDomain = 'https://n.novelia.cc';
+const newDomain = officialOrigin;
 const inOldDomain = location.hostname.includes('fishhawk');
+const homepageUrl = `${officialOrigin}/`;
+const extensionDownloadUrl = getOfficialAssetUrl('/files-extra/extension.v1.0.12.zip');
 
 const open = (url: string) => window.open(url);
 
@@ -37,7 +40,7 @@ if (inOldDomain && window.opener) {
     settingReader: localStorage.getItem(LSKey.SettingReader),
   };
   console.log('发送migrate消息');
-  window.opener.postMessage(msg, 'https://n.novelia.cc');
+  window.opener.postMessage(msg, officialOrigin);
   window.close();
 }
 </script>
@@ -46,7 +49,7 @@ if (inOldDomain && window.opener) {
   <n-p v-if="inOldDomain" style="margin: 0px 0px 4px">
     <b>
       机翻站已切换到新的域名
-      <n-a href="https://n.novelia.cc/">{{ newDomain }}</n-a>
+      <n-a :href="homepageUrl">{{ newDomain }}</n-a>
     </b>
   </n-p>
   <n-flex v-else style="margin: 0px 0px 8px">
@@ -76,7 +79,7 @@ if (inOldDomain && window.opener) {
       type="warning"
       secondary
       tag="a"
-      href="https://n.novelia.cc/files-extra/extension.v1.0.12.zip"
+      :href="extensionDownloadUrl"
       label="下载浏览器扩展（适配新域名）"
       style="font-weight: 700"
     />

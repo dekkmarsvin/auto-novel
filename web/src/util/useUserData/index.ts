@@ -2,6 +2,7 @@ import { jwtDecode } from 'jwt-decode';
 import { HTTPError } from 'ky';
 
 import { useLocalStorage } from '../useStorage';
+import { shouldUseNewStorageKeys } from '@/util/origin';
 import { AuthApi } from './api';
 export { AuthUrl } from './api';
 
@@ -41,7 +42,7 @@ function parseJwt(token: string): UserProfile {
 
 export function useUserData(app: string) {
   const userData = useLocalStorage<UserData>(
-    window.location.origin === 'https://n.novelia.cc' ? 'auth' : 'authInfo',
+    shouldUseNewStorageKeys ? 'auth' : 'authInfo',
     {
       profile: undefined,
       adminMode: false,
@@ -97,3 +98,5 @@ export function useUserData(app: string) {
     logout,
   };
 }
+
+
