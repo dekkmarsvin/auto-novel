@@ -1,7 +1,7 @@
 import { isLegacyHost, officialBaseDomain } from '@/util/origin';
 import { PageX } from '@/model/Page';
 import { UserRole } from '@/model/User';
-import { client } from './client';
+import { client } from '../novel/client';
 
 const baseDomain = isLegacyHost ? 'fishhawk.top' : officialBaseDomain;
 export const AuthUrl = `https://auth.${baseDomain}`;
