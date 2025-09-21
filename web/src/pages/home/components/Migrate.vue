@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { LSKey } from '@/data/LocalStorage';
+import { LSKey } from '@/stores/key';
 import { getOfficialAssetUrl, officialOrigin } from '@/util/origin';
 
 const newDomain = officialOrigin;
