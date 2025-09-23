@@ -1,6 +1,6 @@
 import { isLegacyHost, officialBaseDomain } from '@/util/origin';
-import { PageX } from '@/model/Page';
-import { UserRole } from '@/model/User';
+import type { PageX } from '@/model/Page';
+import type { UserRole } from '@/model/User';
 import { client } from '../novel/client';
 
 const baseDomain = isLegacyHost ? 'fishhawk.top' : officialBaseDomain;
