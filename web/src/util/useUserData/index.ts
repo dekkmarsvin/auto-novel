@@ -40,7 +40,31 @@ function parseJwt(token: string): UserProfile {
   };
 }
 
-export function useUserData(app: string) {
+function useUserDataWithoutAuth(app: string) {
+  const userData = ref<UserData>({
+    profile: {
+      token: '',
+      username: 'user',
+      role: 'admin',
+      issuedAt: 0,
+      createdAt: 0,
+      expiredAt: 0,
+    },
+    adminMode: false,
+  });
+  async function refresh() {}
+  async function logout() {
+    return '';
+  }
+
+  return {
+    userData,
+    refresh,
+    logout,
+  };
+}
+
+function useUserDataWithAuth(app: string) {
   const userData = useLocalStorage<UserData>(
     shouldUseNewStorageKeys ? 'auth' : 'authInfo',
     {
@@ -99,4 +123,10 @@ export function useUserData(app: string) {
   };
 }
 
-
+export function useUserData(app: string) {
+  if (import.meta.env.VITE_NO_AUTH === 'true') {
+    return useUserDataWithoutAuth(app);
+  } else {
+    return useUserDataWithAuth(app);
+  }
+}

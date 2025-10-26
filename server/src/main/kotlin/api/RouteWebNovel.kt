@@ -300,6 +300,10 @@ private val disgustingFascistNovelList = mapOf(
     ),
     Pixiv.id to listOf(
         "12802876",
+        "67369",
+    ),
+    Pixiv.id to listOf(
+        "12802876",
     ),
 )
 
