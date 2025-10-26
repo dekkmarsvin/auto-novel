@@ -1,11 +1,13 @@
+import fs from 'fs';
+import path from 'path';
 import vue from '@vitejs/plugin-vue';
 import Sonda from 'sonda/vite';
 import AutoImport from 'unplugin-auto-import/vite';
 import imagemin from 'unplugin-imagemin/vite';
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
 import Components from 'unplugin-vue-components/vite';
-import type { UserConfig } from 'vite';
-import { defineConfig, loadEnv, loadEnv } from 'vite';
+import type { PluginOption, ServerOptions, UserConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
@@ -87,8 +89,6 @@ const filesProxyPlugin = (): PluginOption => ({
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const remoteOrigin = normalizeOrigin(env.ORIGIN_DOMAIN ?? env.VITE_ORIGIN_DOMAIN);
-
-  const env = loadEnv(mode, process.cwd());
 
   const userConfig: UserConfig = {
     build: {
