@@ -85,6 +85,9 @@ function useUserDataWithAuth(app: string) {
 
   const refresh = () =>
     AuthApi.refresh(app).then((token: string) => {
+      if (token.startsWith('"') && token.endsWith('"')) {
+        token = token.slice(1, -1);
+      }
       userData.value.profile = parseJwt(token);
     });
 
