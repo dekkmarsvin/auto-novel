@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import vue from '@vitejs/plugin-vue';
 import Sonda from 'sonda/vite';
 import AutoImport from 'unplugin-auto-import/vite';
