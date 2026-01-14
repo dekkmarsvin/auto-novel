@@ -74,7 +74,4 @@ services:
 
   redis:
     image: redis:7.2.1
-    ports:
-      - 6380:6379
     restart: always
-S
