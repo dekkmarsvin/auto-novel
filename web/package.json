@@ -10,11 +10,14 @@
     "safari>=14"
   ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && vue-tsc --noEmit",
+    "dev": "pnpm dev:remote",
+    "dev:remote": "VITE_API_MODE=remote vite",
+    "dev:local": "VITE_API_MODE=local vite",
+    "dev:native": "VITE_API_MODE=native vite",
+    "build": "vite build && vue-tsc -b",
+    "preview": "vite preview",
     "lint": "eslint src",
     "lint:dist": "eslint dist",
-    "preview": "vite preview",
     "test": "vitest run",
     "prepare": "cd .. && husky web/.husky || true"
   },
@@ -35,6 +38,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@auto-novel/crawler": "link:../crawler",
     "@img-comparison-slider/vue": "^8.0.0",
     "@mdit/plugin-container": "^0.16.0",
     "@mdit/plugin-spoiler": "^0.16.0",
@@ -53,7 +57,7 @@
     "diff": "^5.2.0",
     "idb": "^8.0.3",
     "jwt-decode": "^4.0.0",
-    "ky": "^1.11.0",
+    "ky": "^1.14.0",
     "lodash-es": "^4.17.21",
     "markdown-it": "^14.1.0",
     "markdown-it-anchor": "^9.2.0",

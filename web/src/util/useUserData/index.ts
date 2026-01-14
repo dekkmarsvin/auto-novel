@@ -44,7 +44,7 @@ function useUserDataWithoutAuth(app: string) {
   const userData = ref<UserData>({
     profile: {
       token: '',
-      username: 'user',
+      username: '本地管理员',
       role: 'admin',
       issuedAt: 0,
       createdAt: 0,
@@ -65,6 +65,7 @@ function useUserDataWithoutAuth(app: string) {
 }
 
 function useUserDataWithAuth(app: string) {
+<<<<<<< HEAD
   const userData = useLocalStorage<UserData>(
     shouldUseNewStorageKeys ? 'auth' : 'authInfo',
     {
@@ -72,6 +73,12 @@ function useUserDataWithAuth(app: string) {
       adminMode: false,
     },
   );
+=======
+  const userData = useLocalStorage<UserData>('auth', {
+    profile: undefined,
+    adminMode: false,
+  });
+>>>>>>> upstream/main
 
   // 迁移旧数据
   if (userData.value.profile?.issuedAt === undefined) {
@@ -124,7 +131,8 @@ function useUserDataWithAuth(app: string) {
 }
 
 export function useUserData(app: string) {
-  if (import.meta.env.VITE_NO_AUTH === 'true') {
+  const mode = import.meta.env.VITE_API_MODE;
+  if (mode === 'local' || mode === 'native') {
     return useUserDataWithoutAuth(app);
   } else {
     return useUserDataWithAuth(app);

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { shouldUseNewStorageKeys } from '@/util/origin';
 
 const LSKeyLegacy = {
@@ -16,6 +17,9 @@ const LSKeyLegacy = {
 } as const;
 
 const LSKeyNew = {
+=======
+export const LSKey = {
+>>>>>>> upstream/main
   Auth: 'auth',
   Blacklist: 'blacklist',
   Draft: 'draft',
@@ -29,7 +33,10 @@ const LSKeyNew = {
   WorkspaceGpt: 'workspace-gpt',
   WorkspaceSakura: 'workspace-sakura',
 } as const;
+<<<<<<< HEAD
 
 export const LSKey =
   shouldUseNewStorageKeys ? LSKeyNew : LSKeyLegacy;
 
+=======
+>>>>>>> upstream/main

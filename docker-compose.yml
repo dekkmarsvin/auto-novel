@@ -14,8 +14,13 @@ services:
       - ./data/files-extra:/data/files-extra
     restart: always
 
+<<<<<<< HEAD
   server:
     image: ghcr.io/dekkmarsvin/auto-novel-server:latest
+=======
+  api:
+    image: ghcr.io/auto-novel/auto-novel-server:latest
+>>>>>>> upstream/main
     depends_on:
       - mongo
       - elasticsearch
@@ -31,8 +36,6 @@ services:
       - DB_HOST_MONGO=mongo
       - DB_HOST_ES=elasticsearch
       - DB_HOST_REDIS=redis
-    ports:
-      - 8081:8081
     volumes:
       - ./data/files-temp:/data/files-temp
       - ./data/files-wenku:/data/files-wenku
@@ -42,10 +45,9 @@ services:
   mongo:
     image: mongo:6.0.3
     environment:
-      - MONGO_INITDB_DATABASE=auth
-    ports:
-      - 27017:27017
+      - MONGO_INITDB_DATABASE=main
     volumes:
+      - ./db/mongo-init:/docker-entrypoint-initdb.d:ro
       - ./data/db:/data/db
     restart: always
 
@@ -66,12 +68,20 @@ services:
     volumes:
       - ./data/es/data:/usr/share/elasticsearch/data
       - ./data/es/plugins:/usr/share/elasticsearch/plugins
-    ports:
-      - 9200:9200
+    entrypoint: |
+      bash -c "
+      if ! elasticsearch-plugin list | grep -q analysis-icu; then
+        elasticsearch-plugin install analysis-icu
+      fi
+      /usr/local/bin/docker-entrypoint.sh eswrapper
+      "
     restart: always
 
   redis:
     image: redis:7.2.1
+<<<<<<< HEAD
     ports:
       - 6380:6379
+=======
+>>>>>>> upstream/main
     restart: always

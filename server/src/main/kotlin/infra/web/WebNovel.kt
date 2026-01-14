@@ -13,7 +13,12 @@ import org.bson.types.ObjectId
 
 object WebNovelFilter {
     enum class Type { 全部, 连载中, 已完结, 短篇 }
-    enum class Level { 全部, 一般向, R18 }
+    enum class Level {
+        全部, 一般向, R18;
+
+        val isNsfw get() = this != 一般向
+    }
+
     enum class Translate { 全部, GPT3, Sakura }
     enum class Sort { 更新, 点击, 相关 }
 }

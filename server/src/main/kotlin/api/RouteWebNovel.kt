@@ -282,6 +282,11 @@ private val disgustingFascistNovelList = mapOf(
         "n4357cw",
         "n9603hk",
         "n5149kv",
+<<<<<<< HEAD
+=======
+        "n3756im",
+        "n4899kw",
+>>>>>>> upstream/main
     ),
     Kakuyomu.id to listOf(
         "16816927860373250234",
@@ -291,6 +296,8 @@ private val disgustingFascistNovelList = mapOf(
         "16817330661737648260",
         "16818622170290655590",
         "16818093088081078289",
+        "16818093081362454969",
+        "16818792437522674922",
     ),
     Hameln.id to listOf(
         "291561",
@@ -322,7 +329,6 @@ class WebNovelApi(
     private val metadataRepo: WebNovelMetadataRepository,
     private val chapterRepo: WebNovelChapterRepository,
     private val fileRepo: WebNovelFileRepository,
-    private val userFavoredRepo: UserFavoredRepository,
     private val favoredRepo: WebNovelFavoredRepository,
     private val historyRepo: WebNovelReadHistoryRepository,
     private val wenkuMetadataRepo: WenkuNovelMetadataRepository,
@@ -341,17 +347,12 @@ class WebNovelApi(
     ): Page<WebNovelOutlineDto> {
         validatePageNumber(page)
         validatePageSize(pageSize)
+        if (filterLevel.isNsfw) user.requireNsfwAccess()
 
         val filterProviderParsed = if (filterProvider.isEmpty()) {
             return emptyPage()
         } else {
             filterProvider.split(",")
-        }
-
-        val filterLevelAllowed = if (user != null && user.isOldAss()) {
-            filterLevel
-        } else {
-            WebNovelFilter.Level.一般向
         }
 
         return metadataRepo
@@ -360,7 +361,7 @@ class WebNovelApi(
                 userQuery = queryString,
                 filterProvider = filterProviderParsed,
                 filterType = filterType,
-                filterLevel = filterLevelAllowed,
+                filterLevel = filterLevel,
                 filterTranslate = filterTranslate,
                 filterSort = filterSort,
                 page = page,
@@ -541,7 +542,7 @@ class WebNovelApi(
         wenkuId: String,
         toc: Map<String, String>,
     ) {
-        user.shouldBeOldAss()
+        user.requireNovelAccess()
 
         if (wenkuId.isNotBlank() && wenkuMetadataRepo.get(wenkuId) == null) {
             throwNotFound("文库版不存在")
@@ -615,7 +616,7 @@ class WebNovelApi(
         novelId: String,
         glossary: Map<String, String>,
     ) {
-        user.shouldBeOldAss()
+        user.requireNovelAccess()
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
         if (novel.glossary == glossary)

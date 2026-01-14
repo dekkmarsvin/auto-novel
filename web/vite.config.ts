@@ -11,6 +11,7 @@ import { defineConfig, loadEnv } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
+<<<<<<< HEAD
 const DEFAULT_REMOTE_ORIGIN = 'https://books.kotoban.top';
 
 const normalizeOrigin = (originFromEnv?: string) => {
@@ -89,8 +90,24 @@ const filesProxyPlugin = (): PluginOption => ({
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const remoteOrigin = normalizeOrigin(env.ORIGIN_DOMAIN ?? env.VITE_ORIGIN_DOMAIN);
+=======
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd());
+  const apiMode = env.VITE_API_MODE;
+  const apiUrl = (() => {
+    if (apiMode === 'remote') {
+      return 'https://n.novelia.cc';
+    } else if (apiMode === 'local') {
+      return 'http://localhost:80';
+    } else if (apiMode === 'native') {
+      return 'http://localhost:8081';
+    }
+    return 'https://n.novelia.cc';
+  })();
+  const enableSonda = env.VITE_ENABLE_SONDA === 'true';
+>>>>>>> upstream/main
 
-  const userConfig: UserConfig = {
+  const config: UserConfig = {
     build: {
       target: ['es2015'],
       cssCodeSplit: false,
@@ -110,6 +127,37 @@ export default defineConfig(({ command, mode }) => {
               return 'dep';
             }
           },
+        },
+      },
+    },
+    server: {
+      allowedHosts: true,
+      proxy: {
+        '/api': {
+          target: apiUrl,
+          changeOrigin: true,
+          rewrite:
+            apiMode === 'native'
+              ? (path: string) => path.replace(/^\/api/, '')
+              : undefined,
+          bypass: (req, _res, _options) => {
+            if (
+              apiMode === 'remote' &&
+              req.url &&
+              req.url.includes('/translate-v2/')
+            ) {
+              console.log('检测到小说章节翻译请求，已拦截');
+              return false;
+            }
+          },
+        },
+        '/files-temp': {
+          target: apiUrl,
+          changeOrigin: true,
+        },
+        '/files-extra': {
+          target: 'https://n.novelia.cc',
+          changeOrigin: true,
         },
       },
     },
@@ -145,36 +193,9 @@ export default defineConfig(({ command, mode }) => {
     ],
   };
 
-  if (command === 'serve') {
-    const apiUrl = env.VITE_API_URL ?? 'https://n.novelia.cc';
-    userConfig.server = {
-      proxy: {
-        '/api': {
-          target: apiUrl,
-          changeOrigin: true,
-          bypass: (req, _res, _options) => {
-            if (
-              apiUrl === 'https://n.novelia.cc' &&
-              req.url &&
-              req.url.includes('/translate-v2/')
-            ) {
-              console.log('检测到小说章节翻译请求，已拦截');
-              return false;
-            }
-          },
-        },
-        '/files-temp': {
-          target: apiUrl,
-          changeOrigin: true,
-        },
-      },
-    };
-  }
-
-  const enableSonda = env.VITE_ENABLE_SONDA === 'true';
   if (enableSonda) {
-    userConfig.build!.sourcemap = true;
-    userConfig.plugins!.push(
+    config.build!.sourcemap = true;
+    config.plugins!.push(
       Sonda({
         gzip: true,
         brotli: true,
@@ -182,6 +203,6 @@ export default defineConfig(({ command, mode }) => {
     );
   }
 
-  return userConfig;
+  return config;
 });
 

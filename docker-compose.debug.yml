@@ -1,0 +1,12 @@
+services:
+  mongo:
+    ports:
+      - 5001:27017
+
+  elasticsearch:
+    ports:
+      - 5002:9200
+
+  redis:
+    ports:
+      - 5003:6379
