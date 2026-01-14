@@ -67,9 +67,6 @@ fun Application.authentication(secret: String) = install(Authentication) {
             }
         }
         challenge { _, _ ->
-            call.authentication.allFailures.forEach {
-                call.application.log.warn("Authentication failed", it)
-            }
             call.respond(HttpStatusCode.Unauthorized, "Token不合法或者过期")
         }
     }
