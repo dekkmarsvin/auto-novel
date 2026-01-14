@@ -1,3 +1,4 @@
+// Fix: Resolved unused imports for build
 import vue from '@vitejs/plugin-vue';
 import Sonda from 'sonda/vite';
 import AutoImport from 'unplugin-auto-import/vite';
