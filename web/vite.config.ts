@@ -6,106 +6,25 @@ import AutoImport from 'unplugin-auto-import/vite';
 import imagemin from 'unplugin-imagemin/vite';
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
 import Components from 'unplugin-vue-components/vite';
-import type { PluginOption, ServerOptions, UserConfig } from 'vite';
+import type { UserConfig } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
-<<<<<<< HEAD
-const DEFAULT_REMOTE_ORIGIN = 'https://books.kotoban.top';
-
-const normalizeOrigin = (originFromEnv?: string) => {
-  if (!originFromEnv) return DEFAULT_REMOTE_ORIGIN;
-  try {
-    return new URL(originFromEnv).origin;
-  } catch {
-    return DEFAULT_REMOTE_ORIGIN;
-  }
-};
-
-const enableSonda = process.env.ENABLE_SONDA === '1';
-const enableLocalServer = process.env.LOCAL != undefined;
-
-const defineServerOptions = (remoteOrigin: string): ServerOptions => {
-  return {
-    proxy: {
-      '/api': {
-        target: enableLocalServer
-          ? 'http://localhost:8081'
-          : remoteOrigin,
-        changeOrigin: true,
-        bypass: (req, _res, _options) => {
-          if (
-            !enableLocalServer &&
-            req.url &&
-            req.url.includes('/translate-v2/')
-          ) {
-            if (req.url.includes('/chapter/')) {
-              console.log('检测到小说章节翻译请求，已拦截');
-              return false;
-            }
-          }
-        },
-        rewrite: (path) => {
-          if (enableLocalServer) {
-            path = path.replace(/^\/api/, '');
-          }
-          return path;
-        },
-      },
-      '/files-temp': {
-        target: remoteOrigin,
-        changeOrigin: true,
-      },
-    },
-  };
-};
-
-const filesProxyPlugin = (): PluginOption => ({
-  name: 'files-proxy',
-  configureServer(server) {
-    server.middlewares.use('/files-temp', (req, res) => {
-      const url = new URL('http://localhost' + req.url);
-      const ext = path.extname(url.pathname).toLowerCase();
-      const mimeTypes = {
-        '.epub': 'application/epub+zip',
-        '.txt': 'text/plain',
-      };
-      res.setHeader(
-        'content-type',
-        mimeTypes[ext] || 'application/octet-stream',
-      );
-
-      const filePath = path.join(
-        __dirname,
-        '../server/data/files-temp',
-        url.pathname,
-      );
-      const content = fs.readFileSync(filePath);
-      res.end(content);
-    });
-  },
-});
-
-export default defineConfig(({ command, mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  const remoteOrigin = normalizeOrigin(env.ORIGIN_DOMAIN ?? env.VITE_ORIGIN_DOMAIN);
-=======
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd());
   const apiMode = env.VITE_API_MODE;
   const apiUrl = (() => {
     if (apiMode === 'remote') {
-      return 'https://n.novelia.cc';
+      return 'https://books.kotoban.top';
     } else if (apiMode === 'local') {
       return 'http://localhost:80';
     } else if (apiMode === 'native') {
       return 'http://localhost:8081';
     }
-    return 'https://n.novelia.cc';
+    return 'https://books.kotoban.top';
   })();
   const enableSonda = env.VITE_ENABLE_SONDA === 'true';
->>>>>>> upstream/main
 
   const config: UserConfig = {
     build: {
@@ -156,7 +75,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         '/files-extra': {
-          target: 'https://n.novelia.cc',
+          target: 'https://books.kotoban.top',
           changeOrigin: true,
         },
       },
@@ -199,10 +118,10 @@ export default defineConfig(({ mode }) => {
       Sonda({
         gzip: true,
         brotli: true,
+        // detailed: true,
       }),
     );
   }
 
   return config;
-});
 

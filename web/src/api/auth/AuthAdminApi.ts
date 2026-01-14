@@ -3,12 +3,7 @@ import type { PageX } from '@/model/Page';
 import type { UserRole } from '@/model/User';
 import { client } from '../novel/client';
 
-<<<<<<< HEAD
-const baseDomain = isLegacyHost ? 'fishhawk.top' : officialBaseDomain;
-export const AuthUrl = `https://auth.${baseDomain}`;
-=======
 import { AuthUrl } from '@/util/useUserData/api';
->>>>>>> upstream/main
 
 const clientAuth = client.extend({
   prefixUrl: AuthUrl + '/api/v1/admin',

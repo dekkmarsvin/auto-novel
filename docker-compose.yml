@@ -14,13 +14,8 @@ services:
       - ./data/files-extra:/data/files-extra
     restart: always
 
-<<<<<<< HEAD
   server:
     image: ghcr.io/dekkmarsvin/auto-novel-server:latest
-=======
-  api:
-    image: ghcr.io/auto-novel/auto-novel-server:latest
->>>>>>> upstream/main
     depends_on:
       - mongo
       - elasticsearch
@@ -79,9 +74,7 @@ services:
 
   redis:
     image: redis:7.2.1
-<<<<<<< HEAD
     ports:
       - 6380:6379
-=======
->>>>>>> upstream/main
     restart: always
+S

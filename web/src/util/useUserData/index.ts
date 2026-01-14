@@ -52,7 +52,7 @@ function useUserDataWithoutAuth(app: string) {
     },
     adminMode: false,
   });
-  async function refresh() {}
+  async function refresh() { }
   async function logout() {
     return '';
   }
@@ -65,20 +65,10 @@ function useUserDataWithoutAuth(app: string) {
 }
 
 function useUserDataWithAuth(app: string) {
-<<<<<<< HEAD
-  const userData = useLocalStorage<UserData>(
-    shouldUseNewStorageKeys ? 'auth' : 'authInfo',
-    {
-      profile: undefined,
-      adminMode: false,
-    },
-  );
-=======
   const userData = useLocalStorage<UserData>('auth', {
     profile: undefined,
     adminMode: false,
   });
->>>>>>> upstream/main
 
   // 迁移旧数据
   if (userData.value.profile?.issuedAt === undefined) {

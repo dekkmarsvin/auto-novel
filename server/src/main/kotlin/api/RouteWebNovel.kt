@@ -282,11 +282,8 @@ private val disgustingFascistNovelList = mapOf(
         "n4357cw",
         "n9603hk",
         "n5149kv",
-<<<<<<< HEAD
-=======
         "n3756im",
         "n4899kw",
->>>>>>> upstream/main
     ),
     Kakuyomu.id to listOf(
         "16816927860373250234",

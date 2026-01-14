@@ -1,11 +1,6 @@
 import { isLegacyHost, officialBaseDomain } from '@/util/origin';
 import ky from 'ky';
 
-<<<<<<< HEAD
-export const AuthUrl = isLegacyHost
-  ? 'https://auth.fishhawk.top'
-  : `https://auth.${officialBaseDomain}`;
-=======
 export const AuthUrl = (() => {
   const { protocol, host } = window.location;
 
@@ -21,7 +16,6 @@ export const AuthUrl = (() => {
   const baseDomain = parts.length > 2 ? parts.slice(-2).join('.') : host;
   return `${protocol}//auth.${baseDomain}`;
 })();
->>>>>>> upstream/main
 
 const client = ky.create({
   prefixUrl: AuthUrl + '/api/v1',
