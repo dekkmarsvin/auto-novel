@@ -4,6 +4,8 @@ import api.model.WebNovelOutlineDto
 import api.model.asDto
 import api.plugins.*
 import infra.common.*
+import infra.web.datasource.WebNovelEsDataSource
+import kotlinx.coroutines.flow.collect
 import infra.oplog.Operation
 import infra.oplog.OperationHistoryRepository
 import infra.user.UserFavoredRepository
@@ -24,6 +26,7 @@ import io.ktor.server.request.*
 import io.ktor.server.resources.*
 import io.ktor.server.resources.post
 import io.ktor.server.resources.put
+import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import kotlinx.serialization.Serializable
@@ -78,6 +81,12 @@ private class WebNovelRes {
             val type: NovelFileType,
             val filename: String,
         )
+    }
+
+    @Resource("/admin")
+    class Admin(val parent: WebNovelRes) {
+        @Resource("/sync-all")
+        class SyncAll(val parent: Admin)
     }
 }
 
@@ -266,6 +275,23 @@ fun Route.routeWebNovel() {
             )
             val encodedFilename = loc.filename.encodeURLParameter(spaceToPlus = true)
             "/files-temp/web/${path.encodeURLParameter()}?filename=${encodedFilename}"
+        }
+    }
+
+    // Admin
+    get<WebNovelRes.Admin.SyncAll> {
+        val es by inject<WebNovelEsDataSource>()
+        val metadataRepo by inject<WebNovelMetadataRepository>()
+        try {
+            var count = 0
+            metadataRepo.findAll().forEach {
+                es.syncNovel(it)
+                count++
+            }
+            call.respondText("Synced $count novels")
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            call.respondText("Error syncing novels: ${e.message}\n${e.stackTraceToString()}", status = HttpStatusCode.InternalServerError)
         }
     }
 }

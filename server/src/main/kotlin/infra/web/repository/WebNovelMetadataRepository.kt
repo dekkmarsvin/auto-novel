@@ -345,6 +345,8 @@ class WebNovelMetadataRepository(
                 set(WebNovel::wenkuId.field(), wenkuId),
             )
     }
+
+    suspend fun findAll(): List<WebNovel> = webNovelMetadataCollection.find().toList()
 }
 
 private fun RemoteNovelListItem.toOutline(

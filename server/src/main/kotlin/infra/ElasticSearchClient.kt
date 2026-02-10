@@ -32,7 +32,7 @@ fun elasticSearchClient(host: String, port: Int?) =
                         date("updateAt")
                     }
                 }
-            }
+            }.onFailure { it.printStackTrace() }
 
             runCatching {
                 createIndex(ElasticSearchIndexNames.WENKU_NOVEL) {

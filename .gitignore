@@ -18,3 +18,4 @@ web-extension/src/_metadata/
 data/
 .env
 data/
+*.log
