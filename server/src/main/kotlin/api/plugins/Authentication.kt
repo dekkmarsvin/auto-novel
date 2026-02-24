@@ -57,7 +57,7 @@ data class User(
 fun Application.authentication(secret: String) = install(Authentication) {
     jwt {
         verifier(
-            JWT.require(Algorithm.HMAC256(secret)).build()
+            JWT.require(Algorithm.HMAC256(secret.ifBlank { "a-string-secret-at-least-256-bits-long" })).build()
         )
         validate { credential ->
             if (credential.subject != null) {

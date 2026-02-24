@@ -39,11 +39,13 @@ function parseJwt(token: string): UserProfile {
   };
 }
 
-function useUserDataWithoutAuth(app: string) {
+function useUserDataWithoutAuth(_app: string) {
+  const noAuthToken =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiLmnKzlnLDnlKjmiLciLCJyb2xlIjoiYWRtaW4iLCJjcmF0IjowLCJpYXQiOjB9.U6CwIExYZE7ls8jNeMPCkV8r2h6lOj6F7b3wJ_Ja5iY';
   const userData = ref<UserData>({
     profile: {
-      token: '',
-      username: '本地管理员',
+      token: noAuthToken,
+      username: '本地用户',
       role: 'admin',
       issuedAt: 0,
       createdAt: 0,
