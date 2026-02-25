@@ -12,6 +12,7 @@ data class ThemeGlossary(
     @Contextual @SerialName("_id") val id: ObjectId = ObjectId(),
     val name: String,
     @Contextual val authorId: ObjectId,
+    val authorUsername: String,
     val glossary: Map<String, String> = emptyMap(),
     @Contextual val createAt: Instant = Clock.System.now(),
     @Contextual val updateAt: Instant = Clock.System.now(),

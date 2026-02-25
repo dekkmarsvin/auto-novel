@@ -191,7 +191,12 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
               v-model:value="localThemeGlossaryId"
               :options="[
                 { label: '无', value: '' },
-                ...themeGlossaries.map((g) => ({ label: g.name, value: g.id })),
+                ...themeGlossaries.map((g) => ({
+                  label: whoami.isMe(g.authorUsername)
+                    ? g.name
+                    : `${g.name}（${g.authorUsername}）`,
+                  value: g.id,
+                })),
               ]"
               size="small"
               style="width: 200px"

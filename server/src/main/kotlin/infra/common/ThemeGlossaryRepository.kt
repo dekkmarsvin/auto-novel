@@ -23,12 +23,14 @@ class ThemeGlossaryRepository(
     suspend fun create(
         name: String,
         authorId: ObjectId,
+        authorUsername: String,
         glossary: Map<String, String>,
     ): ThemeGlossary {
         val themeGlossary = ThemeGlossary(
             id = ObjectId(),
             name = name,
             authorId = authorId,
+            authorUsername = authorUsername,
             glossary = glossary,
         )
         themeGlossaryCollection.insertOne(themeGlossary)
@@ -41,6 +43,12 @@ class ThemeGlossaryRepository(
             .firstOrNull()
     }
 
+    suspend fun listAll(): List<ThemeGlossary> {
+        return themeGlossaryCollection
+            .find()
+            .toList()
+    }
+
     suspend fun listAllByAuthor(authorId: ObjectId): List<ThemeGlossary> {
         return themeGlossaryCollection
             .find(eq(ThemeGlossary::authorId.field(), authorId))
@@ -49,7 +57,7 @@ class ThemeGlossaryRepository(
 
     suspend fun update(
         id: String,
-        authorId: ObjectId, // Ensure only the author can update
+        authorId: ObjectId?, // null = admin bypass, no author check
         name: String?,
         glossary: Map<String, String>?,
     ): Boolean {
@@ -63,23 +71,29 @@ class ThemeGlossaryRepository(
             updates.add(set(ThemeGlossary::glossary.field(), glossary))
         }
 
-        val result = themeGlossaryCollection.updateOne(
-            and(
-                eq(ThemeGlossary::id.field(), ObjectId(id)),
-                eq(ThemeGlossary::authorId.field(), authorId)
-            ),
-            combine(updates)
-        )
-        return result.modifiedCount > 0
-    }
-
-    suspend fun delete(id: String, authorId: ObjectId): Boolean {
-        val result = themeGlossaryCollection.deleteOne(
+        val filter = if (authorId != null) {
             and(
                 eq(ThemeGlossary::id.field(), ObjectId(id)),
                 eq(ThemeGlossary::authorId.field(), authorId)
             )
-        )
+        } else {
+            eq(ThemeGlossary::id.field(), ObjectId(id))
+        }
+
+        val result = themeGlossaryCollection.updateOne(filter, combine(updates))
+        return result.modifiedCount > 0
+    }
+
+    suspend fun delete(id: String, authorId: ObjectId?): Boolean {
+        val filter = if (authorId != null) {
+            and(
+                eq(ThemeGlossary::id.field(), ObjectId(id)),
+                eq(ThemeGlossary::authorId.field(), authorId)
+            )
+        } else {
+            eq(ThemeGlossary::id.field(), ObjectId(id))
+        }
+        val result = themeGlossaryCollection.deleteOne(filter)
         return result.deletedCount > 0
     }
 }

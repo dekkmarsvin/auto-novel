@@ -62,16 +62,18 @@ class ThemeGlossaryApi(
         val id: String,
         val name: String,
         val glossary: Map<String, String>,
+        val authorUsername: String,
         val createAt: Long,
         val updateAt: Long,
     )
 
     suspend fun list(user: User): kotlin.collections.List<ThemeGlossaryDto> {
-        return repo.listAllByAuthor(ObjectId(user.id)).map {
+        return repo.listAll().map {
             ThemeGlossaryDto(
                 id = it.id.toHexString(),
                 name = it.name,
                 glossary = it.glossary,
+                authorUsername = it.authorUsername,
                 createAt = it.createAt.toEpochMilliseconds(),
                 updateAt = it.updateAt.toEpochMilliseconds(),
             )
@@ -89,6 +91,7 @@ class ThemeGlossaryApi(
         val created = repo.create(
             name = body.name,
             authorId = ObjectId(user.id),
+            authorUsername = user.username,
             glossary = body.glossary,
         )
         return created.id.toHexString()
@@ -102,9 +105,10 @@ class ThemeGlossaryApi(
 
     suspend fun update(user: User, id: String, body: UpdateBody) {
         user.requireNovelAccess()
+        val authorId = if (user.role == UserRole.Admin) null else ObjectId(user.id)
         val success = repo.update(
             id = id,
-            authorId = ObjectId(user.id),
+            authorId = authorId,
             name = body.name,
             glossary = body.glossary,
         )
@@ -115,7 +119,8 @@ class ThemeGlossaryApi(
 
     suspend fun delete(user: User, id: String) {
         user.requireNovelAccess()
-        val success = repo.delete(id = id, authorId = ObjectId(user.id))
+        val authorId = if (user.role == UserRole.Admin) null else ObjectId(user.id)
+        val success = repo.delete(id = id, authorId = authorId)
         if (!success) {
             throwNotFound("找不到該主題術語表或無權限刪除")
         }

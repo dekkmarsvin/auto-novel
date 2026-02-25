@@ -7,9 +7,16 @@ import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
 import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
 import { Glossary } from '@/model/Glossary';
 import { copyToClipBoard } from '@/pages/util';
+import { useWhoamiStore } from '@/stores';
 
 const message = useMessage();
 const list = ref<ThemeGlossaryDto[]>([]);
+
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
+
+const canEdit = (item: ThemeGlossaryDto) =>
+  whoami.value.isAdmin || whoami.value.isMe(item.authorUsername);
 
 const loadList = async () => {
   try {
@@ -157,13 +164,14 @@ const submitGlossary = async () => {
       v-if="list.length > 0"
       striped
       size="small"
-      style="max-width: 600px"
+      style="max-width: 660px"
     >
       <thead>
         <tr>
           <th style="width: 80px">操作</th>
           <th>名称</th>
           <th>词条数</th>
+          <th>建立者</th>
           <th>最近一次更新</th>
         </tr>
       </thead>
@@ -171,18 +179,29 @@ const submitGlossary = async () => {
         <tr v-for="item in list" :key="item.id">
           <td>
             <n-flex :wrap="false" size="small">
-              <c-button text label="编辑" @action="openEditor(item)" />
-              <c-icon-button
-                tooltip="删除"
-                :icon="DeleteOutlineOutlined"
-                type="error"
-                text
-                @action="deleteThemeGlossary(item.id, item.name)"
-              />
+              <template v-if="canEdit(item)">
+                <c-button text label="编辑" @action="openEditor(item)" />
+                <c-icon-button
+                  tooltip="删除"
+                  :icon="DeleteOutlineOutlined"
+                  type="error"
+                  text
+                  @action="deleteThemeGlossary(item.id, item.name)"
+                />
+              </template>
+              <n-text v-else depth="3" style="font-size: 12px">唯读</n-text>
             </n-flex>
           </td>
           <td>{{ item.name }}</td>
           <td>{{ Object.keys(item.glossary).length }}</td>
+          <td>
+            <n-tag
+              size="small"
+              :type="whoami.isMe(item.authorUsername) ? 'info' : 'default'"
+            >
+              {{ whoami.isMe(item.authorUsername) ? '我的' : '他人' }}
+            </n-tag>
+          </td>
           <td><n-time :time="item.updateAt" type="datetime" /></td>
         </tr>
       </tbody>
