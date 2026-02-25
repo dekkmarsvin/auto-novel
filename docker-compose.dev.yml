@@ -48,6 +48,12 @@ services:
     volumes:
       - ./db/mongo-init:/docker-entrypoint-initdb.d:ro
       - ./data/db:/data/db
+    entrypoint: |
+      bash -c "
+      chown -R 999:999 /data/db
+      chmod -R 755 /data/db
+      exec docker-entrypoint.sh mongod
+      "
     restart: always
 
   elasticsearch:
