@@ -24,13 +24,14 @@ private class ThemeGlossaryRes {
 fun Route.routeThemeGlossary() {
     val service by inject<ThemeGlossaryApi>()
 
-    authenticateDb {
-        get<ThemeGlossaryRes.List> {
-            val user = call.user()
-            call.tryRespond {
-                service.list(user)
-            }
+    // Public: anyone can read theme glossaries
+    get<ThemeGlossaryRes.List> {
+        call.tryRespond {
+            service.list()
         }
+    }
+
+    authenticateDb {
         post<ThemeGlossaryRes> {
             val user = call.user()
             val body = call.receive<ThemeGlossaryApi.CreateBody>()
@@ -67,7 +68,7 @@ class ThemeGlossaryApi(
         val updateAt: Long,
     )
 
-    suspend fun list(user: User): kotlin.collections.List<ThemeGlossaryDto> {
+    suspend fun list(): kotlin.collections.List<ThemeGlossaryDto> {
         return repo.listAll().map {
             ThemeGlossaryDto(
                 id = it.id.toHexString(),

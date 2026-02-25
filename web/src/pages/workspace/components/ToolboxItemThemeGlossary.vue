@@ -61,12 +61,15 @@ const lastDeletedTerm = computed(() => {
   return `${last[0]} => ${last[1]}`;
 });
 
-const openEditor = (item: ThemeGlossaryDto) => {
+const isReadOnly = ref(false);
+
+const openEditor = (item: ThemeGlossaryDto, readonly = false) => {
   activeGlossaryId.value = item.id;
   activeGlossaryName.value = item.name;
   glossary.value = { ...item.glossary };
   deletedTerms.value = [];
   termsToAdd.value = ['', ''];
+  isReadOnly.value = readonly;
   showGlossaryModal.value = true;
 };
 
@@ -189,7 +192,12 @@ const submitGlossary = async () => {
                   @action="deleteThemeGlossary(item.id, item.name)"
                 />
               </template>
-              <n-text v-else depth="3" style="font-size: 12px">唯读</n-text>
+              <c-button
+                v-else
+                text
+                label="查看"
+                @action="openEditor(item, true)"
+              />
             </n-flex>
           </td>
           <td>{{ item.name }}</td>
@@ -337,7 +345,12 @@ const submitGlossary = async () => {
     </n-table>
 
     <template #action>
-      <c-button label="保存提交" type="primary" @action="submitGlossary" />
+      <c-button
+        v-if="!isReadOnly"
+        label="保存提交"
+        type="primary"
+        @action="submitGlossary"
+      />
     </template>
   </c-modal>
 </template>
