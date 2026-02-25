@@ -9,6 +9,7 @@ import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
+import { useQueryCache } from '@pinia/colada';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -77,6 +78,8 @@ const updateGlossary = async () => {
   }
 };
 
+const queryCache = useQueryCache();
+
 const submitGlossary = () =>
   doAction(
     updateGlossary().then(() => {
@@ -88,6 +91,22 @@ const submitGlossary = () =>
         props.value[key] = glossary.value[key];
       }
       emit('update:themeGlossaryId', localThemeGlossaryId.value ?? undefined);
+
+      // 強制刷新快取，讓資料與後端保持完全同步
+      const gnid = props.gnid;
+      if (gnid !== undefined) {
+        if (gnid.type === 'web') {
+          queryCache.invalidateQueries({
+            key: ['web-novel', gnid.providerId, gnid.novelId],
+            exact: true,
+          });
+        } else if (gnid.type === 'wenku') {
+          queryCache.invalidateQueries({
+            key: ['wenku-novel', gnid.novelId],
+            exact: true,
+          });
+        }
+      }
     }),
     '术语表提交',
     message,
