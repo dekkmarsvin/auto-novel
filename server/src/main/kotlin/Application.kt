@@ -56,7 +56,7 @@ fun main() {
             slf4jLogger()
             modules(appModule)
         }
-        authentication(secret = envNotNull("JWT_SECRET"))
+        authentication(secret = envNotNull("ACCESS_TOKEN_SECRET"))
         rateLimit()
         install(Resources)
         install(CachingHeaders)
