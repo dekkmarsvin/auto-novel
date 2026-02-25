@@ -100,6 +100,9 @@ const showListModal = ref(false);
       <n-tab-pane name="0" tab="术语表">
         <toolbox-item-glossary :files="files" />
       </n-tab-pane>
+      <n-tab-pane name="theme" tab="共用主题术语表">
+        <toolbox-item-theme-glossary />
+      </n-tab-pane>
       <n-tab-pane name="1" tab="EPUB：压缩图片">
         <toolbox-item-compress-image :files="files" />
       </n-tab-pane>

@@ -100,6 +100,8 @@ object MongoCollectionNames {
     const val WEB_FAVORITE = "web-favorite"
     const val WEB_READ_HISTORY = "web-read-history"
 
+    const val THEME_GLOSSARY = "theme-glossary"
+
     const val WENKU_NOVEL = "wenku-metadata"
     const val WENKU_FAVORITE = "wenku-favorite"
 

@@ -323,14 +323,22 @@ class WebNovelMetadataRepository(
         providerId: String,
         novelId: String,
         glossary: Map<String, String>,
+        themeGlossaryId: String?,
     ) {
+        val list = mutableListOf(
+            set(WebNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
+            set(WebNovel::glossary.field(), glossary),
+        )
+        if (themeGlossaryId != null) {
+            list.add(set(WebNovel::themeGlossaryId.field(), themeGlossaryId))
+        } else {
+            list.add(unset(WebNovel::themeGlossaryId.field()))
+        }
+
         webNovelMetadataCollection
             .updateOne(
                 byId(providerId, novelId),
-                combine(
-                    set(WebNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
-                    set(WebNovel::glossary.field(), glossary),
-                ),
+                combine(list),
             )
     }
 

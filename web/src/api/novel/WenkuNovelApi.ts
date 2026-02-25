@@ -47,8 +47,10 @@ const createNovel = (json: WenkuNovelCreateBody) =>
 const updateNovel = (id: string, json: WenkuNovelCreateBody) =>
   client.put(`wenku/${id}`, { json });
 
-const updateGlossary = (id: string, json: { [key: string]: string }) =>
-  client.put(`wenku/${id}/glossary`, { json });
+const updateGlossary = (
+  id: string,
+  json: { themeGlossaryId?: string; glossary: { [key: string]: string } },
+) => client.put(`wenku/${id}/glossary`, { json });
 
 const createVolume = (
   novelId: string,

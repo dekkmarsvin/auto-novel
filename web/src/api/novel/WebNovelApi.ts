@@ -75,7 +75,7 @@ const updateNovel = (
 const updateGlossary = (
   providerId: string,
   novelId: string,
-  json: { [key: string]: string },
+  json: { themeGlossaryId?: string; glossary: { [key: string]: string } },
 ) => client.put(`novel/${providerId}/${novelId}/glossary`, { json });
 
 // Translate

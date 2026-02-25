@@ -4,6 +4,8 @@ import { DeleteOutlineOutlined } from '@vicons/material';
 import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
+import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
+import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
@@ -11,6 +13,11 @@ import { downloadFile } from '@/util';
 const props = defineProps<{
   gnid?: GenericNovelId;
   value: Glossary;
+  themeGlossaryId?: string;
+}>();
+
+const emit = defineEmits<{
+  'update:themeGlossaryId': [id?: string];
 }>();
 
 const message = useMessage();
@@ -22,9 +29,18 @@ const glossary = ref<Glossary>({});
 
 const showGlossaryModal = ref(false);
 
-const toggleGlossaryModal = () => {
+const themeGlossaries = ref<ThemeGlossaryDto[]>([]);
+const localThemeGlossaryId = ref<string | null>(null);
+
+const toggleGlossaryModal = async () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
+    localThemeGlossaryId.value = props.themeGlossaryId ?? null;
+    try {
+      themeGlossaries.value = await ThemeGlossaryApi.list();
+    } catch (e) {
+      console.warn('载入主题术语表失败', e);
+    }
   }
   showGlossaryModal.value = !showGlossaryModal.value;
 };
@@ -44,14 +60,17 @@ const updateGlossary = async () => {
     return;
   }
   const glossaryValue = toRaw(glossary.value);
+  const themeGlossaryIdValue = localThemeGlossaryId.value ?? undefined;
   if (gnid.type === 'web') {
-    await WebNovelApi.updateGlossary(
-      gnid.providerId,
-      gnid.novelId,
-      glossaryValue,
-    );
+    await WebNovelApi.updateGlossary(gnid.providerId, gnid.novelId, {
+      themeGlossaryId: themeGlossaryIdValue,
+      glossary: glossaryValue,
+    });
   } else if (gnid.type === 'wenku') {
-    await WenkuNovelApi.updateGlossary(gnid.novelId, glossaryValue);
+    await WenkuNovelApi.updateGlossary(gnid.novelId, {
+      themeGlossaryId: themeGlossaryIdValue,
+      glossary: glossaryValue,
+    });
   } else {
     const repo = await useLocalVolumeStore();
     await repo.updateGlossary(gnid.volumeId, glossaryValue);
@@ -68,6 +87,7 @@ const submitGlossary = () =>
       for (const key in glossary.value) {
         props.value[key] = glossary.value[key];
       }
+      emit('update:themeGlossaryId', localThemeGlossaryId.value ?? undefined);
     }),
     '术语表提交',
     message,
@@ -164,6 +184,19 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
       >
         <template v-if="gnidHint">
           <n-text style="font-size: 12px">{{ gnidHint }}</n-text>
+
+          <n-flex align="center">
+            <n-text>绑定的共用术语表：</n-text>
+            <n-select
+              v-model:value="localThemeGlossaryId"
+              :options="[
+                { label: '无', value: '' },
+                ...themeGlossaries.map((g) => ({ label: g.name, value: g.id })),
+              ]"
+              size="small"
+              style="width: 200px"
+            />
+          </n-flex>
 
           <n-text>
             使用前务必先阅读

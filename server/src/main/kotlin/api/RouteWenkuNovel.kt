@@ -123,10 +123,20 @@ fun Route.routeWenkuNovel() {
         }
 
         put<WenkuNovelRes.Id.Glossary> { loc ->
+            @Serializable
+            class Body(
+                val themeGlossaryId: String? = null,
+                val glossary: Map<String, String>,
+            )
             val user = call.user()
-            val body = call.receive<Map<String, String>>()
+            val body = call.receive<Body>()
             call.tryRespond {
-                service.updateGlossary(user = user, novelId = loc.parent.novelId, glossary = body)
+                service.updateGlossary(
+                    user = user,
+                    novelId = loc.parent.novelId,
+                    glossary = body.glossary,
+                    themeGlossaryId = body.themeGlossaryId,
+                )
             }
         }
 
@@ -272,6 +282,7 @@ class WenkuNovelApi(
         val latestPublishAt: Long?,
         val level: WenkuNovelLevel,
         val introduction: String,
+        val themeGlossaryId: String?,
         val glossary: Map<String, String>,
         val webIds: List<String>,
         val volumes: List<WenkuNovelVolume>,
@@ -313,6 +324,7 @@ class WenkuNovelApi(
             introduction = metadata.introduction,
             webIds = metadata.webIds,
             volumes = metadata.volumes,
+            themeGlossaryId = metadata.themeGlossaryId,
             glossary = metadata.glossary,
             visited = metadata.visited,
             favored = null,
@@ -437,15 +449,17 @@ class WenkuNovelApi(
         user: User,
         novelId: String,
         glossary: Map<String, String>,
+        themeGlossaryId: String?,
     ) {
         user.requireNovelAccess()
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
-        if (glossary == novel.glossary)
+        if (glossary == novel.glossary && themeGlossaryId == novel.themeGlossaryId)
             throwBadRequest("术语表没有改变")
         metadataRepo.updateGlossary(
             novelId = novelId,
             glossary = glossary,
+            themeGlossaryId = themeGlossaryId,
         )
         operationHistoryRepo.create(
             operator = ObjectId(user.id),
@@ -546,6 +560,7 @@ class WenkuNovelApi(
 class WenkuNovelTranslateV2Api(
     private val metadataRepo: WenkuNovelMetadataRepository,
     private val volumeRepo: WenkuNovelVolumeRepository,
+    private val themeGlossaryRepo: infra.common.ThemeGlossaryRepository,
 ) {
     @Serializable
     data class TranslateTaskDto(
@@ -636,7 +651,7 @@ class WenkuNovelTranslateV2Api(
             paragraphJp = chapter,
             oldParagraphZh = oldTranslation.takeIf { !sakuraOutdated },
             glossaryId = novel.glossaryUuid ?: "no glossary",
-            glossary = novel.glossary,
+            glossary = (novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap()) + novel.glossary,
             oldGlossaryId = oldGlossaryId,
             oldGlossary = chapterGlossary?.glossary ?: emptyMap(),
         )

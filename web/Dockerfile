@@ -4,8 +4,8 @@ ENV PNPM_STORE_PATH="/pnpm/store"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN npm install -g pnpm@9.12.3
 WORKDIR /web
-COPY package.json pnpm-lock.yaml .
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
 

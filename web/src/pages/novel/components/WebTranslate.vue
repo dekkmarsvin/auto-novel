@@ -24,6 +24,7 @@ const props = defineProps<{
   gpt: number;
   sakura: number;
   glossary: { [key: string]: string };
+  themeGlossaryId?: string;
 }>();
 
 const { providerId, novelId, titleJp, titleZh, total } = props;
@@ -33,6 +34,7 @@ const emit = defineEmits<{
   'update:baidu': [number];
   'update:youdao': [number];
   'update:gpt': [number];
+  'update:themeGlossaryId': [string | undefined];
 }>();
 
 const message = useMessage();
@@ -164,6 +166,8 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     ref="translateOptions"
     :gnid="GenericNovelId.web(providerId, novelId)"
     :glossary="glossary"
+    :theme-glossary-id="themeGlossaryId"
+    @update:theme-glossary-id="(val) => emit('update:themeGlossaryId', val)"
   />
 
   <n-flex vertical style="margin-top: 16px">

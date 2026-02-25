@@ -66,6 +66,7 @@ data class WenkuNovel(
     val webIds: List<String> = emptyList(),
     val volumes: List<WenkuNovelVolume>,
     val glossaryUuid: String? = null,
+    val themeGlossaryId: String? = null,
     val glossary: Map<String, String> = emptyMap(),
     val visited: Long,
     @Contextual val updateAt: Instant = Clock.System.now(),

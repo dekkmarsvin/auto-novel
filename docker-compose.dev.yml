@@ -1,0 +1,81 @@
+networks:
+  default:
+    name: auto-novel
+    driver: bridge
+
+services:
+  web:
+    build:
+      context: ./web
+    ports:
+      - 8080:80
+    volumes:
+      - ./data/files-temp:/data/files-temp
+      - ./data/files-wenku:/data/files-wenku
+      - ./data/files-extra:/data/files-extra
+    restart: always
+
+  server:
+    build:
+      context: ./server
+    ports:
+      - 8081:8080
+    depends_on:
+      - mongo
+      - elasticsearch
+      - redis
+    environment:
+      - HTTPS_PROXY
+      - MAILGUN_API_KEY
+      - MAILGUN_API_URL
+      - MAILGUN_FROM_EMAIL
+      - JWT_SECRET
+      - HAMELN_TOKEN
+      - PIXIV_COOKIE_PHPSESSID
+      - DB_HOST_MONGO=mongo
+      - DB_HOST_ES=elasticsearch
+      - DB_HOST_REDIS=redis
+    volumes:
+      - ./data/files-temp:/data/files-temp
+      - ./data/files-wenku:/data/files-wenku
+      - ./data/files-extra:/data/files-extra
+    restart: always
+
+  mongo:
+    image: mongo:6.0.3
+    environment:
+      - MONGO_INITDB_DATABASE=main
+    volumes:
+      - ./db/mongo-init:/docker-entrypoint-initdb.d:ro
+      - ./data/db:/data/db
+    restart: always
+
+  elasticsearch:
+    image: elasticsearch:8.18.1
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ./data/es/data:/usr/share/elasticsearch/data
+      - ./data/es/plugins:/usr/share/elasticsearch/plugins
+    entrypoint: |
+      bash -c "
+      if ! elasticsearch-plugin list | grep -q analysis-icu; then
+        elasticsearch-plugin install analysis-icu
+      fi
+      /usr/local/bin/docker-entrypoint.sh eswrapper
+      "
+    restart: always
+
+  redis:
+    image: redis:7.2.1
+    restart: always

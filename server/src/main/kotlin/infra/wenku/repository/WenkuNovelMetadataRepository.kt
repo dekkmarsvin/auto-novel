@@ -185,14 +185,22 @@ class WenkuNovelMetadataRepository(
     suspend fun updateGlossary(
         novelId: String,
         glossary: Map<String, String>,
+        themeGlossaryId: String?,
     ) {
+        val list = mutableListOf(
+            set(WebNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
+            set(WebNovel::glossary.field(), glossary),
+        )
+        if (themeGlossaryId != null) {
+            list.add(set(WenkuNovel::themeGlossaryId.field(), themeGlossaryId))
+        } else {
+            list.add(unset(WenkuNovel::themeGlossaryId.field()))
+        }
+
         wenkuNovelMetadataCollection
             .updateOne(
                 WenkuNovel.byId(novelId),
-                combine(
-                    set(WebNovel::glossaryUuid.field(), UUID.randomUUID().toString()),
-                    set(WebNovel::glossary.field(), glossary)
-                ),
+                combine(list),
             )
     }
 

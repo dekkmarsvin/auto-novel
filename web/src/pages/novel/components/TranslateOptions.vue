@@ -10,6 +10,11 @@ import { Setting, useSettingStore } from '@/stores';
 const probs = defineProps<{
   gnid: GenericNovelId;
   glossary: Glossary;
+  themeGlossaryId?: string;
+}>();
+
+const emit = defineEmits<{
+  'update:themeGlossaryId': [id?: string];
 }>();
 const isWideScreen = useIsWideScreen(600);
 
@@ -156,7 +161,15 @@ const showDownloadModal = ref(false);
           :round="false"
           @action="showDownloadModal = true"
         />
-        <glossary-button :gnid="gnid" :value="glossary" :round="false" />
+        <glossary-button
+          :gnid="gnid"
+          :value="glossary"
+          :theme-glossary-id="themeGlossaryId"
+          @update:theme-glossary-id="
+            (val) => emit('update:themeGlossaryId', val)
+          "
+          :round="false"
+        />
       </n-button-group>
     </c-action-wrapper>
 

@@ -187,14 +187,20 @@ fun Route.routeWebNovel() {
             }
         }
         put<WebNovelRes.Id.Glossary> { loc ->
+            @Serializable
+            class Body(
+                val themeGlossaryId: String? = null,
+                val glossary: Map<String, String>,
+            )
             val user = call.user()
-            val body = call.receive<Map<String, String>>()
+            val body = call.receive<Body>()
             call.tryRespond {
                 service.updateGlossary(
                     user = user,
                     providerId = loc.parent.providerId,
                     novelId = loc.parent.novelId,
-                    glossary = body,
+                    glossary = body.glossary,
+                    themeGlossaryId = body.themeGlossaryId,
                 )
             }
         }
@@ -433,6 +439,7 @@ class WebNovelApi(
         val totalCharacters: Int?,
         val introductionJp: String,
         val introductionZh: String?,
+        val themeGlossaryId: String?,
         val glossary: Map<String, String>,
         val toc: List<NovelTocItemDto>,
         val visited: Long,
@@ -462,6 +469,7 @@ class WebNovelApi(
             totalCharacters = novel.totalCharacters,
             introductionJp = novel.introductionJp,
             introductionZh = novel.introductionZh,
+            themeGlossaryId = novel.themeGlossaryId,
             glossary = novel.glossary,
             toc = novel.toc.map { it.asDto() },
             visited = novel.visited,
@@ -638,16 +646,18 @@ class WebNovelApi(
         providerId: String,
         novelId: String,
         glossary: Map<String, String>,
+        themeGlossaryId: String?,
     ) {
         user.requireNovelAccess()
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
-        if (novel.glossary == glossary)
+        if (novel.glossary == glossary && novel.themeGlossaryId == themeGlossaryId)
             throwBadRequest("修改为空")
         metadataRepo.updateGlossary(
             providerId = providerId,
             novelId = novelId,
             glossary = glossary,
+            themeGlossaryId = themeGlossaryId,
         )
         operationHistoryRepo.create(
             operator = ObjectId(user.id),
@@ -683,6 +693,7 @@ class WebNovelApi(
 class WebNovelTranslateV2Api(
     private val metadataRepo: WebNovelMetadataRepository,
     private val chapterRepo: WebNovelChapterRepository,
+    private val themeGlossaryRepo: infra.common.ThemeGlossaryRepository,
 ) {
     @Serializable
     data class TranslateTaskDto(
@@ -753,7 +764,7 @@ class WebNovelTranslateV2Api(
             introductionJp = novel.introductionJp,
             introductionZh = novel.introductionZh,
             glossaryUuid = novel.glossaryUuid ?: "no glossary",
-            glossary = novel.glossary,
+            glossary = (novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap()) + novel.glossary,
             toc = toc,
         )
     }
@@ -810,7 +821,7 @@ class WebNovelTranslateV2Api(
             paragraphJp = chapter.paragraphs,
             oldParagraphZh = oldTranslation.takeIf { !sakuraOutdated },
             glossaryId = novel.glossaryUuid ?: "no glossary",
-            glossary = novel.glossary,
+            glossary = (novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap()) + novel.glossary,
             oldGlossaryId = oldGlossaryId,
             oldGlossary = oldGlossary ?: emptyMap(),
         )

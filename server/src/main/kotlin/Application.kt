@@ -20,6 +20,7 @@ import infra.wenku.datasource.WenkuNovelEsDataSource
 import infra.wenku.datasource.WenkuNovelVolumeDiskDataSource
 import infra.wenku.repository.WenkuNovelMetadataRepository
 import infra.wenku.repository.WenkuNovelVolumeRepository
+import infra.common.ThemeGlossaryRepository
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -89,6 +90,7 @@ fun main() {
             //
             routeWebNovel()
             routeWenkuNovel()
+            routeThemeGlossary()
         }
     }.start(wait = true)
 }
@@ -148,6 +150,8 @@ val appModule = module {
     singleOf(::WenkuNovelVolumeRepository)
     singleOf(::WenkuNovelFavoredRepository)
 
+    singleOf(::ThemeGlossaryRepository)
+
     // App Layer
     singleOf(::ArticleApi)
     singleOf(::CommentApi)
@@ -162,4 +166,5 @@ val appModule = module {
     singleOf(::WebNovelTranslateV2Api)
     singleOf(::WenkuNovelApi)
     singleOf(::WenkuNovelTranslateV2Api)
+    singleOf(::ThemeGlossaryApi)
 }

@@ -57,6 +57,7 @@ const { expandedNames, hasSeparators, isAnyExpanded, toggleAll, tocSections } =
       v-model:gpt="novel.gpt"
       :sakura="novel.sakura"
       :glossary="novel.glossary"
+      v-model:theme-glossary-id="novel.themeGlossaryId"
     />
 
     <comment-list

@@ -95,6 +95,7 @@ class WebNovel(
     val introductionJp: String,
     val introductionZh: String? = null,
     val glossaryUuid: String? = "no glossary",
+    val themeGlossaryId: String? = null,
     val glossary: Map<String, String> = emptyMap(),
     val toc: List<WebNovelTocItem>,
     // Translate state
