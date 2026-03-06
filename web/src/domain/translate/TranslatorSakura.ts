@@ -9,6 +9,7 @@ export class SakuraTranslator implements SegmentTranslator {
   log: (message: string, detail?: string[]) => void;
   private api;
   version: string = '0.9';
+  static readonly versions = ['0.8', '0.9', '0.10', '1.0', '1.5'] as const;
   model?: {
     id: string;
     meta: SakuraTranslator.ModelMeta;
@@ -36,10 +37,11 @@ export class SakuraTranslator implements SegmentTranslator {
     this.model = (await this.detectModel()) as typeof this.model;
     const id = this.model?.id;
     if (id !== undefined) {
-      if (id.includes('0.8')) this.version = '0.8';
-      else if (id.includes('0.9')) this.version = '0.9';
-      else if (id.includes('0.10')) this.version = '0.10';
+      if (id.includes('1.5')) this.version = '1.5';
       else if (id.includes('1.0')) this.version = '1.0';
+      else if (id.includes('0.10')) this.version = '0.10';
+      else if (id.includes('0.9')) this.version = '0.9';
+      else if (id.includes('0.8')) this.version = '0.8';
     }
     console.log('Model:');
     console.log(this.model);
@@ -192,7 +194,26 @@ export class SakuraTranslator implements SegmentTranslator {
       String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
     );
 
-    if (this.version === '1.0') {
+    if (this.version === '1.5') {
+      system(
+        '你是一个日本二次元领域的日语翻译模型，可以流畅通顺地以日本轻小说/漫画/Galgame的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。',
+      );
+      if (prevText !== '') {
+        assistant(prevText);
+      }
+
+      if (Object.keys(glossary).length === 0) {
+        user(`将下面的日文文本翻译成中文：${text}`);
+      } else {
+        const glossaryHint = Object.entries(glossary)
+          .map(([wordJp, wordZh]) => `${wordJp}->${wordZh}`)
+          .join('\n');
+        user(
+          `根据以下术语表（可以为空）：\n${glossaryHint}\n` +
+            `将下面的日文文本根据对应关系和备注翻译成中文：${text}`,
+        );
+      }
+    } else if (this.version === '1.0') {
       system(
         '你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。',
       );
@@ -281,6 +302,28 @@ export namespace SakuraTranslator {
   export const allowModels: {
     [key: string]: { repo: string; meta: ModelMeta };
   } = {
+    'sakura-14b-qwen3-v1.5-q6k': {
+      repo: 'SakuraLLM/Sakura-14B-Qwen3-v1.5-GGUF',
+      meta: {
+        vocab_type: 2,
+        n_vocab: 151936,
+        n_ctx_train: 32768,
+        n_embd: 5120,
+        n_params: 14768307200,
+        size: 12115978240,
+      },
+    },
+    'sakura-14b-qwen3-v1.5-iq4xs': {
+      repo: 'SakuraLLM/Sakura-14B-Qwen3-v1.5-GGUF',
+      meta: {
+        vocab_type: 2,
+        n_vocab: 151936,
+        n_ctx_train: 32768,
+        n_embd: 5120,
+        n_params: 14768307200,
+        size: 8174402560,
+      },
+    },
     'sakura-14b-qwen2.5-v1.0-iq4xs': {
       repo: 'SakuraLLM/Sakura-14B-Qwen2.5-v1.0-GGUF',
       meta: {

@@ -8,7 +8,7 @@ services:
     build:
       context: ./web
     ports:
-      - 8080:80
+      - 80:80
     volumes:
       - ./data/files-temp:/data/files-temp
       - ./data/files-wenku:/data/files-wenku
@@ -19,7 +19,7 @@ services:
     build:
       context: ./server
     ports:
-      - 8081:8080
+      - 5000:8080
     depends_on:
       - mongo
       - elasticsearch
@@ -61,6 +61,7 @@ services:
     environment:
       - xpack.security.enabled=false
       - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
     ulimits:
       memlock:
         soft: -1

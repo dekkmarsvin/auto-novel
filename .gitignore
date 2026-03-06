@@ -1,5 +1,6 @@
 .vscode
 .idea/
+.antigravity-images
 
 # Script
 script/dist/
