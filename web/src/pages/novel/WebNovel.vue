@@ -2,7 +2,6 @@
 import { computedAsync } from '@vueuse/core';
 
 import { formatError } from '@/api';
-import { Crawler } from '@/domain/crawler';
 import { useIsWideScreen } from '@/pages/util';
 import { WebNovelRepo } from '@/repos';
 
@@ -34,8 +33,6 @@ watch(formatedError, async (error) => {
     router.push({ path: `/novel${targetNovelPath}` });
   }
 });
-
-Crawler.updateWebNovel(providerId, novelId);
 </script>
 
 <template>
