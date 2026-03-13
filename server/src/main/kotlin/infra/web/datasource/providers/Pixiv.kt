@@ -145,7 +145,12 @@ class Pixiv(
                                 )
                             )
                         } else {
-                            throw NovelAccessDeniedException()
+                            toc.add(
+                                RemoteNovelMetadata.TocItem(
+                                    title = "-----",
+                                    chapterId = null,
+                                )
+                            )
                         }
                     }
                 keywords.addAll(keywordsBuffer)
@@ -182,7 +187,13 @@ class Pixiv(
                             )
                         )
                     } else {
-                        throw NovelAccessDeniedException()
+                        val fallbackTitle = if (it.containsKey("title")) it.string("title") else "-----"
+                        toc.add(
+                            RemoteNovelMetadata.TocItem(
+                                title = fallbackTitle,
+                                chapterId = null,
+                            )
+                        )
                     }
                 }
 

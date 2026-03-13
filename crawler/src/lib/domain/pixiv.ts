@@ -101,14 +101,20 @@ export class Pixiv implements WebNovelProvider {
         const arr: [] = obj.page?.seriesContents ?? [];
 
         arr.forEach((seriesContent: any) => {
-          if (seriesContent.title == undefined)
-            throw NovelAccessDeniedException();
-          keywords.push(...(seriesContent.tags ?? []));
-          toc.push({
-            title: seriesContent.title,
-            chapterId: seriesContent.id,
-            createAt: seriesContent.createDate,
-          });
+          if (seriesContent.title == undefined) {
+            toc.push({
+              title: '-----',
+              chapterId: null,
+              createAt: null,
+            });
+          } else {
+            keywords.push(...(seriesContent.tags ?? []));
+            toc.push({
+              title: seriesContent.title,
+              chapterId: seriesContent.id,
+              createAt: seriesContent.createDate,
+            });
+          }
         });
 
         if (arr.length < 30) {
@@ -141,7 +147,11 @@ export class Pixiv implements WebNovelProvider {
             createAt: null,
           });
         } else {
-          throw NovelAccessDeniedException();
+          toc.push({
+            title: item.title || '-----',
+            chapterId: null,
+            createAt: null,
+          });
         }
       });
 
