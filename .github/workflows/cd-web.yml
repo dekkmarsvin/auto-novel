@@ -4,7 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [.github/workflows/cd-web.yml, web/**]
+    paths:
+      - .github/workflows/cd-web.yml
+      - web/**
+      - crawler/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-web

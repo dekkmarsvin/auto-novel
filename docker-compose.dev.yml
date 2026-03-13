@@ -6,7 +6,8 @@ networks:
 services:
   web:
     build:
-      context: ./web
+      context: .
+      dockerfile: web/Dockerfile
     ports:
       - 80:80
     volumes:
