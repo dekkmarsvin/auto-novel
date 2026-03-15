@@ -50,6 +50,12 @@ private class WebNovelRes {
 
     @Resource("/{providerId}/{novelId}")
     class Id(val parent: WebNovelRes, val providerId: String, val novelId: String) {
+        @Resource("/translation")
+        class Translation(val parent: Id)
+
+        @Resource("/wenku-id")
+        class WenkuId(val parent: Id)
+
         @Resource("/glossary")
         class Glossary(val parent: Id)
 
@@ -177,6 +183,47 @@ fun Route.routeWebNovel() {
                 )
             }
         }
+
+        put<WebNovelRes.Id.Translation> { loc ->
+            @Serializable
+            class Body(
+                val title: String,
+                val introduction: String,
+                val toc: Map<String, String>,
+            )
+
+            val user = call.user()
+            val body = call.receive<Body>()
+            call.tryRespond {
+                service.updateMetadataTranslation(
+                    user = user,
+                    providerId = loc.parent.providerId,
+                    novelId = loc.parent.novelId,
+                    title = body.title,
+                    introduction = body.introduction,
+                    toc = body.toc,
+                )
+            }
+        }
+
+        put<WebNovelRes.Id.WenkuId> { loc ->
+            @Serializable
+            class Body(
+                val wenkuId: String,
+            )
+
+            val user = call.user()
+            val body = call.receive<Body>()
+            call.tryRespond {
+                service.updateMetadataWenkuId(
+                    user = user,
+                    providerId = loc.parent.providerId,
+                    novelId = loc.parent.novelId,
+                    wenkuId = body.wenkuId,
+                )
+            }
+        }
+
         put<WebNovelRes.Id.Glossary> { loc ->
             val user = call.user()
             val body = call.receive<Map<String, String>>()
@@ -600,6 +647,77 @@ class WebNovelApi(
                 ),
                 toc = tocRecord,
             )
+        )
+    }
+
+    suspend fun updateMetadataWenkuId(
+        user: User,
+        providerId: String,
+        novelId: String,
+        wenkuId: String,
+    ) {
+        user.requireNovelAccess()
+
+        if (wenkuId.isNotBlank() && wenkuMetadataRepo.get(wenkuId) == null) {
+            throwNotFound("文库版不存在")
+        }
+
+        val metadata = metadataRepo.get(providerId, novelId)
+            ?: throwNovelNotFound()
+
+        val originWenkuId = metadata.wenkuId
+        val targetWenkuId = wenkuId.takeIf { it.isNotBlank() }
+        if (originWenkuId != targetWenkuId) {
+            metadataRepo.updateWenkuId(
+                providerId = providerId,
+                novelId = novelId,
+                wenkuId = wenkuId.takeIf { it.isNotBlank() },
+            )
+            val webId = "${providerId}/${novelId}"
+            if (originWenkuId != null) {
+                wenkuMetadataRepo.removeWebId(originWenkuId, webId)
+            }
+            if (targetWenkuId != null) {
+                wenkuMetadataRepo.addWebId(targetWenkuId, webId)
+            }
+        }
+    }
+
+    suspend fun updateMetadataTranslation(
+        user: User,
+        providerId: String,
+        novelId: String,
+        title: String,
+        introduction: String,
+        toc: Map<String, String>,
+    ) {
+        user.requireNovelAccess()
+
+        val metadata = metadataRepo.get(providerId, novelId)
+            ?: throwNovelNotFound()
+
+        val tocZh = mutableMapOf<Int, String>()
+        val tocRecord = mutableListOf<Operation.WebEdit.Toc>()
+        metadata.toc.forEachIndexed { index, item ->
+            val newTitleZh = toc[item.titleJp]
+            if (newTitleZh != null && newTitleZh != item.titleZh) {
+                tocZh[index] = newTitleZh
+                tocRecord.add(
+                    Operation.WebEdit.Toc(
+                        jp = item.titleJp,
+                        old = item.titleZh,
+                        new = newTitleZh,
+                    )
+                )
+            }
+        }
+
+        metadataRepo.updateTranslation(
+            providerId = providerId,
+            novelId = novelId,
+            titleZh = title.takeIf { it.isNotBlank() },
+            introductionZh = introduction.takeIf { it.isNotBlank() },
+            tocZh = tocZh,
         )
     }
 
