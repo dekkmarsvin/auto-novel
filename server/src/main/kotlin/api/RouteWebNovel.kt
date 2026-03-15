@@ -371,6 +371,7 @@ class WebNovelApi(
     private val fileRepo: WebNovelFileRepository,
     private val favoredRepo: WebNovelFavoredRepository,
     private val historyRepo: WebNovelReadHistoryRepository,
+    private val oplogRepo: WebNovelOplogRepository,
     private val wenkuMetadataRepo: WenkuNovelMetadataRepository,
     private val operationHistoryRepo: OperationHistoryRepository,
 ) {
@@ -667,20 +668,26 @@ class WebNovelApi(
 
         val originWenkuId = metadata.wenkuId
         val targetWenkuId = wenkuId.takeIf { it.isNotBlank() }
-        if (originWenkuId != targetWenkuId) {
-            metadataRepo.updateWenkuId(
-                providerId = providerId,
-                novelId = novelId,
-                wenkuId = wenkuId.takeIf { it.isNotBlank() },
-            )
-            val webId = "${providerId}/${novelId}"
-            if (originWenkuId != null) {
-                wenkuMetadataRepo.removeWebId(originWenkuId, webId)
-            }
-            if (targetWenkuId != null) {
-                wenkuMetadataRepo.addWebId(targetWenkuId, webId)
-            }
+        if (originWenkuId == targetWenkuId) return
+
+        metadataRepo.updateWenkuId(
+            providerId = providerId,
+            novelId = novelId,
+            wenkuId = wenkuId.takeIf { it.isNotBlank() },
+        )
+        val webId = "${providerId}/${novelId}"
+        if (originWenkuId != null) {
+            wenkuMetadataRepo.removeWebId(originWenkuId, webId)
         }
+        if (targetWenkuId != null) {
+            wenkuMetadataRepo.addWebId(targetWenkuId, webId)
+        }
+        oplogRepo.create(
+            providerId = providerId,
+            novelId = novelId,
+            operator = user.username,
+            operation = WebNovelOperation.UpdateWenkuId,
+        )
     }
 
     suspend fun updateMetadataTranslation(
@@ -718,6 +725,12 @@ class WebNovelApi(
             titleZh = title.takeIf { it.isNotBlank() },
             introductionZh = introduction.takeIf { it.isNotBlank() },
             tocZh = tocZh,
+        )
+        oplogRepo.create(
+            providerId = providerId,
+            novelId = novelId,
+            operator = user.username,
+            operation = WebNovelOperation.UpdateTranslation,
         )
     }
 
