@@ -160,30 +160,6 @@ fun Route.routeWebNovel() {
 
     authenticateDb {
         // Update
-        post<WebNovelRes.Id> { loc ->
-            @Serializable
-            class Body(
-                val title: String,
-                val introduction: String,
-                val wenkuId: String,
-                val toc: Map<String, String>,
-            )
-
-            val user = call.user()
-            val body = call.receive<Body>()
-            call.tryRespond {
-                service.updateMetadata(
-                    user = user,
-                    providerId = loc.providerId,
-                    novelId = loc.novelId,
-                    title = body.title,
-                    introduction = body.introduction,
-                    wenkuId = body.wenkuId,
-                    toc = body.toc,
-                )
-            }
-        }
-
         put<WebNovelRes.Id.Translation> { loc ->
             @Serializable
             class Body(
@@ -574,83 +550,6 @@ class WebNovelApi(
     }
 
     // Update
-    suspend fun updateMetadata(
-        user: User,
-        providerId: String,
-        novelId: String,
-        title: String,
-        introduction: String,
-        wenkuId: String,
-        toc: Map<String, String>,
-    ) {
-        user.requireNovelAccess()
-
-        if (wenkuId.isNotBlank() && wenkuMetadataRepo.get(wenkuId) == null) {
-            throwNotFound("文库版不存在")
-        }
-
-        val metadata = metadataRepo.get(providerId, novelId)
-            ?: throwNovelNotFound()
-
-        val tocZh = mutableMapOf<Int, String>()
-        val tocRecord = mutableListOf<Operation.WebEdit.Toc>()
-        metadata.toc.forEachIndexed { index, item ->
-            val newTitleZh = toc[item.titleJp]
-            if (newTitleZh != null && newTitleZh != item.titleZh) {
-                tocZh[index] = newTitleZh
-                tocRecord.add(
-                    Operation.WebEdit.Toc(
-                        jp = item.titleJp,
-                        old = item.titleZh,
-                        new = newTitleZh,
-                    )
-                )
-            }
-        }
-
-        val originWenkuId = metadata.wenkuId
-        val targetWenkuId = wenkuId.takeIf { it.isNotBlank() }
-        if (originWenkuId != targetWenkuId) {
-            metadataRepo.updateWenkuId(
-                providerId = providerId,
-                novelId = novelId,
-                wenkuId = wenkuId.takeIf { it.isNotBlank() },
-            )
-            val webId = "${providerId}/${novelId}"
-            if (originWenkuId != null) {
-                wenkuMetadataRepo.removeWebId(originWenkuId, webId)
-            }
-            if (targetWenkuId != null) {
-                wenkuMetadataRepo.addWebId(targetWenkuId, webId)
-            }
-        }
-
-        metadataRepo.updateTranslation(
-            providerId = providerId,
-            novelId = novelId,
-            titleZh = title.takeIf { it.isNotBlank() },
-            introductionZh = introduction.takeIf { it.isNotBlank() },
-            tocZh = tocZh,
-        )
-
-        operationHistoryRepo.create(
-            operator = ObjectId(user.id),
-            operation = Operation.WebEdit(
-                providerId = providerId,
-                novelId = novelId,
-                old = Operation.WebEdit.Data(
-                    titleZh = metadata.titleZh,
-                    introductionZh = metadata.introductionZh,
-                ),
-                new = Operation.WebEdit.Data(
-                    titleZh = title,
-                    introductionZh = introduction,
-                ),
-                toc = tocRecord,
-            )
-        )
-    }
-
     suspend fun updateMetadataWenkuId(
         user: User,
         providerId: String,
