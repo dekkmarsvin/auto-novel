@@ -14,7 +14,7 @@ services:
       - ./data/files-extra:/data/files-extra
     restart: always
 
-  server:
+  api:
     image: ghcr.io/dekkmarsvin/auto-novel-server:latest
     depends_on:
       - mongo

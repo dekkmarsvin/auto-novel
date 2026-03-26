@@ -16,7 +16,7 @@ services:
       - ./data/files-extra:/data/files-extra
     restart: always
 
-  server:
+  api:
     build:
       context: ./server
     ports:
