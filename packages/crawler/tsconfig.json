@@ -8,10 +8,9 @@
     "resolveJsonModule": true,
     "lib": ["DOM", "ES2021"],
     "skipLibCheck": true,
-    "useDefineForClassFields": true,
     "paths": {
-      "@/*": ["./src/lib/*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["./src/lib/**/*"]
+  "include": ["src"]
 }

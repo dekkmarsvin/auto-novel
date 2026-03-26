@@ -120,88 +120,47 @@ class Pixiv(
                 .array("tags")
                 .forEach { keywords.add(it.jsonPrimitive.content) }
 
-            if (keywords.isEmpty()) {
-                val arr1 =
-                    client.get("https://www.pixiv.net/ajax/novel/series_content/${novelId}?limit=30&last_order=0&order_by=asc")
-                        .json()
-                        .obj("body")
-                        .obj("page")
-                        .array("seriesContents")
-
-                val keywordsBuffer = mutableSetOf<String>()
-                arr1
+            val total = obj1.int("total")
+            val keywordsAlt = mutableSetOf<String>()
+            for (start in 0 until total step 30) {
+                client.get("https://www.pixiv.net/ajax/novel/series_content/${novelId}?limit=30&last_order=${start}&order_by=asc&lang=zh")
+                    .json()
+                    .obj("body")
+                    .obj("page")
+                    .array("seriesContents")
                     .map { it.jsonObject }
                     .forEach { seriesContent ->
-                        if (seriesContent.containsKey("title")) {
-                            keywordsBuffer.addAll(
-                                seriesContent
-                                    .array("tags")
-                                    .map { it.jsonPrimitive.content }
-                            )
-                            toc.add(
-                                RemoteNovelMetadata.TocItem(
-                                    title = seriesContent.string("title"),
-                                    chapterId = seriesContent.string("id"),
-                                )
-                            )
-                        } else {
+                        if (seriesContent.obj("series").int("viewableType") != 0) {
+                            // Hidden chapter: add placeholder instead of throwing
                             toc.add(
                                 RemoteNovelMetadata.TocItem(
                                     title = "-----",
                                     chapterId = null,
                                 )
                             )
+                        } else {
+                            if (keywords.isEmpty() && keywordsAlt.size < 20) {
+                                keywordsAlt.addAll(
+                                    seriesContent
+                                        .array("tags")
+                                        .map { tag -> tag.jsonPrimitive.content }
+                                )
+                            }
+                            toc.add(
+                                RemoteNovelMetadata.TocItem(
+                                    title = seriesContent.string("title"),
+                                    chapterId = seriesContent.string("id"),
+                                )
+                            )
                         }
                     }
-                keywords.addAll(keywordsBuffer)
-
-                if (arr1.size < 30) {
-                    // 只有一页
-                    return RemoteNovelMetadata(
-                        title = title,
-                        authors = listOf(author),
-                        type = WebNovelType.连载中,
-                        keywords = keywords,
-                        attentions = attentions,
-                        points = null,
-                        totalCharacters = totalCharacters,
-                        introduction = introduction,
-                        toc = toc,
-                    )
-                }
             }
-
-            toc.clear()
-            val arr2 = client.get("https://www.pixiv.net/ajax/novel/series/$novelId/content_titles")
-                .json()
-                .array("body")
-
-            arr2
-                .map { it.jsonObject }
-                .forEach {
-                    if (it.boolean("available")) {
-                        toc.add(
-                            RemoteNovelMetadata.TocItem(
-                                title = it.string("title"),
-                                chapterId = it.string("id"),
-                            )
-                        )
-                    } else {
-                        val fallbackTitle = if (it.containsKey("title")) it.string("title") else "-----"
-                        toc.add(
-                            RemoteNovelMetadata.TocItem(
-                                title = fallbackTitle,
-                                chapterId = null,
-                            )
-                        )
-                    }
-                }
 
             return RemoteNovelMetadata(
                 title = title,
                 authors = listOf(author),
                 type = WebNovelType.连载中,
-                keywords = keywords,
+                keywords = keywords.ifEmpty { keywordsAlt.toList() },
                 attentions = attentions,
                 points = null,
                 totalCharacters = totalCharacters,

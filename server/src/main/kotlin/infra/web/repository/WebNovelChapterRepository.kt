@@ -69,12 +69,6 @@ class WebNovelChapterRepository(
                 ),
             )
             .toList()
-            .apply {
-                println("////")
-                this.forEach {
-                    println(it)
-                }
-            }
     }
 
     suspend fun get(

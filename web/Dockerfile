@@ -5,13 +5,13 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN npm install -g pnpm@9
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY crawler/package.json ./crawler/
+COPY packages/crawler/package.json ./packages/crawler/
 COPY web/package.json ./web/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
-COPY crawler ./crawler
+COPY packages/crawler ./packages/crawler
 COPY web ./web
 RUN pnpm run build
 

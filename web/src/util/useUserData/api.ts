@@ -10,7 +10,7 @@ export const AuthUrl = (() => {
   }
 
   // 不考虑 a.co.uk 这种顶级域名
-  //  n.novelia.cc => auth.novelia.cc
+  //  books.kotoban.top => auth.novelia.cc
   //  test.com => auth.test.com
   const parts = host.split('.');
   const baseDomain = parts.length > 2 ? parts.slice(-2).join('.') : host;
