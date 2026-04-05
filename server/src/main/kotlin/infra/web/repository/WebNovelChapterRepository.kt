@@ -81,6 +81,49 @@ class WebNovelChapterRepository(
             .firstOrNull()
     }
 
+    suspend fun create(
+        providerId: String,
+        novelId: String,
+        chapterId: String,
+        paragraphs: List<String>,
+    ) {
+        webNovelChapterCollection.insertOne(
+            WebNovelChapter(
+                providerId = providerId,
+                novelId = novelId,
+                chapterId = chapterId,
+                paragraphs = paragraphs,
+            )
+        )
+        updateMetadataJp(providerId, novelId)
+    }
+
+    suspend fun update(
+        providerId: String,
+        novelId: String,
+        chapterId: String,
+        paragraphs: List<String>,
+    ) {
+        val local = get(providerId, novelId, chapterId) ?: return
+        if (local.paragraphs == paragraphs) {
+            return
+        }
+
+        val updated = WebNovelChapter(
+            providerId = providerId,
+            novelId = novelId,
+            chapterId = chapterId,
+            paragraphs = paragraphs,
+        )
+        replaceChapterAndRefreshTranslateState(
+            providerId = providerId,
+            novelId = novelId,
+            chapterId = chapterId,
+            local = local,
+            updated = updated,
+        )
+    }
+
     private suspend fun getRemote(
         providerId: String,
         novelId: String,
@@ -120,27 +163,42 @@ class WebNovelChapterRepository(
             return Result.success(remote)
         } else if (remote.paragraphs != local.paragraphs) {
             // 本地存在，但不是最新
-            webNovelChapterCollection
-                .replaceOne(
-                    WebNovelChapter.byId(providerId, novelId, chapterId),
-                    remote,
-                )
-            if (local.baiduParagraphs != null) {
-                updateChapterTranslateState(providerId, novelId, TranslatorId.Baidu)
-            }
-            if (local.youdaoParagraphs != null) {
-                updateChapterTranslateState(providerId, novelId, TranslatorId.Youdao)
-            }
-            if (local.gptParagraphs != null) {
-                updateChapterTranslateState(providerId, novelId, TranslatorId.Gpt)
-            }
-            if (local.sakuraParagraphs != null){
-                updateChapterTranslateState(providerId, novelId, TranslatorId.Sakura)
-            }
+            replaceChapterAndRefreshTranslateState(
+                providerId = providerId,
+                novelId = novelId,
+                chapterId = chapterId,
+                local = local,
+                updated = remote,
+            )
             return Result.success(remote)
         } else {
             // 本地存在，且已是最新
             return Result.success(local)
+        }
+    }
+
+    private suspend fun replaceChapterAndRefreshTranslateState(
+        providerId: String,
+        novelId: String,
+        chapterId: String,
+        local: WebNovelChapter,
+        updated: WebNovelChapter,
+    ) {
+        webNovelChapterCollection.replaceOne(
+            WebNovelChapter.byId(providerId, novelId, chapterId),
+            updated,
+        )
+        if (local.baiduParagraphs != null) {
+            updateChapterTranslateState(providerId, novelId, TranslatorId.Baidu)
+        }
+        if (local.youdaoParagraphs != null) {
+            updateChapterTranslateState(providerId, novelId, TranslatorId.Youdao)
+        }
+        if (local.gptParagraphs != null) {
+            updateChapterTranslateState(providerId, novelId, TranslatorId.Gpt)
+        }
+        if (local.sakuraParagraphs != null) {
+            updateChapterTranslateState(providerId, novelId, TranslatorId.Sakura)
         }
     }
 
