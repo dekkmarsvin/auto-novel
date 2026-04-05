@@ -6,12 +6,12 @@ import api.plugins.*
 import infra.common.*
 import infra.oplog.Operation
 import infra.oplog.OperationHistoryRepository
-import infra.user.UserFavoredRepository
 import infra.web.*
 import infra.web.datasource.providers.Hameln
 import infra.web.datasource.providers.Kakuyomu
 import infra.web.datasource.providers.NovelIdShouldBeReplacedException
 import infra.web.datasource.providers.Pixiv
+import infra.web.datasource.providers.RemoteNovelMetadata.TocItem
 import infra.web.datasource.providers.Syosetu
 import infra.web.repository.*
 import infra.wenku.repository.WenkuNovelMetadataRepository
@@ -26,9 +26,30 @@ import io.ktor.server.resources.post
 import io.ktor.server.resources.put
 import io.ktor.server.routing.*
 import io.ktor.util.*
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
 import org.koin.ktor.ext.inject
+
+@Serializable
+data class WebNovelUpdateBodyTocItem(
+    val title: String,
+    val chapterId: String? = null,
+    val createAt: Instant? = null,
+)
+
+@Serializable
+data class WebNovelUpdateBody(
+    val title: String,
+    val authors: List<WebNovelAuthor>,
+    val type: WebNovelType,
+    val attentions: List<WebNovelAttention>,
+    val keywords: List<String>,
+    val points: Int?,
+    val totalCharacters: Int,
+    val introduction: String,
+    val toc: List<WebNovelUpdateBodyTocItem>,
+)
 
 @Resource("/novel")
 private class WebNovelRes {
@@ -140,7 +161,7 @@ fun Route.routeWebNovel() {
         get<WebNovelRes.Id> { loc ->
             val user = call.userOrNull()
             call.tryRespond {
-                service.getMetadata(
+                service.getNovel(
                     user = user,
                     providerId = loc.providerId,
                     novelId = loc.novelId,
@@ -159,6 +180,32 @@ fun Route.routeWebNovel() {
     }
 
     authenticateDb {
+        post<WebNovelRes.Id> { loc ->
+            val user = call.user()
+            val body = call.receive<WebNovelUpdateBody>()
+            call.tryRespond {
+                service.createNovel(
+                    user = user,
+                    providerId = loc.providerId,
+                    novelId = loc.novelId,
+                    body = body,
+                )
+            }
+        }
+
+        put<WebNovelRes.Id> { loc ->
+            val user = call.user()
+            val body = call.receive<WebNovelUpdateBody>()
+            call.tryRespond {
+                service.updateNovel(
+                    user = user,
+                    providerId = loc.providerId,
+                    novelId = loc.novelId,
+                    body = body,
+                )
+            }
+        }
+
         // Update
         put<WebNovelRes.Id.Translation> { loc ->
             @Serializable
@@ -482,7 +529,7 @@ class WebNovelApi(
         }
     }
 
-    suspend fun getMetadata(
+    suspend fun getNovel(
         user: User?,
         providerId: String,
         novelId: String,
@@ -505,6 +552,87 @@ class WebNovelApi(
             )
         }
         return dto
+    }
+
+    suspend fun updateNovel(
+        user: User,
+        providerId: String,
+        novelId: String,
+        body: WebNovelUpdateBody,
+    ) {
+        user.requireAdmin() // temp admin only
+        user.requireNovelAccess()
+        validateId(providerId, novelId)
+
+        val novel = metadataRepo.get(providerId, novelId)
+            ?: throwNovelNotFound()
+
+        val noChapterDeleted = novel
+            .toc
+            .mapNotNull { it.chapterId }
+            .all { oldChapterId ->
+                body.toc.any { newItem ->
+                    newItem.chapterId == oldChapterId
+                }
+            }
+        if (!noChapterDeleted) {
+            user.requireAdmin()
+        }
+
+        metadataRepo.update(
+            providerId = providerId,
+            novelId = novelId,
+            titleJp = body.title,
+            authors = body.authors,
+            type = body.type,
+            attentions = body.attentions,
+            keywords = body.keywords,
+            points = body.points,
+            totalCharacters = body.totalCharacters,
+            introductionJp = body.introduction,
+            toc = body.toc.map { WebNovelTocItem(it.title, null, it.chapterId, it.createAt) },
+        )
+        oplogRepo.create(
+            providerId = providerId,
+            novelId = novelId,
+            operator = user.username,
+            operation = WebNovelOperation.Update,
+        )
+    }
+
+    suspend fun createNovel(
+        user: User,
+        providerId: String,
+        novelId: String,
+        body: WebNovelUpdateBody,
+    ) {
+        user.requireAdmin() // temp admin only
+        user.requireNovelAccess()
+        validateId(providerId, novelId)
+
+        if (metadataRepo.get(providerId, novelId) != null) {
+            throwBadRequest("小说已存在")
+        }
+
+        metadataRepo.create(
+            providerId = providerId,
+            novelId = novelId,
+            titleJp = body.title,
+            authors = body.authors,
+            type = body.type,
+            attentions = body.attentions,
+            keywords = body.keywords,
+            points = body.points,
+            totalCharacters = body.totalCharacters,
+            introductionJp = body.introduction,
+            toc = body.toc.map { WebNovelTocItem(it.title, null, it.chapterId, it.createAt) },
+        )
+        oplogRepo.create(
+            providerId = providerId,
+            novelId = novelId,
+            operator = user.username,
+            operation = WebNovelOperation.Update,
+        )
     }
 
     @Serializable
