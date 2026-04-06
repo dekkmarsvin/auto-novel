@@ -1,4 +1,4 @@
-import { KyInstance } from "ky";
+import { KyInstance } from 'ky';
 
 export type FetchType = (
   input: URL | string | RequestLike,
@@ -36,9 +36,14 @@ export interface WebNovelProvider<GetRankOptionsT = Record<string, string>> {
 
   client: KyInstance;
 
-  getRank(options: GetRankOptionsT): Promise<Page<RemoteNovelListItem> | null>;
-  getMetadata(novelId: string): Promise<RemoteNovelMetadata | null>;
-  getChapter(novelId: string, chapterId: string): Promise<RemoteChapter | null>;
+  getRank(
+    options: GetRankOptionsT,
+  ): Promise<Page<RemoteNovelListItem> | null | undefined>;
+  getMetadata(novelId: string): Promise<RemoteNovelMetadata | null | undefined>;
+  getChapter(
+    novelId: string,
+    chapterId: string,
+  ): Promise<RemoteChapter | null | undefined>;
 }
 
 export type Page<T> = {
@@ -61,28 +66,28 @@ export type RemoteNovelListItem = {
 };
 
 export enum WebNovelAttention {
-  R15 = "R15",
-  R18 = "R18",
-  Cruelty = "残酷描写",
-  Violence = "暴力描写",
-  SexualContent = "性描写",
+  R15 = 'R15',
+  R18 = 'R18',
+  Cruelty = '残酷描写',
+  Violence = '暴力描写',
+  SexualContent = '性描写',
 }
 
 export type WebNovelAuthor = {
   name: string;
-  link: string | null;
+  link: string | null | undefined;
 };
 
 export enum WebNovelType {
-  Ongoing = "连载中",
-  Completed = "已完结",
-  ShortStory = "短篇",
+  Ongoing = '连载中',
+  Completed = '已完结',
+  ShortStory = '短篇',
 }
 
 export type TocItem = {
   title: string;
-  chapterId: string | null;
-  createAt: string | null;
+  chapterId: string | null | undefined;
+  createAt: string | null | undefined;
 };
 
 export type RemoteChapter = {
@@ -95,17 +100,17 @@ export type RemoteNovelMetadata = {
   type: WebNovelType;
   attentions: WebNovelAttention[];
   keywords: string[];
-  points: number | null;
+  points: number | null | undefined;
   totalCharacters: number;
   introduction: string;
   toc: TocItem[];
 };
 
 // Errors
-export const NovelRateLimitedException = () => new Error("源站获取频率太快");
+export const NovelRateLimitedException = () => new Error('源站获取频率太快');
 export const NovelAccessDeniedException = () =>
-  new Error("当前账号无法获取该小说资源");
+  new Error('当前账号无法获取该小说资源');
 export const NovelIdShouldBeReplacedException = (
   providerId: string,
   targetNovelId: string,
-) => new Error("当前账号无法获取该小说资源");
+) => new Error('当前账号无法获取该小说资源');

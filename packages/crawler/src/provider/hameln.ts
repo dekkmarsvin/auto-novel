@@ -1,4 +1,8 @@
-import * as cheerio from "cheerio";
+import * as cheerio from 'cheerio';
+import type { KyInstance } from 'ky';
+
+import { parseJapanDateString } from '@/utils';
+
 import {
   type Page,
   type RemoteChapter,
@@ -9,24 +13,31 @@ import {
   type WebNovelAuthor,
   type WebNovelProvider,
   WebNovelType,
-} from "./types";
-
-import { parseJapanDateString } from "@/utils";
-import * as A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
-import * as O from "fp-ts/lib/Option.js";
-import type { KyInstance } from "ky";
+} from './types';
 import {
-  assertValid,
   numExtractor,
   removePrefix,
   removeSuffix,
   stringToAttentionEnum,
-} from "./utils";
+} from './utils';
+
+function parseWebNovelType(text: string): WebNovelType {
+  if (text.startsWith('連載(完結)')) {
+    return WebNovelType.Completed;
+  }
+  if (text.startsWith('連載(未完)') || text.startsWith('連載(連載中)')) {
+    return WebNovelType.Ongoing;
+  }
+  if (text.startsWith('短編')) {
+    return WebNovelType.ShortStory;
+  }
+
+  throw new Error(`无法解析的小说类型:${text}`);
+}
 
 export class Hameln implements WebNovelProvider {
-  readonly id = "hameln";
-  readonly version = "1.0.0";
+  readonly id = 'hameln';
+  readonly version = '1.0.0';
 
   client: KyInstance;
 
@@ -34,8 +45,8 @@ export class Hameln implements WebNovelProvider {
     this.client = client;
   }
 
-  readonly URL_ORIGIN = "https://syosetu.org";
-  readonly URL_PROXY = "https://hml.xkvi.top";
+  readonly URL_ORIGIN = 'https://syosetu.org';
+  readonly URL_PROXY = 'https://hml.xkvi.top';
 
   private options = {
     useProxy: false,
@@ -49,121 +60,122 @@ export class Hameln implements WebNovelProvider {
     this.options = options;
   }
 
-  async getRank(options: any): Promise<Page<RemoteNovelListItem>> {
-    throw new Error("Not implemented");
+  async getRank(
+    _options: Record<string, string>,
+  ): Promise<Page<RemoteNovelListItem>> {
+    throw new Error('Not implemented');
   }
 
   async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
-    const url1 = `${this.baseUrl}/novel/${novelId}`;
-    const url2 = `${this.baseUrl}/?mode=ss_detail&nid=${novelId}`;
-    const worker = (url: string) =>
+    const load = (url: string) =>
       this.client
         .get(url)
         .text()
-        .then((doc) => cheerio.load(doc));
-    const [$1, $2] = await Promise.all([worker(url1), worker(url2)]);
+        .then((html) => cheerio.load(html));
+
+    const [$list, $detail] = await Promise.all([
+      load(`${this.baseUrl}/novel/${novelId}`),
+      load(`${this.baseUrl}/?mode=ss_detail&nid=${novelId}`),
+    ]);
 
     const row = (label: string) => {
-      const ret = pipe(
-        $2(`td`).toArray(),
-        A.findFirst((el) => $2(el).text().trim() === label),
-        O.map((el) => $2(el).next()),
-        O.filter((el) => el.length > 0),
-        O.toNullable,
-      );
-      const msg = `Failed to find row: ${label}`;
-      assertValid(ret, msg);
-      if (ret.length === 0) throw new Error(msg);
-      return ret;
+      const cell = $detail('td')
+        .toArray()
+        .find((el) => $detail(el).text().trim() === label);
+      if (!cell) {
+        throw new Error(`Failed to find row: ${label}`);
+      }
+
+      const value = $detail(cell).next();
+      if (value.length === 0) {
+        throw new Error(`Failed to find row: ${label}`);
+      }
+
+      return value;
     };
 
-    const title = row("タイトル").text().trim();
+    const title = row('タイトル').text().trim();
 
-    const author = pipe(row("作者"), (el) => {
-      const a = el.find("a").first();
-      return <WebNovelAuthor>{
-        name: el.text().trim(),
-        link: a.attr("href")?.replace(this.URL_ORIGIN, this.baseUrl),
-      };
-    });
+    const authorCell = row('作者');
+    const authorLink = authorCell.find('a').first();
+    const author: WebNovelAuthor = {
+      name: authorCell.text().trim(),
+      link: authorLink.attr('href')?.replace(this.URL_ORIGIN, this.baseUrl),
+    };
 
-    const type = pipe(row("話数").text().trim(), (text) => {
-      const matchers: [string, WebNovelType][] = [
-        ["連載(完結)", WebNovelType.Completed],
-        ["連載(未完)", WebNovelType.Ongoing],
-        ["連載(連載中)", WebNovelType.Ongoing],
-        ["短編", WebNovelType.ShortStory],
-      ];
-      const match = matchers.find(([prefix]) => text.startsWith(prefix));
-      if (!match) throw new Error(`无法解析的小说类型:${text}`);
-      return match[1];
-    });
+    const type = parseWebNovelType(row('話数').text().trim());
 
     const attentions: WebNovelAttention[] = [];
     const keywords: string[] = [];
 
-    row("原作")
-      .find("a")
+    row('原作')
+      .find('a')
       .each((_, el) => {
-        const tag = $2(el).text().trim();
-        keywords.push(tag);
-      });
-
-    ["タグ", "必須タグ"]
-      .flatMap((label) => row(label).find("a").toArray())
-      .map((el) => $2(el).text().trim())
-      .forEach((tag) => {
-        const tagOrAttention = stringToAttentionEnum(tag);
-        if (tagOrAttention) {
-          attentions.push(tagOrAttention);
-        } else {
+        const tag = $detail(el).text().trim();
+        if (tag) {
           keywords.push(tag);
         }
       });
 
-    const points = numExtractor(row("総合評価").text().trim());
-    const totalCharacters = numExtractor(row("合計文字数").text().trim());
+    for (const label of ['タグ', '必須タグ']) {
+      row(label)
+        .find('a')
+        .each((_, el) => {
+          const tag = $detail(el).text().trim();
+          if (!tag) {
+            return;
+          }
 
-    const introduction = pipe(
-      O.fromNullable(row("あらすじ")),
-      O.filter(($el) => $el.length > 0),
-      O.map(($el) => $el.text().trim()),
-      O.toNullable,
-    );
+          const attention = stringToAttentionEnum(tag);
+          if (attention) {
+            attentions.push(attention);
+          } else {
+            keywords.push(tag);
+          }
+        });
+    }
+
+    const points = numExtractor(row('総合評価').text().trim());
+    const totalCharacters = numExtractor(row('合計文字数').text().trim()) ?? 0;
+    const introduction = row('あらすじ').text().trim();
 
     const toc: TocItem[] =
-      $1("span[itemprop=name]").length === 0
-        ? [<TocItem>{ title: "无名", chapterId: "default" }]
-        : $1("tbody > tr")
+      $list('span[itemprop=name]').length === 0
+        ? [{ title: '无名', chapterId: 'default', createAt: null }]
+        : $list('tbody > tr')
             .map((_, tr) => {
-              const $tr = $1(tr);
-              const $a = $tr.find("a").first();
+              const $tr = $list(tr);
+              const $a = $tr.find('a').first();
+              if ($a.length === 0) {
+                return {
+                  title: $tr.text().trim(),
+                  chapterId: null,
+                  createAt: null,
+                } satisfies TocItem;
+              }
 
-              return $a.length === 0
-                ? <TocItem>{ title: $tr.text().trim() }
-                : <TocItem>{
-                    title: $a.text().trim(),
-                    chapterId: pipe(
-                      O.fromNullable($a.attr("href")),
-                      O.map(removePrefix("./")),
-                      O.map(removeSuffix(".html")),
-                      O.toNullable,
-                    ),
-                    createAt: parseJapanDateString(
-                      "yyyy年MM月dd日 HH:mm",
-                      $tr
-                        .find("nobr")
-                        .contents()
-                        .first()
-                        .text()
-                        .replace(/\(.*?\)/g, "")
-                        .trim(),
-                    ),
-                  };
+              const href = $a.attr('href') ?? '';
+              const rawDate = $tr
+                .find('nobr')
+                .contents()
+                .first()
+                .text()
+                .replace(/\(.*?\)/g, '')
+                .trim();
+
+              return {
+                title: $a.text().trim(),
+                chapterId: removeSuffix('.html')(removePrefix('./')(href)),
+                createAt:
+                  parseJapanDateString(
+                    'yyyy年MM月dd日 HH:mm',
+                    rawDate,
+                  )?.toISOString() ?? null,
+              } satisfies TocItem;
             })
             .get();
 
-    return <RemoteNovelMetadata>{
+    return {
       title,
       authors: [author],
       type,
@@ -178,28 +190,26 @@ export class Hameln implements WebNovelProvider {
 
   async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
     const url =
-      chapterId === "default"
+      chapterId === 'default'
         ? `${this.baseUrl}/novel/${novelId}`
         : `${this.baseUrl}/novel/${novelId}/${chapterId}.html`;
 
-    const doc = await this.client.get(url).text();
-    const $ = cheerio.load(doc);
+    const html = await this.client.get(url).text();
+    const $ = cheerio.load(html);
 
-    const paragraphs: string[] = $("div#honbun")
+    const paragraphs = $('div#honbun')
       .first()
-      .find("p")
+      .find('p')
       .map((_, el) => {
         const $el = $(el);
-        $el.find("rp, rt").remove();
-        $el.find("br").replaceWith("\n");
+        $el.find('rp, rt').remove();
+        $el.find('br').replaceWith('\n');
         return $el;
       })
-      .filter((_, el) => Boolean(el.attr("id")))
+      .filter((_, el) => Boolean(el.attr('id')))
       .map((_, el) => el.text().trim())
       .get();
 
-    return <RemoteChapter>{
-      paragraphs,
-    };
+    return { paragraphs };
   }
 }

@@ -1,4 +1,6 @@
-import * as cheerio from "cheerio";
+import * as cheerio from 'cheerio';
+import type { KyInstance } from 'ky';
+
 import {
   type Page,
   type RemoteChapter,
@@ -8,22 +10,33 @@ import {
   type WebNovelAuthor,
   type WebNovelProvider,
   WebNovelType,
-} from "./types";
-
-import { pipe } from "fp-ts/lib/function.js";
-import * as O from "fp-ts/lib/Option.js";
-import type { KyInstance } from "ky";
+} from './types';
 import {
   assertEl,
-  assertValid,
   numExtractor,
   stringToAttentionEnum,
   substringAfterLast,
-} from "./utils";
+} from './utils';
+
+function textOrNull(text: string): string | null {
+  const normalized = text.trim();
+  return normalized ? normalized : null;
+}
+
+function parseWebNovelType(typeText: string): WebNovelType {
+  switch (typeText) {
+    case '連載中':
+      return WebNovelType.Ongoing;
+    case '完結':
+      return WebNovelType.Completed;
+    default:
+      throw new Error(`无法解析的小说类型： ${typeText}`);
+  }
+}
 
 export class Alphapolis implements WebNovelProvider {
-  readonly id = "alphapolis";
-  readonly version = "1.0.0";
+  readonly id = 'alphapolis';
+  readonly version = '1.0.0';
 
   client: KyInstance;
 
@@ -31,148 +44,145 @@ export class Alphapolis implements WebNovelProvider {
     this.client = client;
   }
 
-  async getRank(options: any): Promise<Page<RemoteNovelListItem>> {
-    throw new Error("Not implemented");
+  async getRank(
+    _options: Record<string, string>,
+  ): Promise<Page<RemoteNovelListItem>> {
+    throw new Error('Not implemented');
   }
 
   private getMetadataUrl(novelId: string): string {
-    return `https://www.alphapolis.co.jp/novel/${novelId.split("-").join("/")}`;
+    return `https://www.alphapolis.co.jp/novel/${novelId.split('-').join('/')}`;
   }
+
   private getEpisodeUrl(novelId: string, chapterId: string): string {
     return `${this.getMetadataUrl(novelId)}/episode/${chapterId}`;
   }
 
   async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
-    const url = this.getMetadataUrl(novelId);
-    const doc = await this.client.get(url).text();
-    const $ = cheerio.load(doc);
+    const html = await this.client.get(this.getMetadataUrl(novelId)).text();
+    const $ = cheerio.load(html);
 
-    const $contentInfo = $("#sidebar").first().find(".content-info").first();
-    assertEl($contentInfo, "doc parse failed");
+    const $contentInfo = $('#sidebar').first().find('.content-info').first();
+    assertEl($contentInfo, 'doc parse failed');
 
-    const $contentMain = $("#main").first().find(".content-main").first();
-    assertEl($contentMain, "doc parse failed");
+    const $contentMain = $('#main').first().find('.content-main').first();
+    assertEl($contentMain, 'doc parse failed');
 
-    const $info = $contentInfo.find(".content-statuses").first();
-    assertEl($info, "doc parse failed");
+    const $info = $contentInfo.find('.content-statuses').first();
+    assertEl($info, 'doc parse failed');
 
-    const $table = $contentInfo.find("table.detail").first();
-    assertEl($table, "doc parse failed");
+    const $table = $contentInfo.find('table.detail').first();
+    assertEl($table, 'doc parse failed');
 
     const row = (label: string) =>
       $table
-        .find(`th`)
+        .find('th')
         .filter((_, el) => {
           const ownText = $(el)
             .contents()
-            .filter((_, el) => el.type == "text")
+            .filter((_, child) => child.type === 'text')
             .text();
           return ownText.includes(label);
         })
         .first()
         .next();
 
-    const title = $contentMain.find("h1.title").first().text().trim();
+    const title = $contentMain.find('h1.title').first().text().trim();
 
     const authors = $contentMain
-      .find("div.author a")
+      .find('div.author a')
       .first()
       .map((_, a) => {
         const $a = $(a);
-        return <WebNovelAuthor>{
+        return {
           name: $a.text().trim(),
-          link: $a.attr("href") || null,
-        };
+          link: $a.attr('href') || null,
+        } satisfies WebNovelAuthor;
       })
       .get();
 
-    const type = pipe(
-      O.fromNullable($info.find("span.complete").first().text().trim()),
-      O.map((ty) => {
-        const mapping: Record<string, WebNovelType> = {
-          連載中: WebNovelType.Ongoing,
-          完結: WebNovelType.Completed,
-        };
-        const ret = mapping[ty];
-        assertValid(ret, `无法解析的小说类型： ${ty}`);
-        return ret;
-      }),
-      O.toNullable,
-    );
+    const typeText = textOrNull($info.find('span.complete').first().text());
+    if (!typeText) {
+      throw new Error('小说类型解析失败');
+    }
+    const type = parseWebNovelType(typeText);
 
-    const attention = pipe(
-      O.fromNullable($info.find("span.rating").first().text()),
-      O.map(stringToAttentionEnum),
-      O.toNullable,
-    );
+    const attentionText = textOrNull($info.find('span.rating').first().text());
+    const attention = attentionText
+      ? stringToAttentionEnum(attentionText)
+      : null;
 
     const keywords = $contentMain
-      .find(".content-tags > .tag")
+      .find('.content-tags > .tag')
       .map((_, el) => $(el).text().trim())
       .get();
 
-    const points = numExtractor(row("累計ポイント").text().trim());
-
-    const totalCharacters = numExtractor(row("文字数").text().trim());
-
-    const introduction = pipe(
-      O.fromNullable($contentMain.find("div.abstract").first()),
-      O.filter(($el) => $el.length > 0),
-      O.map(($el) => $el.text().trim()),
-      O.toNullable,
-    );
+    const points = numExtractor(row('累計ポイント').text().trim());
+    const totalCharacters = numExtractor(row('文字数').text().trim()) ?? 0;
+    const introduction = $contentMain
+      .find('div.abstract')
+      .first()
+      .text()
+      .trim();
 
     const toc: TocItem[] = [];
-    $("div.episodes")
+    $('div.episodes')
       .children()
       .each((_, el) => {
         const $el = $(el);
-        if ($el.hasClass("chapter-rental")) {
-          toc.push(<TocItem>{
-            title: $el.find("h3").first().text().trim(),
+        if ($el.hasClass('chapter-rental')) {
+          toc.push({
+            title: $el.find('h3').first().text().trim(),
+            chapterId: null,
+            createAt: null,
           });
-        } else if ($el.hasClass("rental")) {
+          return;
+        }
+
+        if ($el.hasClass('rental')) {
           $el
-            .find("div.rental-episode > a")
-            .not("[class]")
-            .each((_, el) => {
-              const $it = $(el);
-              toc.push(<TocItem>{
-                title: $it.text().trim(),
-                chapterId: pipe(
-                  O.fromNullable($it.attr("href")),
-                  O.map(substringAfterLast("/")),
-                  O.toNullable,
-                ),
+            .find('div.rental-episode > a')
+            .not('[class]')
+            .each((_, child) => {
+              const $item = $(child);
+              const href = $item.attr('href');
+              toc.push({
+                title: $item.text().trim(),
+                chapterId: href ? substringAfterLast('/')(href) : null,
+                createAt: null,
               });
             });
-        } else if (el.tagName == "h3") {
+          return;
+        }
+
+        if (el.tagName === 'h3') {
           const chapterTitle = $el.text().trim();
-          if (chapterTitle.length !== 0) {
-            toc.push(<TocItem>{
+          if (chapterTitle) {
+            toc.push({
               title: chapterTitle,
+              chapterId: null,
+              createAt: null,
             });
           }
-        } else if ($el.hasClass("episode")) {
-          toc.push(<TocItem>{
-            title: pipe(
-              O.fromNullable($el.find("span.title").first()),
-              O.filter(($it) => $it.length > 0),
-              O.map(($it) => $it.text().trim()),
-              O.getOrElseW(() => {
-                throw new Error("episode title parse failed");
-              }),
-            ),
-            chapterId: pipe(
-              O.fromNullable($el.find("a").first().attr("href")),
-              O.map(substringAfterLast("/")),
-              O.toNullable,
-            ),
+          return;
+        }
+
+        if ($el.hasClass('episode')) {
+          const episodeTitle = $el.find('span.title').first().text().trim();
+          if (!episodeTitle) {
+            throw new Error('episode title parse failed');
+          }
+
+          const href = $el.find('a').first().attr('href');
+          toc.push({
+            title: episodeTitle,
+            chapterId: href ? substringAfterLast('/')(href) : null,
+            createAt: null,
           });
         }
       });
 
-    return <RemoteNovelMetadata>{
+    return {
       title,
       authors,
       type,
@@ -186,28 +196,27 @@ export class Alphapolis implements WebNovelProvider {
   }
 
   async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
-    const url = this.getEpisodeUrl(novelId, chapterId);
-    const doc = await this.client.get(url).text();
-    const $ = cheerio.load(doc);
+    const html = await this.client
+      .get(this.getEpisodeUrl(novelId, chapterId))
+      .text();
+    const $ = cheerio.load(html);
 
-    let $els = $("div#novelBody");
-    if ($els.length === 0) {
-      $els = $("div.text");
+    let $content = $('div#novelBody');
+    if ($content.length === 0) {
+      $content = $('div.text');
     }
-    assertEl($els, "doc parse failed");
+    assertEl($content, 'doc parse failed');
 
-    $els.find("rp, rt").remove();
-    $els.find("br").replaceWith("\n");
+    $content.find('rp, rt').remove();
+    $content.find('br').replaceWith('\n');
 
-    const rawText = $els.text();
-
+    const rawText = $content.text();
     const paragraphs = rawText.split(/\r?\n/).map((line) => line.trim());
 
     if (paragraphs.length < 5) {
-      throw new Error("章节内容太少，爬取频率太快导致未加载");
+      throw new Error('章节内容太少，爬取频率太快导致未加载');
     }
-    return <RemoteChapter>{
-      paragraphs,
-    };
+
+    return { paragraphs };
   }
 }

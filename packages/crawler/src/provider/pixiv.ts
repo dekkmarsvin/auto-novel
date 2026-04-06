@@ -1,3 +1,5 @@
+import type { KyInstance } from 'ky';
+
 import {
   NovelAccessDeniedException,
   type Page,
@@ -9,13 +11,22 @@ import {
   type WebNovelAuthor,
   type WebNovelProvider,
   WebNovelType,
-} from "./types";
+} from './types';
 
-import type { KyInstance } from "ky";
+function parsePixivAttention(xRestrict: number): WebNovelAttention[] {
+  return xRestrict === 0 ? [] : [WebNovelAttention.R18];
+}
+
+function normalizePixivDescription(
+  description: string | undefined,
+  fallback = '',
+): string {
+  return description?.replace(/<br ?\/>/g, '\n') || fallback;
+}
 
 export class Pixiv implements WebNovelProvider {
-  readonly id = "pixiv";
-  readonly version = "1.0.0";
+  readonly id = 'pixiv';
+  readonly version = '1.0.0';
 
   client: KyInstance;
 
@@ -24,16 +35,17 @@ export class Pixiv implements WebNovelProvider {
   }
 
   async getRank(
-    options: Record<string, string>,
+    _options: Record<string, string>,
   ): Promise<Page<RemoteNovelListItem>> {
-    throw new Error("Not implemented");
+    throw new Error('Not implemented');
   }
 
   async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
-    if (novelId.startsWith("s")) {
+    if (novelId.startsWith('s')) {
       const chapterId = novelId.substring(1);
-      const url = `https://www.pixiv.net/ajax/novel/${chapterId}`;
-      const data: any = await this.client.get(url).json();
+      const data: any = await this.client
+        .get(`https://www.pixiv.net/ajax/novel/${chapterId}`)
+        .json();
       const obj = data.body;
 
       const seriesData = obj.seriesNavData;
@@ -42,124 +54,127 @@ export class Pixiv implements WebNovelProvider {
         throw new Error(`小说ID不合适，应当使用：/${this.id}/${targetNovelId}`);
       }
 
-      const title = obj.title;
       const author: WebNovelAuthor = {
         name: obj.userName,
         link: `https://www.pixiv.net/users/${obj.userId}`,
       };
 
-      const keywords = obj.tags?.tags
-        ?.map((tagItem: any) => tagItem?.tag)
-        .filter((tag: string) => tag != "R-18");
-
-      const attentions = obj.xRestrict == 0 ? [] : [WebNovelAttention.R18];
-      const totalCharacters = obj.characterCount;
-      const introduction =
-        obj.description?.replace(/<br ?\/>/g, "\n") || obj.caption || "";
-      const createAt = obj.createDate;
+      const keywords =
+        obj.tags?.tags
+          ?.map((tagItem: any) => tagItem?.tag)
+          .filter((tag: string) => tag !== 'R-18') ?? [];
 
       return {
-        title,
+        title: obj.title,
         authors: [author],
         type: WebNovelType.ShortStory,
         keywords,
-        attentions,
+        attentions: parsePixivAttention(obj.xRestrict),
         points: null,
-        totalCharacters,
-        introduction,
+        totalCharacters: obj.characterCount,
+        introduction: normalizePixivDescription(
+          obj.description,
+          obj.caption || '',
+        ),
         toc: [
           {
-            title: "无名",
-            chapterId: chapterId,
-            createAt,
+            title: '无名',
+            chapterId,
+            createAt: obj.createDate,
           },
         ],
       };
-    } else {
-      const data: any = await this.client
-        .get(`https://www.pixiv.net/ajax/novel/series/${novelId}`)
+    }
+
+    const data: any = await this.client
+      .get(`https://www.pixiv.net/ajax/novel/series/${novelId}`)
+      .json();
+    const obj = data.body;
+
+    const author: WebNovelAuthor = {
+      name: obj.userName,
+      link: `https://www.pixiv.net/users/${obj.userId}`,
+    };
+
+    const attentions = parsePixivAttention(obj.xRestrict);
+    const totalCharacters = obj.publishedTotalCharacterCount;
+    const introduction = normalizePixivDescription(
+      obj.description,
+      obj.caption || '',
+    );
+    const toc: TocItem[] = [];
+    const keywords = Array.isArray(obj.tags) ? [...obj.tags] : [];
+
+    if (keywords.length === 0) {
+      const contentData: any = await this.client
+        .get(
+          `https://www.pixiv.net/ajax/novel/series_content/${novelId}?limit=30&last_order=0&order_by=asc`,
+        )
         .json();
-      const obj = data.body;
+      const contents = contentData.body?.page?.seriesContents ?? [];
 
-      const title = obj.title;
-      const author: WebNovelAuthor = {
-        name: obj.userName,
-        link: `https://www.pixiv.net/users/${obj.userId}`,
-      };
-      const attentions = obj.xRestrict == 0 ? [] : [WebNovelAttention.R18];
-      const totalCharacters = obj.publishedTotalCharacterCount;
-      const introduction =
-        obj.description?.replace(/<br ?\/>/g, "\n") || obj.caption || "";
-
-      const toc: TocItem[] = [];
-      const keywords = obj.tags ?? [];
-
-      if (keywords.length === 0) {
-        const url = `https://www.pixiv.net/ajax/novel/series_content/${novelId}?limit=30&last_order=0&order_by=asc`;
-        const data: any = await this.client.get(url).json();
-        const obj = data.body;
-        const arr: [] = obj.page?.seriesContents ?? [];
-
-        arr.forEach((seriesContent: any) => {
-          if (seriesContent.title == undefined)
-            throw NovelAccessDeniedException();
-          keywords.push(...(seriesContent.tags ?? []));
-          toc.push({
-            title: seriesContent.title,
-            chapterId: seriesContent.id,
-            createAt: seriesContent.createDate,
-          });
-        });
-
-        if (arr.length < 30) {
-          return {
-            title,
-            authors: [author],
-            type: WebNovelType.Ongoing,
-            keywords,
-            attentions,
-            points: null,
-            totalCharacters,
-            introduction,
-            toc,
-          };
-        }
-      }
-
-      // aka, toc.clear()
-      toc.length = 0;
-
-      const url2 = `https://www.pixiv.net/ajax/novel/series/${novelId}/content_titles`;
-      const data2: any = await this.client.get(url2).json();
-      const arr2: [] = data2.body ?? [];
-
-      arr2.forEach((item: any) => {
-        if (item.available) {
-          toc.push({
-            title: item.title,
-            chapterId: item.id,
-            createAt: null,
-          });
-        } else {
+      contents.forEach((seriesContent: any) => {
+        if (seriesContent.title == undefined) {
           throw NovelAccessDeniedException();
         }
+
+        keywords.push(...(seriesContent.tags ?? []));
+        toc.push({
+          title: seriesContent.title,
+          chapterId: seriesContent.id,
+          createAt: seriesContent.createDate,
+        });
       });
 
-      return {
-        title,
-        authors: [author],
-        type: WebNovelType.Ongoing,
-        keywords,
-        attentions,
-        points: null,
-        totalCharacters,
-        introduction,
-        toc,
-      };
+      if (contents.length < 30) {
+        return {
+          title: obj.title,
+          authors: [author],
+          type: WebNovelType.Ongoing,
+          keywords,
+          attentions,
+          points: null,
+          totalCharacters,
+          introduction,
+          toc,
+        };
+      }
     }
+
+    toc.length = 0;
+
+    const titleData: any = await this.client
+      .get(`https://www.pixiv.net/ajax/novel/series/${novelId}/content_titles`)
+      .json();
+    const items = titleData.body ?? [];
+
+    items.forEach((item: any) => {
+      if (!item.available) {
+        throw NovelAccessDeniedException();
+      }
+
+      toc.push({
+        title: item.title,
+        chapterId: item.id,
+        createAt: null,
+      });
+    });
+
+    return {
+      title: obj.title,
+      authors: [author],
+      type: WebNovelType.Ongoing,
+      keywords,
+      attentions,
+      points: null,
+      totalCharacters,
+      introduction,
+      toc,
+    };
   }
 
   private readonly imagePattern1 = /\[uploadedimage:(\d+)\]/;
+
   private parseImageUrlPattern1(
     line: string,
     embeddedImages: any,
@@ -167,16 +182,18 @@ export class Pixiv implements WebNovelProvider {
     if (!embeddedImages) {
       return null;
     }
+
     const match = this.imagePattern1.exec(line);
     const id = match ? match[1] : null;
     if (!id) {
       return null;
     }
-    const url = embeddedImages[id]?.urls?.original;
-    return url ?? null;
+
+    return embeddedImages[id]?.urls?.original ?? null;
   }
 
   private readonly imagePattern2 = /\[pixivimage:(\d+)\]/;
+
   private async parseImageUrlPattern2(
     line: string,
     chapterId: string,
@@ -186,42 +203,46 @@ export class Pixiv implements WebNovelProvider {
     if (!id) {
       return null;
     }
-    const fetchUrl = `https://www.pixiv.net/ajax/novel/${chapterId}/insert_illusts?id%5B%5D=${id}`;
-    const data: any = await this.client.get(fetchUrl).json();
-    const url = data?.body?.[id]?.illust?.images?.original;
-    return url ?? null;
+
+    const data: any = await this.client
+      .get(
+        `https://www.pixiv.net/ajax/novel/${chapterId}/insert_illusts?id%5B%5D=${id}`,
+      )
+      .json();
+    return data?.body?.[id]?.illust?.images?.original ?? null;
   }
 
   private readonly rubyPattern = /\[\[rb:([^>]+) > ([^\]]+)\]\]/g;
-
   private readonly chapterPattern = /\[chapter:([^\]]+)\]/g;
+
   private cleanFormat(line: string): string {
     return line
-      .replace(this.rubyPattern, "$1")
-      .replace(this.chapterPattern, "章节：$1")
-      .replaceAll("[newpage]", "");
+      .replace(this.rubyPattern, '$1')
+      .replace(this.chapterPattern, '章节：$1')
+      .replaceAll('[newpage]', '');
   }
 
-  async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
-    const url = `https://www.pixiv.net/ajax/novel/${chapterId}`;
-    const data: any = await this.client.get(url).json();
+  async getChapter(
+    _novelId: string,
+    chapterId: string,
+  ): Promise<RemoteChapter> {
+    const data: any = await this.client
+      .get(`https://www.pixiv.net/ajax/novel/${chapterId}`)
+      .json();
     const body = data.body;
 
     const embeddedImages = body.textEmbeddedImages ?? null;
     const content: string = body.content;
 
-    const promises = content.split("\n").map(async (line: string) => {
-      const imageUrl =
-        this.parseImageUrlPattern1(line, embeddedImages) ??
-        (await this.parseImageUrlPattern2(line, chapterId));
+    const paragraphs = await Promise.all(
+      content.split('\n').map(async (line: string) => {
+        const imageUrl =
+          this.parseImageUrlPattern1(line, embeddedImages) ??
+          (await this.parseImageUrlPattern2(line, chapterId));
 
-      if (imageUrl == null) {
-        return this.cleanFormat(line);
-      } else {
-        return `<图片>${imageUrl}`;
-      }
-    });
-    const paragraphs = await Promise.all(promises);
+        return imageUrl == null ? this.cleanFormat(line) : `<图片>${imageUrl}`;
+      }),
+    );
 
     return { paragraphs };
   }

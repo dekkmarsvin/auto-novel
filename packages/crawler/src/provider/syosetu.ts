@@ -1,76 +1,129 @@
-import * as cheerio from "cheerio";
+import type { CheerioAPI } from 'cheerio';
+import * as cheerio from 'cheerio';
+import type { KyInstance } from 'ky';
+
+import { parseJapanDateString } from '@/utils';
+
 import {
   type Page,
   type RemoteChapter,
   type RemoteNovelListItem,
   type RemoteNovelMetadata,
   type TocItem,
-  WebNovelAttention,
   type WebNovelAuthor,
   type WebNovelProvider,
+  WebNovelAttention,
   WebNovelType,
   emptyPage,
-} from "./types";
+} from './types';
 
-import { parseJapanDateString } from "@/utils";
-import { pipe } from "fp-ts/lib/function.js";
-import * as O from "fp-ts/lib/Option.js";
-import type { KyInstance } from "ky";
-import { range } from "lodash-es";
-import PQueue from "p-queue";
-import {
-  removeSuffix,
-  stringToAttentionEnum,
-  substringAfterLast,
-} from "./utils";
-
-const rangeIds = {
-  每日: "daily",
-  每周: "weekly",
-  每月: "monthly",
-  季度: "quarter",
-  每年: "yearly",
-  总计: "total",
+const RANGE_IDS = {
+  每日: 'daily',
+  每周: 'weekly',
+  每月: 'monthly',
+  季度: 'quarter',
+  每年: 'yearly',
+  总计: 'total',
 } as const;
 
-const statusIds = {
-  全部: "total",
-  短篇: "t",
-  连载: "r",
-  完结: "er",
+const STATUS_IDS = {
+  全部: 'total',
+  短篇: 't',
+  连载: 'r',
+  完结: 'er',
 } as const;
 
-const genreIdsV1 = {
-  "恋爱：异世界": "101",
-  "恋爱：现实世界": "102",
-  "幻想：高幻想": "201",
-  "幻想：低幻想": "202",
-  "文学：纯文学": "301",
-  "文学：人性剧": "302",
-  "文学：历史": "303",
-  "文学：推理": "304",
-  "文学：恐怖": "305",
-  "文学：动作": "306",
-  "文学：喜剧": "307",
-  "科幻：VR游戏": "401",
-  "科幻：宇宙": "402",
-  "科幻：空想科学": "403",
-  "科幻：惊悚": "404",
-  "其他：童话": "9901",
-  "其他：诗": "9902",
-  "其他：散文": "9903",
-  "其他：其他": "9999",
+const GENRE_IDS_V1 = {
+  '恋爱：异世界': '101',
+  '恋爱：现实世界': '102',
+  '幻想：高幻想': '201',
+  '幻想：低幻想': '202',
+  '文学：纯文学': '301',
+  '文学：人性剧': '302',
+  '文学：历史': '303',
+  '文学：推理': '304',
+  '文学：恐怖': '305',
+  '文学：动作': '306',
+  '文学：喜剧': '307',
+  '科幻：VR游戏': '401',
+  '科幻：宇宙': '402',
+  '科幻：空想科学': '403',
+  '科幻：惊悚': '404',
+  '其他：童话': '9901',
+  '其他：诗': '9902',
+  '其他：散文': '9903',
+  '其他：其他': '9999',
 } as const;
 
-const genreIdsV2 = {
-  恋爱: "1",
-  幻想: "2",
-  "文学/科幻/其他": "o",
+const GENRE_IDS_V2 = {
+  恋爱: '1',
+  幻想: '2',
+  '文学/科幻/其他': 'o',
 } as const;
 
-export class Syosetu implements WebNovelProvider {
-  readonly id = "syosetu";
-  readonly version = "1.0.0";
+type GetRankOptions = {
+  range: keyof typeof RANGE_IDS;
+  status: keyof typeof STATUS_IDS;
+  page: string;
+} & (
+  | {
+      type: '流派';
+      genre: keyof typeof GENRE_IDS_V1;
+    }
+  | { type: '综合' }
+  | {
+      type: '异世界转生/转移';
+      genre: keyof typeof GENRE_IDS_V2;
+    }
+);
+
+function parseAttention(tag: string): WebNovelAttention | undefined {
+  switch (tag.trim()) {
+    case 'R15':
+    case 'R-15':
+      return WebNovelAttention.R15;
+    case 'R18':
+    case 'R-18':
+      return WebNovelAttention.R18;
+    case '残酷描写有り':
+    case '残酷描写あり':
+    case '残酷な描写':
+    case '残酷な描写あり':
+      return WebNovelAttention.Cruelty;
+    case '暴力描写有り':
+    case '暴力描写あり':
+      return WebNovelAttention.Violence;
+    case '性描写有り':
+    case '性的表現あり':
+      return WebNovelAttention.SexualContent;
+    default:
+      return undefined;
+  }
+}
+
+function parseWebNovelType(typeText: string): WebNovelType {
+  switch (typeText) {
+    case '完結済':
+      return WebNovelType.Completed;
+    case '連載中':
+      return WebNovelType.Ongoing;
+    case '短編':
+      return WebNovelType.ShortStory;
+    default:
+      throw new Error(`无法解析的小说类型: ${typeText}`);
+  }
+}
+
+function hrefLastSegment(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  const normalized = href.endsWith('/') ? href.slice(0, -1) : href;
+  const index = normalized.lastIndexOf('/');
+  return index === -1 ? normalized : normalized.slice(index + 1);
+}
+
+export class Syosetu implements WebNovelProvider<GetRankOptions> {
+  readonly id = 'syosetu';
+  readonly version = '2.0.0';
 
   client: KyInstance;
 
@@ -78,299 +131,242 @@ export class Syosetu implements WebNovelProvider {
     this.client = client;
   }
 
-  async getRank(
-    options: Record<string, string>,
-  ): Promise<Page<RemoteNovelListItem>> {
-    const genreFilter = options["genre"];
-    const rangeFilter = options["range"];
-    if (rangeFilter == null) {
-      return emptyPage();
+  async getRank(options: GetRankOptions): Promise<Page<RemoteNovelListItem>> {
+    const rangeId = RANGE_IDS[options['range']];
+    if (!rangeId) return emptyPage();
+
+    const statusId = STATUS_IDS[options['status']];
+    if (!statusId) return emptyPage();
+
+    let path = '';
+    switch (options['type']) {
+      case '流派': {
+        const genreId = GENRE_IDS_V1[options['genre']];
+        if (!genreId) return emptyPage();
+        path = `genrelist/type/${rangeId}_${genreId}_${statusId}`;
+        break;
+      }
+      case '综合':
+        path = `list/type/${rangeId}_${statusId}`;
+        break;
+      case '异世界转生/转移': {
+        const genreId = GENRE_IDS_V2[options['genre']];
+        if (!genreId) return emptyPage();
+        path = `isekailist/type/${rangeId}_${genreId}_${statusId}`;
+        break;
+      }
+      default:
+        break;
     }
-    const statusFilter = options["status"];
-    if (statusFilter == null) {
-      return emptyPage();
-    }
+    if (!path) return emptyPage();
 
-    const rangeId = rangeIds[rangeFilter as keyof typeof rangeIds];
-    const statusId = statusIds[statusFilter as keyof typeof statusIds];
+    const page = Number(options['page']);
+    if (!Number.isFinite(page) || page < 1) return emptyPage();
 
-    const page = Number(options["page"]) || 1;
-
-    const typeMappingStrategy = {
-      流派: () =>
-        pipe(
-          O.fromNullable(genreIdsV1[genreFilter as keyof typeof genreIdsV1]),
-          O.map(
-            (genreId) => `genrelist/type/${rangeId}_${genreId}_${statusId}`,
-          ),
-        ),
-      综合: () => O.some(`list/type/${rangeId}_${statusId}`),
-      "异世界转生/转移": () =>
-        pipe(
-          O.fromNullable(genreIdsV2[genreFilter as keyof typeof genreIdsV2]),
-          O.map(
-            (genreId) => `isekailist/type/${rangeId}_${genreId}_${statusId}`,
-          ),
-        ),
-    };
-
-    const path = pipe(
-      O.fromNullable(
-        typeMappingStrategy[
-          options["type"] as keyof typeof typeMappingStrategy
-        ],
-      ),
-      O.chain((f) => f()),
-      O.toNullable,
-    );
-    if (path == null) {
-      return emptyPage();
-    }
-
-    const doc = await this.client
+    const $ = await this.client
       .get(`https://yomou.syosetu.com/rank/${path}/?p=${page}`)
-      .text();
+      .text()
+      .then((text) => cheerio.load(text));
 
-    const $ = cheerio.load(doc);
+    const maxPage = Math.max(0, $('.c-pager').first().children().length - 2);
+    const items = $('.p-ranklist-item')
+      .map((_, item) => {
+        const root = $(item);
+        const titleLink = root.find('div.p-ranklist-item__title > a').first();
 
-    const pageNumber = $(".c-pager").first()?.children().length - 2;
+        const attentions: WebNovelAttention[] = [];
+        const keywords: string[] = [];
+        root
+          .find('div.p-ranklist-item__keyword')
+          .first()
+          .find('a')
+          .each((_, tagEl) => {
+            const tag = $(tagEl).text().trim();
+            const attention = parseAttention(tag);
+            if (attention) {
+              attentions.push(attention);
+            } else if (tag) {
+              keywords.push(tag);
+            }
+          });
 
-    const items = $(".p-ranklist-item").map((_, item) => {
-      const elTitle = $(item).find("div.p-ranklist-item__title > a").first();
-      const title = elTitle.text().trim();
-      const novelId = pipe(
-        O.fromNullable(elTitle.attr("href")),
-        O.map(removeSuffix("/")),
-        O.map(substringAfterLast("/")),
-        O.toNullable,
-      );
+        const extra = [
+          ...root.find('div.p-ranklist-item__points').toArray(),
+          ...root
+            .find('div.p-ranklist-item__infomation .p-ranklist-item__separator')
+            .toArray(),
+        ]
+          .map((el) => $(el).text().trim())
+          .filter(Boolean)
+          .join(' / ');
 
-      const attentions: WebNovelAttention[] = [];
-      const keywords: string[] = [];
-
-      $(item)
-        .find("div.p-ranklist-item__keyword")
-        .first()
-        .find("a")
-        .toArray()
-        .map((el) => $(el).text().trim())
-        .forEach((tagStr) => {
-          const tagOrAttention = stringToAttentionEnum(tagStr);
-          if (tagOrAttention !== null) {
-            attentions.push(tagOrAttention);
-          } else {
-            keywords.push(tagStr);
-          }
-        });
-
-      const elPoints = $(item).find("div.p-ranklist-item__points");
-      const elInformation = $(item)
-        .find("div.p-ranklist-item__infomation")
-        .first();
-      const seperators = $(elInformation)
-        .find("p-ranklist-item__separator")
-        .toArray();
-      const extra = [...elPoints.toArray(), ...seperators]
-        .map((el) => $(el).text().trim())
-        .join("/");
-
-      return <RemoteNovelListItem>{
-        novelId,
-        title,
-        attentions,
-        keywords,
-        extra,
-      };
-    });
+        return {
+          novelId: hrefLastSegment(titleLink.attr('href')) ?? '',
+          title: titleLink.text().trim(),
+          attentions,
+          keywords,
+          extra,
+        } satisfies RemoteNovelListItem;
+      })
+      .get()
+      .filter((item) => item.novelId && item.title);
 
     return {
-      items: items.get(),
-      pageNumber,
+      items,
+      pageNumber: maxPage,
     };
   }
 
   async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
-    const url1 = `https://ncode.syosetu.com/${novelId}`;
-    const url2 = `https://ncode.syosetu.com/novelview/infotop/ncode/${novelId}`;
-    const [doc1Html, doc2Html] = await Promise.all([
-      this.client.get(url1).text(),
-      this.client.get(url2).text(),
+    const [$, $info] = await Promise.all([
+      this.client
+        .get(`https://ncode.syosetu.com/${novelId}`)
+        .text()
+
+        .then((text) => cheerio.load(text)),
+      this.client
+        .get(`https://ncode.syosetu.com/novelview/infotop/ncode/${novelId}`)
+        .text()
+        .then((text) => cheerio.load(text)),
     ]);
 
-    const $1 = cheerio.load(doc1Html);
-    const $2 = cheerio.load(doc2Html);
+    const title = $info('h1').first().text().trim();
+    if (!title) throw new Error('标题解析失败');
 
-    const title = $2("h1").first().text().trim();
-    const infodataEl = $2(".p-infotop-data").first();
-    const infotypeEl = $2(".p-infotop-type").first();
+    const infoData = $info('.p-infotop-data').first();
+    const infoType = $info('.p-infotop-type').first();
+    if (infoData.length === 0 || infoType.length === 0)
+      throw new Error('作品信息解析失败');
 
-    const row = (label: string) => {
-      return infodataEl.find(`dt:contains("${label}")`).first().next();
-    };
+    const row = (label: string) =>
+      infoData
+        .find('dt')
+        .filter((_, el) => $info(el).text().trim() === label)
+        .first()
+        .next();
 
-    const authorEl = row("作者");
-    const author: WebNovelAuthor = {
-      name: authorEl.text().trim(),
-      link: authorEl.find("a").attr("href") || null,
-    };
+    const authorCell = row('作者名');
+    const authorName = authorCell.text().trim();
+    if (!authorName) throw new Error('作者解析失败');
+    const authorLink = authorCell.find('a').attr('href');
+    const authors: WebNovelAuthor[] = [{ name: authorName, link: authorLink }];
 
-    const typeStr = infotypeEl.find(".p-infotop-type__type").text().trim();
+    const typeText = infoType
+      .find('.p-infotop-type__type')
+      .first()
+      .text()
+      .trim();
+    if (!typeText) throw new Error('小说类型解析失败');
+    const type = parseWebNovelType(typeText);
 
-    let type: WebNovelType;
-    switch (typeStr) {
-      case "完結済":
-        type = WebNovelType.Completed;
-        break;
-      case "連載中":
-        type = WebNovelType.Ongoing;
-        break;
-      case "短編":
-        type = WebNovelType.ShortStory;
-        break;
-      default:
-        throw new Error(`无法解析的小说类型: ${typeStr}`);
-    }
-
-    const attentions: WebNovelAttention[] = [];
+    const attentionSet = new Set<WebNovelAttention>();
     const keywords: string[] = [];
 
-    row("キーワード")
+    const keywordTags = row('キーワード')
       .text()
       .trim()
-      .split(" ")
-      .flatMap((maybeTags) => maybeTags.split(" ")) // non-breaking space
-      .flatMap((maybeTags) => maybeTags.split(" ")) // normal space
-      .forEach((tag) => {
-        const tagOrAttention = stringToAttentionEnum(tag);
-        if (tagOrAttention !== null) {
-          attentions.push(tagOrAttention);
-        } else {
-          keywords.push(tag);
-        }
-      });
-
-    const isR18Str = infotypeEl.find(".p-infotop-type__r18").text().trim();
-    if (isR18Str) {
-      switch (isR18Str) {
-        case "R18":
-          attentions.push(WebNovelAttention.R18);
-          break;
-        default:
-          throw new Error(`无法解析的注意事项: ${isR18Str}`);
+      .split(/[\s\u00A0]+/)
+      .map((it) => it.trim())
+      .filter(Boolean);
+    for (const tag of keywordTags) {
+      const attention = parseAttention(tag);
+      if (attention) {
+        attentionSet.add(attention);
+      } else {
+        keywords.push(tag);
       }
     }
 
-    const points = pipe(
-      () =>
-        row("総合評価").text().replace(/,/g, "").match(/(\d+)/)?.[1]?.trim(),
-      Number,
-      O.fromPredicate((n) => !isNaN(n)),
-      O.toNullable,
-    );
-
-    const totalCharactersStr = row("文字数")
-      .text()
-      .replace(/,/g, "")
-      .match(/(\d+)/)?.[1]
-      ?.trim();
-    const totalCharacters = pipe(
-      Number(totalCharactersStr),
-      O.fromPredicate((n) => !isNaN(n)),
-      O.toNullable,
-    );
-
-    const introduction = pipe(
-      O.fromNullable(row("あらすじ")),
-      O.filter(($el) => $el.length > 0),
-      O.map(($el) => $el.text().trim()),
-      O.toNullable,
-    );
-
-    const tocEl = $1("div.p-eplist").first();
-    const worker = async () => {
-      if (tocEl.length === 0) {
-        return [
-          <TocItem>{
-            title: "无名",
-            chapterId: "default",
-          },
-        ];
+    const r18Text = infoType.find('.p-infotop-type__r18').first().text().trim();
+    if (r18Text) {
+      if (r18Text === 'R18') {
+        attentionSet.add(WebNovelAttention.R18);
       } else {
-        const pat = "/?p=";
-        const href = $1(".c-pager__item--last").first().attr("href");
-        const idx = href?.split(pat)?.[1]?.trim() || "";
-        const totalPages = pipe(
-          Number(idx),
-          O.fromPredicate((n) => !isNaN(n)),
-          O.getOrElse(() => 1),
-        );
-
-        const parseToc = ($: cheerio.CheerioAPI): TocItem[] =>
-          $("div.p-eplist")
-            .first()
-            .children()
-            .map((_, el) => {
-              const link = $(el).find("a").first();
-
-              if (link.length == 0) {
-                return <TocItem>{
-                  title: $(el).text().trim(),
-                };
-              }
-
-              const title = link.text().trim();
-              const chapterId = pipe(
-                O.fromNullable(link.attr("href")),
-                O.map(removeSuffix("/")),
-                O.map(substringAfterLast("/")),
-                O.toNullable,
-              );
-
-              const createAtStr = $("div.p-eplist__update")
-                .contents()
-                .filter((_, el) => el.type === "text")
-                .first()
-                .text()
-                .trim();
-              const createAt = parseJapanDateString(
-                "yyyy/MM/dd HH:mm",
-                createAtStr,
-              );
-
-              return <TocItem>{
-                title,
-                chapterId,
-                createAt,
-              };
-            })
-            .get();
-
-        const tocFirstPage = parseToc($1);
-        const queue = new PQueue({ concurrency: 2 });
-        const tasks: Promise<TocItem[]>[] = range(2, totalPages + 1).map(
-          async (page) => {
-            const url = `https://ncode.syosetu.com/${novelId}/?p=${page}`;
-            const docHtml = await this.client.get(url).text();
-            const $ = cheerio.load(docHtml);
-            const tocPage = parseToc($);
-            return tocPage;
-          },
-        );
-        const tocs = await Promise.all(
-          tasks.map((task) => queue.add(() => task)),
-        );
-        return tocFirstPage.concat(tocs.flat());
+        throw new Error(`无法解析的注意事项: ${r18Text}`);
       }
-    };
+    }
 
-    const toc = await worker();
+    function extractNumber(text: string): number | undefined {
+      const digits = text.replace(/[^0-9]/g, '');
+      if (digits.length === 0) return undefined;
+      const value = Number(digits);
+      return Number.isFinite(value) ? value : undefined;
+    }
 
-    return <RemoteNovelMetadata>{
+    const points = extractNumber(row('総合評価').text());
+
+    const totalCharacters = extractNumber(row('文字数').text());
+    if (!totalCharacters) throw new Error('字数解析失败');
+
+    const introduction = row('あらすじ').text().trim();
+    if (!introduction) throw new Error('简介解析失败');
+
+    let toc: TocItem[];
+    if ($('div.p-eplist').first().length === 0) {
+      toc = [
+        {
+          title: '无名',
+          chapterId: 'default',
+          createAt: undefined,
+        },
+      ];
+    } else {
+      const lastPageHref = $('.c-pager__item--last').first().attr('href');
+      const totalPages = Number(lastPageHref?.split('/?p=')[1] ?? '1') || 1;
+
+      function parseTocPage($: CheerioAPI): TocItem[] {
+        return $('div.p-eplist')
+          .first()
+          .children()
+          .map((_, element) => {
+            const item = $(element);
+            const link = item.find('a').first();
+
+            if (link.length === 0) {
+              return {
+                title: item.text().trim(),
+                chapterId: undefined,
+                createAt: undefined,
+              } satisfies TocItem;
+            }
+
+            const createAtText = item
+              .find('div.p-eplist__update')
+              .contents()
+              .filter((_, node) => node.type === 'text')
+              .first()
+              .text()
+              .trim();
+            const createAt = parseJapanDateString(
+              'yyyy/MM/dd HH:mm',
+              createAtText,
+            )?.toISOString();
+
+            return {
+              title: link.text().trim(),
+              chapterId: hrefLastSegment(link.attr('href')),
+              createAt,
+            } satisfies TocItem;
+          })
+          .get();
+      }
+
+      toc = parseTocPage($);
+      for (let page = 2; page <= totalPages; page += 1) {
+        const $page = await this.client
+          .get(`https://ncode.syosetu.com/${novelId}/?p=${page}`)
+          .text()
+          .then((text) => cheerio.load(text));
+        toc.push(...parseTocPage($page));
+      }
+    }
+
+    return {
       title,
-      authors: [author],
+      authors,
       type,
+      attentions: Array.from(attentionSet),
       keywords,
-      attentions,
       points,
       totalCharacters,
       introduction,
@@ -378,26 +374,34 @@ export class Syosetu implements WebNovelProvider {
     };
   }
 
-  async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
+  async getChapter(
+    novelId: string,
+    chapterId: string,
+  ): Promise<RemoteChapter | null> {
     const url =
-      chapterId === "default"
+      chapterId === 'default'
         ? `https://ncode.syosetu.com/${novelId}`
         : `https://ncode.syosetu.com/${novelId}/${chapterId}`;
 
-    const docHtml = await this.client.get(url).text();
-    const $ = cheerio.load(docHtml);
+    const $ = await this.client
+      .get(url)
+      .text()
+      .then((text) => cheerio.load(text));
 
-    $("rp, rt").remove();
-    $("br").replaceWith("\n");
-    const paragraphs = $("div.p-novel__body > div > p")
-      .map((_, p) => {
-        const pElement = $(p);
-        const imageElement = pElement.children().first().children().first();
-        return imageElement.length > 0 && imageElement.is("img")
-          ? `<图片>https:${imageElement.attr("src") ?? ""}`
-          : pElement.text();
+    $('rp, rt').remove();
+    $('br').replaceWith('\n');
+
+    const paragraphs = $('div.p-novel__body > div > p')
+      .map((_, paragraph) => {
+        const p = $(paragraph);
+        const image = p.children().first().children().first();
+        if (image.length > 0 && image.is('img')) {
+          return `<图片>https:${image.attr('src') ?? ''}`;
+        }
+        return p.text();
       })
       .get();
-    return <RemoteChapter>{ paragraphs };
+
+    return { paragraphs };
   }
 }

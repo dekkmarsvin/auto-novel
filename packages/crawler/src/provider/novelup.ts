@@ -1,4 +1,8 @@
-import * as cheerio from "cheerio";
+import * as cheerio from 'cheerio';
+import type { KyInstance } from 'ky';
+
+import { parseJapanDateString } from '@/utils';
+
 import {
   type Page,
   type RemoteChapter,
@@ -8,25 +12,27 @@ import {
   type WebNovelAuthor,
   type WebNovelProvider,
   WebNovelType,
-} from "./types";
-
-import { parseJapanDateString } from "@/utils";
-import * as A from "fp-ts/lib/Array.js";
-import { pipe } from "fp-ts/lib/function.js";
-import * as NA from "fp-ts/lib/NonEmptyArray.js";
-import * as O from "fp-ts/lib/Option.js";
-import type { KyInstance } from "ky";
-import PQueue from "p-queue";
+} from './types';
 import {
-  assertValid,
   numExtractor,
   stringToAttentionEnum,
   substringAfterLast,
-} from "./utils";
+} from './utils';
+
+function parseWebNovelType(typeText: string): WebNovelType {
+  switch (typeText) {
+    case '連載中':
+      return WebNovelType.Ongoing;
+    case '完結済':
+      return WebNovelType.Completed;
+    default:
+      throw new Error(`无法解析的小说类型： ${typeText}`);
+  }
+}
 
 export class Novelup implements WebNovelProvider {
-  readonly id = "novelup";
-  readonly version = "1.0.0";
+  readonly id = 'novelup';
+  readonly version = '1.0.0';
 
   client: KyInstance;
 
@@ -34,146 +40,126 @@ export class Novelup implements WebNovelProvider {
     this.client = client;
   }
 
-  async getRank(options: any): Promise<Page<RemoteNovelListItem>> {
-    throw new Error("Not implemented");
+  async getRank(
+    _options: Record<string, string>,
+  ): Promise<Page<RemoteNovelListItem>> {
+    throw new Error('Not implemented');
   }
 
   async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
-    const url = `https://novelup.plus/story/${novelId}`;
-    const doc = await this.client.get(url).text();
-    const $ = cheerio.load(doc);
+    const html = await this.client
+      .get(`https://novelup.plus/story/${novelId}`)
+      .text();
+    const $ = cheerio.load(html);
 
-    const $info = $("table.storyMeta");
-
+    const $info = $('table.storyMeta');
     const row = (label: string) =>
       $info
-        .find(`th`)
+        .find('th')
         .filter((_, el) => {
           const ownText = $(el)
             .contents()
-            .filter((_, el) => el.type == "text")
+            .filter((_, child) => child.type === 'text')
             .text();
           return ownText.includes(label);
         })
         .first()
         .next();
 
-    const title = $("h1.storyTitle").text().trim();
+    const title = $('h1.storyTitle').text().trim();
 
-    const author = $("a.storyAuthor")
+    const authors = $('a.storyAuthor')
       .first()
       .map(
         (_, el) =>
-          <WebNovelAuthor>{
+          ({
             name: $(el).text().trim(),
-            link: $(el).attr("href") || null,
-          },
+            link: $(el).attr('href') || null,
+          }) satisfies WebNovelAuthor,
       )
       .get();
 
-    const mapping: Record<string, WebNovelType> = {
-      連載中: WebNovelType.Ongoing,
-      完結済: WebNovelType.Completed,
-    };
-    const type = pipe(
-      O.fromNullable($("p.state_lamp span").last().text().trim()),
-      O.filter(Boolean),
-      O.map((ty) => {
-        const ret = mapping[ty];
-        assertValid(ret, `无法解析的小说类型： ${ty}`);
-        return ret;
-      }),
-      O.toNullable,
-    );
+    const typeText = $('p.state_lamp span').last().text().trim();
+    const type = parseWebNovelType(typeText);
 
-    const attentions = pipe(
-      row("セルフレイティング").contents().toArray(),
-      A.filterMap((node) => {
-        if (node.type !== "text") return O.none;
-        const text = $(node).text().trim();
-        const attention = stringToAttentionEnum(text);
-        return attention ? O.some(attention) : O.none;
-      }),
-    );
+    const attentions = row('セルフレイティング')
+      .contents()
+      .toArray()
+      .flatMap((node) => {
+        if (node.type !== 'text') {
+          return [];
+        }
 
-    const keywords = row("タグ")
+        const attention = stringToAttentionEnum($(node).text().trim());
+        return attention ? [attention] : [];
+      });
+
+    const keywords = row('タグ')
       .children()
       .map((_, el) => $(el).text().trim())
       .get();
 
-    const points = numExtractor(row("応援ポイント").text().trim());
-    const totalCharacters = numExtractor(row("文字数").text().trim());
+    const points = numExtractor(row('応援ポイント').text().trim());
+    const totalCharacters = numExtractor(row('文字数').text().trim()) ?? 0;
+    const introduction = $('div.novel_synopsis').first().text().trim();
 
-    const introduction = pipe(
-      O.fromNullable($("div.novel_synopsis")),
-      O.filter(($el) => $el.length > 0),
-      O.map(($el) => $el.text().trim()),
-      O.toNullable,
-    );
+    const paginationHref = $('ul.pagination')
+      .children()
+      .last()
+      .find('a')
+      .attr('href');
+    const totalPage = (() => {
+      if (!paginationHref) {
+        return 1;
+      }
 
-    const totalPage = pipe(
-      O.fromNullable($("ul.pagination").children().last()),
-      O.map((el) => $(el).find("a").attr("href")),
-      O.chain(O.fromNullable),
-      O.map(substringAfterLast("=")),
-      O.map(Number),
-      O.filter(Number.isFinite),
-      O.getOrElse(() => 1),
-    );
+      const value = Number(substringAfterLast('=')(paginationHref));
+      return Number.isFinite(value) && value > 0 ? value : 1;
+    })();
 
-    const fetchDocPromise = pipe(
-      NA.range(1, totalPage),
-      A.map(async (page) => {
-        if (page === 1) return $;
-        else {
-          const url = await `https://novelup.plus/story/${novelId}?p=${page}`;
-          const doc = await this.client.get(url).text();
-          return cheerio.load(doc);
-        }
-      }),
-    );
-    const queue = new PQueue({ concurrency: 2 });
-    const tocs = await Promise.all(
-      fetchDocPromise.map((promise) => queue.add(() => promise)),
-    );
+    const pages = [$];
+    for (let page = 2; page <= totalPage; page += 1) {
+      const subHtml = await this.client
+        .get(`https://novelup.plus/story/${novelId}?p=${page}`)
+        .text();
+      pages.push(cheerio.load(subHtml));
+    }
 
-    const toc = pipe(
-      tocs,
-      A.map(($sub) =>
-        $sub("div.episodeList")
-          .first()
-          .find("div.episodeListItem")
-          .map((_, li) => {
-            const a = $sub(li).find("a").first();
-            if (a.length === 0) {
-              return <TocItem>{ title: $sub(li).text().trim() };
-            }
+    const toc: TocItem[] = [];
+    for (const $sub of pages) {
+      $sub('div.episodeList')
+        .first()
+        .find('div.episodeListItem')
+        .each((_, li) => {
+          const item = $sub(li);
+          const link = item.find('a').first();
+          if (link.length === 0) {
+            toc.push({
+              title: item.text().trim(),
+              chapterId: null,
+              createAt: null,
+            });
+            return;
+          }
 
-            const title_no = $sub(a).attr("data-number")?.trim();
-            const title_text = $sub(a).text()?.trim();
-            const title = `${title_no} ${title_text}`.trim();
-            const chapterId = pipe(
-              O.fromNullable($(a).attr("href")),
-              O.map(substringAfterLast("/")),
-              O.toNullable,
-            );
-            const createAt = pipe(
-              O.fromNullable(
-                "20" + $sub(li).find("p.publishDate").text().trim(),
-              ),
-              O.map((str) => parseJapanDateString("yyyy/M/dd HH:mm", str)),
-              O.toNullable,
-            );
-            return <TocItem>{ title, chapterId, createAt };
-          })
-          .get(),
-      ),
-      A.flatten,
-    );
+          const href = link.attr('href');
+          toc.push({
+            title: `${link.attr('data-number')?.trim() ?? ''} ${link
+              .text()
+              .trim()}`.trim(),
+            chapterId: href ? substringAfterLast('/')(href) : null,
+            createAt:
+              parseJapanDateString(
+                'yyyy/M/dd HH:mm',
+                `20${item.find('p.publishDate').text().trim()}`,
+              )?.toISOString() ?? null,
+          });
+        });
+    }
 
-    return <RemoteNovelMetadata>{
+    return {
       title,
-      authors: author,
+      authors,
       type,
       keywords,
       attentions,
@@ -185,20 +171,20 @@ export class Novelup implements WebNovelProvider {
   }
 
   async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
-    const url = `https://novelup.plus/story/${novelId}/${chapterId}`;
-    const doc = await this.client.get(url).text();
-    const $ = cheerio.load(doc);
+    const html = await this.client
+      .get(`https://novelup.plus/story/${novelId}/${chapterId}`)
+      .text();
+    const $ = cheerio.load(html);
 
-    const $el = $("p#episode_content").first();
+    const $content = $('p#episode_content').first();
+    $content.find('rp, rt').remove();
+    $content.find('br').replaceWith('\n');
 
-    $el.find("rp, rt").remove();
-    $el.find("br").replaceWith("\n");
+    const paragraphs = $content
+      .text()
+      .split(/\r?\n/)
+      .map((line) => line.trim());
 
-    const texts = $el.text();
-    const lines = texts.split(/\r?\n/).map((line) => line.trim());
-
-    return <RemoteChapter>{
-      paragraphs: lines,
-    };
+    return { paragraphs };
   }
 }

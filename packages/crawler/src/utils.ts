@@ -1,5 +1,5 @@
-import { parse } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
+import { parse } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 
 export function stripPrefix(str: string, prefix: string): string {
   if (str.startsWith(prefix)) {
@@ -11,12 +11,12 @@ export function stripPrefix(str: string, prefix: string): string {
 export function parseJapanDateString(
   pattern: string,
   dateString: string,
-): Date | null {
+): Date | undefined {
   try {
     const naiveDate = parse(dateString, pattern, new Date());
-    const utcDate = fromZonedTime(naiveDate, "Asia/Tokyo");
+    const utcDate = fromZonedTime(naiveDate, 'Asia/Tokyo');
     if (isNaN(utcDate.getTime())) {
-      return null;
+      return undefined;
     }
     return utcDate;
   } catch (error) {
@@ -24,6 +24,6 @@ export function parseJapanDateString(
       `日期解析失败: pattern='${pattern}', dateString='${dateString}'`,
       error,
     );
-    return null;
+    return undefined;
   }
 }
