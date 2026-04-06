@@ -1,3 +1,12 @@
+import type {
+  Page,
+  ProviderId,
+  RemoteChapter,
+  RemoteNovelListItem,
+  RemoteNovelMetadata,
+  WebNovelProvider,
+} from '@auto-novel/crawler';
+import { Providers, PROVIDER_IDS } from '@auto-novel/crawler';
 import {
   Impit,
   type HttpMethod,
@@ -5,15 +14,6 @@ import {
   type RequestInit as ImpitRequestInit,
 } from 'impit';
 import ky, { type Options } from 'ky';
-
-import type {
-  Page,
-  RemoteChapter,
-  RemoteNovelListItem,
-  RemoteNovelMetadata,
-  WebNovelProvider,
-} from '@/domain/types';
-import { Providers, ProviderId, PROVIDER_IDS } from '@/index';
 import { ProxyConfig, ProxyManager, type ProxyState } from './proxy';
 import z from 'zod';
 import { CookieJar } from 'tough-cookie';

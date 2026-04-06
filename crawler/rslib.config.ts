@@ -17,23 +17,12 @@ export default defineConfig({
       dts: false,
       bundle: true,
       source: {
-        entry: { app: 'src/app/index.ts' },
+        entry: { app: 'src/index.ts' },
         tsconfigPath: 'tsconfig.app.json',
       },
       output: {
         target: 'node',
       },
-      banner,
-    },
-    {
-      format: 'esm',
-      dts: true,
-      bundle: true,
-      source: {
-        entry: { lib: 'src/lib/index.ts' },
-        tsconfigPath: 'tsconfig.lib.json',
-      },
-      output: { target: 'web' },
       banner,
     },
   ],

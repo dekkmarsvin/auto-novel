@@ -1,9 +1,9 @@
 import path from 'node:path';
 import fs from 'fs/promises';
 
+import { ProviderIdSchema } from '@auto-novel/crawler';
 import * as z from 'zod';
 import { HeaderSchema, ProxyConfigSchema } from '@/services';
-import { ProviderIdSchema } from '@/index';
 
 export const ProviderConfigSchema = z.object({
   headers: HeaderSchema.optional(),

@@ -1,8 +1,8 @@
+import { PROVIDER_IDS } from '@auto-novel/crawler';
 import * as z from 'zod';
 import Express, { Router } from 'express';
 import manifest from '@/package.json';
 import type { CrawlerService } from '@/services/crawler';
-import { PROVIDER_IDS } from '@/index';
 
 export function createCrawlerRouter(crawlerService: CrawlerService): Router {
   const router: Router = Express.Router({ mergeParams: true });

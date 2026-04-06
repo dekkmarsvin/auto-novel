@@ -9,27 +9,18 @@ importers:
 
   crawler:
     dependencies:
+      '@auto-novel/crawler':
+        specifier: workspace:*
+        version: link:../packages/crawler
       async-mutex:
         specifier: ^0.5.0
         version: 0.5.0
-      cheerio:
-        specifier: ^1.1.2
-        version: 1.2.0
       commander:
         specifier: ^14.0.2
         version: 14.0.3
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
-      date-fns-tz:
-        specifier: ^3.2.0
-        version: 3.2.0(date-fns@4.1.0)
       express:
         specifier: ^5.1.0
         version: 5.2.1
-      fp-ts:
-        specifier: ^2.16.11
-        version: 2.16.11
       impit:
         specifier: ^0.7.1
         version: 0.7.6
@@ -39,9 +30,6 @@ importers:
       lodash-es:
         specifier: ^4.17.21
         version: 4.17.23
-      p-queue:
-        specifier: ^9.0.0
-        version: 9.1.0
       tough-cookie:
         specifier: ^6.0.0
         version: 6.0.0
@@ -3254,12 +3242,6 @@ packages:
       }
     engines: { node: '>= 0.6' }
 
-  eventemitter3@5.0.4:
-    resolution:
-      {
-        integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==,
-      }
-
   evtd@0.2.4:
     resolution:
       {
@@ -3388,12 +3370,6 @@ packages:
         integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==,
       }
     engines: { node: '>= 0.6' }
-
-  fp-ts@2.16.11:
-    resolution:
-      {
-        integrity: sha512-LaI+KaX2NFkfn1ZGHoKCmcfv7yrZsC3b8NtWsTVQeHkq4F27vI5igUuO53sxqDEa2gNQMHFPmpojDw/1zmUK7w==,
-      }
 
   fresh@2.0.0:
     resolution:
@@ -4402,20 +4378,6 @@ packages:
         integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==,
       }
     engines: { node: '>=10' }
-
-  p-queue@9.1.0:
-    resolution:
-      {
-        integrity: sha512-O/ZPaXuQV29uSLbxWBGGZO1mCQXV2BLIwUr59JUU9SoH76mnYvtms7aafH/isNSNGwuEfP6W/4xD0/TJXxrizw==,
-      }
-    engines: { node: '>=20' }
-
-  p-timeout@7.0.1:
-    resolution:
-      {
-        integrity: sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg==,
-      }
-    engines: { node: '>=20' }
 
   param-case@3.0.4:
     resolution:
@@ -7322,8 +7284,6 @@ snapshots:
 
   etag@1.8.1: {}
 
-  eventemitter3@5.0.4: {}
-
   evtd@0.2.4: {}
 
   expect-type@1.3.0: {}
@@ -7423,8 +7383,6 @@ snapshots:
   flatted@3.4.1: {}
 
   forwarded@0.2.0: {}
-
-  fp-ts@2.16.11: {}
 
   fresh@2.0.0: {}
 
@@ -7943,13 +7901,6 @@ snapshots:
   p-locate@5.0.0:
     dependencies:
       p-limit: 3.1.0
-
-  p-queue@9.1.0:
-    dependencies:
-      eventemitter3: 5.0.4
-      p-timeout: 7.0.1
-
-  p-timeout@7.0.1: {}
 
   param-case@3.0.4:
     dependencies:

@@ -1,5 +1,5 @@
 import Express, { Router } from 'express';
-import { Providers } from '@/index';
+import { Providers } from '@auto-novel/crawler';
 import ky from 'ky';
 import { ProxyAgent } from 'undici';
 
