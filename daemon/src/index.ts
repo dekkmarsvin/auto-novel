@@ -1,18 +1,17 @@
-import { Server } from 'node:http';
 import { Command } from 'commander';
-
-import manifest from '@/package.json';
-import {
-  createCrawlerRouter,
-  createProxyRouter,
-  CrawlerService,
-  ProxyManager,
-  ProxyStore,
-} from '@/services';
+import { mapValues } from 'lodash-es';
+import { Server } from 'node:http';
 
 import { loadConfig } from '@/config';
 import { createApp } from '@/createApp';
-import { mapValues } from 'lodash-es';
+import manifest from '@/package.json';
+import {
+  CrawlerService,
+  createCrawlerRouter,
+  createProxyRouter,
+  ProxyManager,
+  ProxyStore,
+} from '@/services';
 
 async function main() {
   const program = new Command();

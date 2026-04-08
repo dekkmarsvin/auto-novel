@@ -12,7 +12,7 @@
     "useDefineForClassFields": true,
     "rootDir": "./src",
     "paths": {
-      "@/*": ["./src/lib/*", "./src/app/*", "./package.json"],
+      "@/*": ["./src/*", "./package.json"],
       "@auto-novel/crawler": ["../packages/crawler/dist/index.d.ts"]
     }
   },
