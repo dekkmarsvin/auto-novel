@@ -14,7 +14,7 @@
     "dev:remote": "VITE_API_MODE=remote vite",
     "dev:local": "VITE_API_MODE=local vite",
     "dev:native": "VITE_API_MODE=native vite",
-    "build": "vite build && vue-tsc -b --noEmit",
+    "build": "vue-tsc -b --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint src",
     "lint:dist": "eslint dist",
