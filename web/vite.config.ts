@@ -87,6 +87,7 @@ export default defineConfig(({ mode }) => {
       tsconfigPaths({ loose: true }),
       AutoImport({
         dts: 'src/auto-imports.d.ts',
+        ignore: ['h'],
         imports: [
           'vue',
           'vue-router',

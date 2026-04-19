@@ -4,18 +4,12 @@
   "private": true,
   "type": "module",
   "license": "GPL-3.0-only",
-  "files": [
-    "dist"
-  ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/index.js"
     }
   },
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "rslib build",
     "dev": "rslib dev --watch",
