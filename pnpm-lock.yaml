@@ -21,6 +21,9 @@ importers:
       ky:
         specifier: ^1.14.3
         version: 1.14.3
+      p-limit:
+        specifier: ^7.2.0
+        version: 7.3.0
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3205,12 +3208,6 @@ packages:
       }
     engines: { node: '>=18' }
 
-  globrex@0.1.2:
-    resolution:
-      {
-        integrity: sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==,
-      }
-
   graceful-fs@4.2.11:
     resolution:
       {
@@ -3926,6 +3923,13 @@ packages:
       }
     engines: { node: '>=10' }
 
+  p-limit@7.3.0:
+    resolution:
+      {
+        integrity: sha512-7cIXg/Z0M5WZRblrsOla88S4wAK+zOQQWeBYfV3qJuJXMr+LnbYjaadrFaS0JILfEDPVqHyKnZ1Z/1d6J9VVUw==,
+      }
+    engines: { node: '>=20' }
+
   p-locate@5.0.0:
     resolution:
       {
@@ -4539,19 +4543,6 @@ packages:
     peerDependencies:
       typescript: '>=4.8.4'
 
-  tsconfck@3.1.6:
-    resolution:
-      {
-        integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==,
-      }
-    engines: { node: ^18 || >=20 }
-    hasBin: true
-    peerDependencies:
-      typescript: ^5.0.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
   tslib@2.8.1:
     resolution:
       {
@@ -5092,6 +5083,13 @@ packages:
         integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==,
       }
     engines: { node: '>=10' }
+
+  yocto-queue@1.2.2:
+    resolution:
+      {
+        integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==,
+      }
+    engines: { node: '>=12.20' }
 
   zod@4.3.6:
     resolution:
@@ -6931,8 +6929,6 @@ snapshots:
 
   globals@16.5.0: {}
 
-  globrex@0.1.2: {}
-
   graceful-fs@4.2.11: {}
 
   has-flag@4.0.0: {}
@@ -7314,6 +7310,10 @@ snapshots:
     dependencies:
       yocto-queue: 0.1.0
 
+  p-limit@7.3.0:
+    dependencies:
+      yocto-queue: 1.2.2
+
   p-locate@5.0.0:
     dependencies:
       p-limit: 3.1.0
@@ -7652,10 +7652,6 @@ snapshots:
 
   ts-api-utils@2.5.0(typescript@5.9.3):
     dependencies:
-      typescript: 5.9.3
-
-  tsconfck@3.1.6(typescript@5.9.3):
-    optionalDependencies:
       typescript: 5.9.3
 
   tslib@2.8.1: {}
@@ -8073,5 +8069,7 @@ snapshots:
   yaml@2.8.3: {}
 
   yocto-queue@0.1.0: {}
+
+  yocto-queue@1.2.2: {}
 
   zod@4.3.6: {}
