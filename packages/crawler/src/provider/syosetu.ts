@@ -3,8 +3,6 @@ import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 import pLimit from 'p-limit';
 
-import { parseJapanDateString } from '@/utils';
-
 import {
   type Page,
   type RemoteChapter,
@@ -17,6 +15,7 @@ import {
   WebNovelType,
   emptyPage,
 } from './types';
+import { parseJapanDateString } from './utils';
 
 const RANGE_IDS = {
   每日: 'daily',

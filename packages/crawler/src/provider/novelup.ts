@@ -1,8 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 
-import { parseJapanDateString } from '@/utils';
-
 import {
   type Page,
   type RemoteChapter,
@@ -15,6 +13,7 @@ import {
 } from './types';
 import {
   numExtractor,
+  parseJapanDateString,
   stringToAttentionEnum,
   substringAfterLast,
 } from './utils';
