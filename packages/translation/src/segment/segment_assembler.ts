@@ -25,8 +25,8 @@ export const createSegmentAssembler = (): SegmentAssembler => {
       lines: string[],
       ranges: LineRange[],
       glossary: Glossary,
-      onSegComplete: (translatedLines: string[]) => void,
-      onSegError: (reason: any) => void,
+      onSegComplete: (segment: Segment, translatedLines: string[]) => void,
+      onSegError: (segment: Segment, reason: any) => void,
       history?: TranslationHistory,
     ): Segment[] {
       return ranges.map((range, index) => {

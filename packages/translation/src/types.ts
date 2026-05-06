@@ -1,10 +1,10 @@
 export type Glossary = Record<string, string>;
 
 export interface SegmentContext {
-  glossary: Glossary;
+  glossary?: Glossary;
 
-  //初始为空，翻译过程中动态填充
-  prevSegs: Segment[];
+  //初始为空，在PipeLine中动态填充的前文信息
+  prevSegs?: string[][];
 
   //过期重翻使用
   expired?: boolean;
@@ -15,12 +15,14 @@ export interface Segment {
   id: string;
   order: number;
   lines: string[];
-  context: SegmentContext;
-  onComplete: (translatedLines: string[]) => void;
-  onError: (reason: any) => void;
+  context?: SegmentContext;
+  onComplete: (segment: Segment, translatedLines: string[]) => void;
+  onError: (segment: Segment, reason: any) => void;
 }
 
-//行数范围(左闭右开) [start, end)
+/**
+ * 行数范围（左闭右开） [start, end)
+ */
 export interface LineRange {
   start: number;
   end: number;
@@ -35,17 +37,18 @@ export interface TranslationHistory {
   translatedLines: string[];
   glossary: Glossary;
 }
-
-//组装并更新Segment信息
-//根据history信息决定是否跳过（过期重翻逻辑）
+/**
+ * 组装并更新Segment信息
+ * 根据history信息决定是否跳过（过期重翻逻辑）
+ */
 export interface SegmentAssembler {
   assemble(
     id: string,
     lines: string[],
     ranges: LineRange[],
     glossary: Glossary,
-    onSegComplete: (translatedLines: string[]) => void,
-    onSegError: (reason: any) => void,
+    onSegComplete: (segment: Segment, translatedLines: string[]) => void,
+    onSegError: (segment: Segment, reason: any) => void,
     history?: TranslationHistory,
   ): Segment[];
 }
@@ -58,8 +61,17 @@ export abstract class SegmentQueue {
   abstract waitUntilBelowHighWaterMark(): Promise<void>;
 }
 
+export type PromptBuilder = (
+  lines: string[],
+  context?: SegmentContext,
+) => Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+
 export interface Translator {
-  translate(text: string, context: SegmentContext): Promise<string>;
+  translate(lines: string[], context?: SegmentContext): Promise<string[]>;
+}
+
+export interface PipelineConfig {
+  highWaterMark: number;
 }
 
 export interface TranslationLoop {
@@ -67,12 +79,6 @@ export interface TranslationLoop {
   translator: Translator;
   abortController: AbortController;
 }
-
-export interface PipelineConfig {
-  highWaterMark: number;
-}
-
-export class Visualizer {}
 
 export abstract class TranslationPipeline {
   protected config: PipelineConfig;
@@ -94,3 +100,5 @@ export abstract class TranslationPipeline {
   abstract registerTranslator(translator: Translator): void;
   abstract unregisterTranslator(translator: Translator): void;
 }
+
+export class Visualizer {}
