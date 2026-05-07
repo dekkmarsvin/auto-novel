@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest';
 
 import { Syosetu } from '@/provider/syosetu';
 import { WebNovelAttention, WebNovelType } from '@/provider/types';
-
 import { client } from './utils';
 
 describe('syosetu', () => {

@@ -1,15 +1,15 @@
 import type { KyInstance } from 'ky';
 
 import {
-  NovelAccessDeniedException,
   type Page,
-  type RemoteChapter,
-  type RemoteNovelListItem,
-  type RemoteNovelMetadata,
-  type TocItem,
-  WebNovelAttention,
   type WebNovelAuthor,
+  type WebNovelChapter,
+  type WebNovelListItem,
+  type WebNovelMetadata,
   type WebNovelProvider,
+  type WebNovelTocItem,
+  NovelAccessDeniedException,
+  WebNovelAttention,
   WebNovelType,
 } from './types';
 
@@ -36,11 +36,11 @@ export class Pixiv implements WebNovelProvider {
 
   async getRank(
     _options: Record<string, string>,
-  ): Promise<Page<RemoteNovelListItem>> {
+  ): Promise<Page<WebNovelListItem>> {
     throw new Error('Not implemented');
   }
 
-  async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
+  async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     if (novelId.startsWith('s')) {
       const chapterId = novelId.substring(1);
       const data: any = await this.client
@@ -102,7 +102,7 @@ export class Pixiv implements WebNovelProvider {
       obj.description,
       obj.caption || '',
     );
-    const toc: TocItem[] = [];
+    const toc: WebNovelTocItem[] = [];
     const keywords = Array.isArray(obj.tags) ? [...obj.tags] : [];
 
     if (keywords.length === 0) {
@@ -225,7 +225,7 @@ export class Pixiv implements WebNovelProvider {
   async getChapter(
     _novelId: string,
     chapterId: string,
-  ): Promise<RemoteChapter> {
+  ): Promise<WebNovelChapter> {
     const data: any = await this.client
       .get(`https://www.pixiv.net/ajax/novel/${chapterId}`)
       .json();

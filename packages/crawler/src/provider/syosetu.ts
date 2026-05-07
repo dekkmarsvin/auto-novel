@@ -5,12 +5,12 @@ import pLimit from 'p-limit';
 
 import {
   type Page,
-  type RemoteChapter,
-  type RemoteNovelListItem,
-  type RemoteNovelMetadata,
-  type TocItem,
   type WebNovelAuthor,
+  type WebNovelChapter,
+  type WebNovelListItem,
+  type WebNovelMetadata,
   type WebNovelProvider,
+  type WebNovelTocItem,
   WebNovelAttention,
   WebNovelType,
   emptyPage,
@@ -143,7 +143,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
     };
   }
 
-  async getRank(options: GetRankOptions): Promise<Page<RemoteNovelListItem>> {
+  async getRank(options: GetRankOptions): Promise<Page<WebNovelListItem>> {
     const rangeId = RANGE_IDS[options['range']];
     if (!rangeId) return emptyPage();
 
@@ -218,7 +218,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
           attentions,
           keywords,
           extra,
-        } satisfies RemoteNovelListItem;
+        } satisfies WebNovelListItem;
       })
       .get()
       .filter((item) => item.novelId && item.title);
@@ -229,7 +229,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
     };
   }
 
-  async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
+  async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     const [$, $info] = await Promise.all([
       this.client
         .get(`https://ncode.syosetu.com/${novelId}`)
@@ -313,7 +313,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
     const introduction = row('あらすじ').text().trim();
     if (!introduction) throw new Error('简介解析失败');
 
-    let toc: TocItem[];
+    let toc: WebNovelTocItem[];
     if ($('div.p-eplist').first().length === 0) {
       toc = [
         {
@@ -327,7 +327,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
       const totalPages = Number(lastPageHref?.split('/?p=')[1] ?? '1') || 1;
       const limit = pLimit(this.options.concurrency);
 
-      function parseTocPage($: CheerioAPI): TocItem[] {
+      function parseTocPage($: CheerioAPI): WebNovelTocItem[] {
         return $('div.p-eplist')
           .first()
           .children()
@@ -340,7 +340,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
                 title: item.text().trim(),
                 chapterId: undefined,
                 createAt: undefined,
-              } satisfies TocItem;
+              } satisfies WebNovelTocItem;
             }
 
             const createAtText = item
@@ -359,7 +359,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
               title: link.text().trim(),
               chapterId: hrefLastSegment(link.attr('href')),
               createAt,
-            } satisfies TocItem;
+            } satisfies WebNovelTocItem;
           })
           .get();
       }
@@ -400,7 +400,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
   async getChapter(
     novelId: string,
     chapterId: string,
-  ): Promise<RemoteChapter | null> {
+  ): Promise<WebNovelChapter | null> {
     const url =
       chapterId === 'default'
         ? `https://ncode.syosetu.com/${novelId}`

@@ -3,12 +3,12 @@ import type { KyInstance } from 'ky';
 
 import {
   type Page,
-  type RemoteChapter,
-  type RemoteNovelListItem,
-  type RemoteNovelMetadata,
-  type TocItem,
   type WebNovelAuthor,
+  type WebNovelChapter,
+  type WebNovelListItem,
+  type WebNovelMetadata,
   type WebNovelProvider,
+  type WebNovelTocItem,
   WebNovelType,
 } from './types';
 import {
@@ -41,11 +41,11 @@ export class Novelup implements WebNovelProvider {
 
   async getRank(
     _options: Record<string, string>,
-  ): Promise<Page<RemoteNovelListItem>> {
+  ): Promise<Page<WebNovelListItem>> {
     throw new Error('Not implemented');
   }
 
-  async getMetadata(novelId: string): Promise<RemoteNovelMetadata | null> {
+  async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     const html = await this.client
       .get(`https://novelup.plus/story/${novelId}`)
       .text();
@@ -124,7 +124,7 @@ export class Novelup implements WebNovelProvider {
       pages.push(cheerio.load(subHtml));
     }
 
-    const toc: TocItem[] = [];
+    const toc: WebNovelTocItem[] = [];
     for (const $sub of pages) {
       $sub('div.episodeList')
         .first()
@@ -169,7 +169,10 @@ export class Novelup implements WebNovelProvider {
     };
   }
 
-  async getChapter(novelId: string, chapterId: string): Promise<RemoteChapter> {
+  async getChapter(
+    novelId: string,
+    chapterId: string,
+  ): Promise<WebNovelChapter> {
     const html = await this.client
       .get(`https://novelup.plus/story/${novelId}/${chapterId}`)
       .text();

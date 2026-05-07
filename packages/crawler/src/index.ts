@@ -2,9 +2,9 @@ import type { KyInstance } from 'ky';
 
 import type {
   Page,
-  RemoteChapter,
-  RemoteNovelListItem,
-  RemoteNovelMetadata,
+  WebNovelChapter,
+  WebNovelListItem,
+  WebNovelMetadata,
   WebNovelProvider,
 } from '@/provider/types';
 
@@ -25,10 +25,10 @@ export {
 } from '@/provider/types';
 export type {
   Page,
-  RemoteChapter,
-  RemoteNovelListItem,
-  RemoteNovelMetadata,
-  TocItem,
+  WebNovelChapter,
+  WebNovelListItem,
+  WebNovelMetadata,
+  WebNovelTocItem,
   WebNovelAuthor,
   WebNovelProvider,
 } from '@/provider/types';
@@ -88,14 +88,14 @@ export class Crawler {
   async getRank(
     providerId: string,
     options: Record<string, string>,
-  ): Promise<Page<RemoteNovelListItem> | null | undefined> {
+  ): Promise<Page<WebNovelListItem> | null | undefined> {
     return this.getProvider(providerId).getRank(options);
   }
 
   async getMetadata(
     providerId: string,
     novelId: string,
-  ): Promise<RemoteNovelMetadata | null | undefined> {
+  ): Promise<WebNovelMetadata | null | undefined> {
     return this.getProvider(providerId).getMetadata(novelId);
   }
 
@@ -103,7 +103,7 @@ export class Crawler {
     providerId: string,
     novelId: string,
     chapterId: string,
-  ): Promise<RemoteChapter | null | undefined> {
+  ): Promise<WebNovelChapter | null | undefined> {
     return this.getProvider(providerId).getChapter(novelId, chapterId);
   }
 }
