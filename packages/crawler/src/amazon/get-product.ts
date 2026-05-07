@@ -1,5 +1,4 @@
-import { extractAsin } from './Common';
-import { getAmazon } from './Amazon';
+import { extractAsin } from './util';
 
 const parseAuthor = (elements: HTMLCollectionOf<Element>) => {
   const authors: string[] = [];
@@ -25,7 +24,7 @@ const parseAuthor = (elements: HTMLCollectionOf<Element>) => {
   return { authors, artists };
 };
 
-const parseProduct = (doc: Document) => {
+export const getProduct = (doc: Document) => {
   if (doc.getElementsByClassName('series-childAsin-widget').item(0) !== null) {
     return {
       type: 'serial' as const,
@@ -170,8 +169,7 @@ const parseProductVolume = (doc: Document) => {
   };
 };
 
-export const resolveKindleAsin = async (isbn: string): Promise<string> => {
-  const doc = await (await getAmazon()).getProduct(isbn);
+export const resolveKindleAsin = (doc: Document, fallbackAsin: string) => {
   const kindleLink = doc
     .getElementById('tmm-grid-swatch-KINDLE')
     ?.querySelector('a');
@@ -179,10 +177,5 @@ export const resolveKindleAsin = async (isbn: string): Promise<string> => {
     const kindleAsin = extractAsin(kindleLink.getAttribute('href')!);
     if (kindleAsin) return kindleAsin;
   }
-  return isbn;
+  return fallbackAsin;
 };
-
-export const getProduct = (asin: string) =>
-  getAmazon()
-    .then((amazon) => amazon.getProduct(asin))
-    .then(parseProduct);

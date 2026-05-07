@@ -1,7 +1,6 @@
-import { extractAsin } from './Common';
-import { getAmazon } from './Amazon';
+import { extractAsin } from './util';
 
-const parseSearch = (doc: Document) => {
+export const search = (doc: Document) => {
   const items = Array.from(
     doc.getElementsByClassName('s-search-results')[0].children,
   );
@@ -43,8 +42,3 @@ const parseSearch = (doc: Document) => {
       return { asin, title, cover, serialAsin };
     });
 };
-
-export const search = (query: string) =>
-  getAmazon()
-    .then((amazon) => amazon.search(query))
-    .then(parseSearch);

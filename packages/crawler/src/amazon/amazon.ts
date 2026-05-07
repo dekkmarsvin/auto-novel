@@ -1,5 +1,12 @@
 import type { KyInstance, Options } from 'ky';
 
+import {
+  resolveKindleAsin as parseKindleAsin,
+  getProduct as parseProduct,
+} from '@/amazon/get-product';
+import { getSerial as parseSerial } from '@/amazon/get-serial';
+import { search as parseSearch } from '@/amazon/search';
+
 const AMAZON_JP_URL = 'https://www.amazon.co.jp';
 
 export class Amazon {
@@ -27,26 +34,35 @@ export class Amazon {
     return parser.parseFromString(html, 'text/html');
   }
 
-  getProduct(asin: string) {
-    return this.getHtml(`dp/${asin}`);
+  async getProduct(asin: string) {
+    return parseProduct(await this.getHtml(`dp/${asin}`));
   }
 
-  getSerial(asin: string, total: string) {
-    return this.getHtml('kindle-dbs/productPage/ajax/seriesAsinList', {
-      searchParams: {
-        asin,
-        pageNumber: 1,
-        pageSize: total,
-      },
-    });
+  async resolveKindleAsin(asin: string) {
+    if (asin.startsWith('B')) return asin;
+    return parseKindleAsin(await this.getHtml(`dp/${asin}`), asin);
   }
 
-  search(query: string) {
-    return this.getHtml('s', {
-      searchParams: {
-        k: query,
-        i: 'stripbooks',
-      },
-    });
+  async getSerial(asin: string, total: string) {
+    return parseSerial(
+      await this.getHtml('kindle-dbs/productPage/ajax/seriesAsinList', {
+        searchParams: {
+          asin,
+          pageNumber: 1,
+          pageSize: total,
+        },
+      }),
+    );
+  }
+
+  async search(query: string) {
+    return parseSearch(
+      await this.getHtml('s', {
+        searchParams: {
+          k: query,
+          i: 'stripbooks',
+        },
+      }),
+    );
   }
 }

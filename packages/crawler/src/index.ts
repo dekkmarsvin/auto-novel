@@ -1,4 +1,5 @@
 export { Amazon } from '@/amazon/amazon';
+export { extractAsin, prettyCover } from '@/amazon/util';
 
 export { Alphapolis } from '@/web/alphapolis';
 export { WebNovelCrawler } from '@/web/crawler';

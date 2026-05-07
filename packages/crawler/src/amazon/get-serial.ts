@@ -1,8 +1,6 @@
-import { extractAsin } from './Common';
-import { getAmazon } from './Amazon';
-import { resolveKindleAsin } from './ApiGetProduct';
+import { extractAsin } from './util';
 
-const parseSerial = (doc: Document) => {
+export const getSerial = (doc: Document) => {
   const authorsSet = new Set<string>();
   const artistsSet = new Set<string>();
   doc.querySelectorAll('[data-action="a-popover"]').forEach((element) => {
@@ -45,19 +43,4 @@ const parseSerial = (doc: Document) => {
   });
 
   return { authors, artists, volumes };
-};
-
-export const getSerial = async (asin: string, total: string) => {
-  const result = await getAmazon()
-    .then((amazon) => amazon.getSerial(asin, total))
-    .then(parseSerial);
-  result.volumes = await Promise.all(
-    result.volumes.map(async (v) => {
-      if (!v.asin.startsWith('B')) {
-        return { ...v, asin: await resolveKindleAsin(v.asin) };
-      }
-      return v;
-    }),
-  );
-  return result;
 };
