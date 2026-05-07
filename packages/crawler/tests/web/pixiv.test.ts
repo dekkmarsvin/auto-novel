@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
 
-import { Pixiv } from '@/provider/pixiv';
+import { Pixiv } from '@/web/pixiv';
 import { client } from './utils';
 
 describe('pixiv-single', () => {

@@ -6,16 +6,16 @@ import type {
   WebNovelListItem,
   WebNovelMetadata,
   WebNovelProvider,
-} from '@/provider/types';
+} from '@/web/types';
 
-import { Alphapolis } from '@/provider/alphapolis';
-import { Hameln } from '@/provider/hameln';
-import { Kakuyomu } from '@/provider/kakuyomu';
-import { Novelup } from '@/provider/novelup';
-import { Pixiv } from '@/provider/pixiv';
-import { Syosetu } from '@/provider/syosetu';
+import { Alphapolis } from '@/web/alphapolis';
+import { Hameln } from '@/web/hameln';
+import { Kakuyomu } from '@/web/kakuyomu';
+import { Novelup } from '@/web/novelup';
+import { Pixiv } from '@/web/pixiv';
+import { Syosetu } from '@/web/syosetu';
 
-export { emptyPage, WebNovelAttention, WebNovelType } from '@/provider/types';
+export { emptyPage, WebNovelAttention, WebNovelType } from '@/web/types';
 export type {
   Page,
   WebNovelAuthor,
@@ -24,7 +24,7 @@ export type {
   WebNovelMetadata,
   WebNovelTocItem,
   WebNovelProvider,
-} from '@/provider/types';
+} from '@/web/types';
 export { Alphapolis, Hameln, Kakuyomu, Novelup, Pixiv, Syosetu };
 
 type ProviderInitFn = (_: KyInstance) => WebNovelProvider;

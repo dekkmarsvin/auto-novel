@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { Alphapolis } from '@/provider/alphapolis';
+import { Alphapolis } from '@/web/alphapolis';
 import { client } from './utils';
 
 const shouldSkip = !process.env.ALL_TEST;

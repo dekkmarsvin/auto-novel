@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { Novelup } from '@/provider/novelup';
+import { Novelup } from '@/web/novelup';
 import { client } from './utils';
 
 describe('novelup', () => {

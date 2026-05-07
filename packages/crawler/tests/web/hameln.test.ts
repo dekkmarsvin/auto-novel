@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
-import { Hameln } from '@/provider/hameln';
-import { WebNovelAttention } from '@/provider/types';
+import { Hameln } from '@/web/hameln';
+import { WebNovelAttention } from '@/web/types';
 import { client } from './utils';
 
 describe('hameln', () => {

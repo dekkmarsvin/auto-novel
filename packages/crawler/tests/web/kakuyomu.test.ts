@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
-import { Kakuyomu } from '@/provider/kakuyomu';
-import { WebNovelType } from '@/provider/types';
+import { Kakuyomu } from '@/web/kakuyomu';
+import { WebNovelType } from '@/web/types';
 import { client } from './utils';
 
 describe('kakuyomu', () => {
