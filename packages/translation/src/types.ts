@@ -57,8 +57,8 @@ export abstract class SegmentQueue {
   abstract readonly length: number;
   abstract readonly highWaterMark: number;
   abstract enqueueAll(segments: Segment[]): void;
-  abstract dequeue(): Promise<Segment>;
-  abstract waitUntilBelowHighWaterMark(): Promise<void>;
+  abstract dequeue(signal?: AbortSignal): Promise<Segment>;
+  abstract waitUntilBelowHighWaterMark(signal?: AbortSignal): Promise<void>;
 }
 
 export type PromptBuilder = (
@@ -67,37 +67,45 @@ export type PromptBuilder = (
 ) => Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
 
 export interface Translator {
-  translate(lines: string[], context?: SegmentContext): Promise<string[]>;
-}
-
-export interface PipelineConfig {
-  highWaterMark: number;
+  translate(
+    lines: string[],
+    context?: SegmentContext,
+    signal?: AbortSignal,
+  ): Promise<string[]>;
 }
 
 export interface TranslationLoop {
   id: string;
   translator: Translator;
   abortController: AbortController;
+  //并发数不提供时默认 1 并发
+  concurrency?: number;
 }
 
 export abstract class TranslationPipeline {
-  protected config: PipelineConfig;
-  protected queue: SegmentQueue;
+  protected abstract queue: SegmentQueue;
   protected translatorLoops: Map<string, TranslationLoop>;
   protected visualizer?: Visualizer;
 
-  constructor(config: PipelineConfig, queue: SegmentQueue) {
-    this.config = config;
-    this.queue = queue;
+  constructor() {
     this.translatorLoops = new Map();
   }
 
   abstract translate(
     text: string,
+    glossary?: Glossary,
     history?: TranslationHistory,
+    signal?: AbortSignal,
   ): Promise<string>;
-  abstract waitUntilBelowHighWaterMark(): Promise<void>;
-  abstract registerTranslator(translator: Translator): void;
+
+  waitUntilBelowHighWaterMark(signal?: AbortSignal): Promise<void> {
+    return this.queue.waitUntilBelowHighWaterMark(signal);
+  }
+
+  abstract registerTranslator(
+    translator: Translator,
+    concurrency?: number,
+  ): void;
   abstract unregisterTranslator(translator: Translator): void;
 }
 
