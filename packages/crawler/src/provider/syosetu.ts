@@ -1,5 +1,4 @@
 import type { CheerioAPI } from 'cheerio';
-import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 import pLimit from 'p-limit';
 
@@ -15,7 +14,7 @@ import {
   WebNovelType,
   emptyPage,
 } from './types';
-import { parseJapanDateString } from './utils';
+import { fetchDocument, parseJapanDateString } from './utils';
 
 const RANGE_IDS = {
   每日: 'daily',
@@ -175,10 +174,10 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
     const page = Number(options['page']);
     if (!Number.isFinite(page) || page < 1) return emptyPage();
 
-    const $ = await this.client
-      .get(`https://yomou.syosetu.com/rank/${path}/?p=${page}`)
-      .text()
-      .then((text) => cheerio.load(text));
+    const $ = await fetchDocument(
+      this.client,
+      `https://yomou.syosetu.com/rank/${path}/?p=${page}`,
+    );
 
     const maxPage = Math.max(0, $('.c-pager').first().children().length - 2);
     const items = $('.p-ranklist-item')
@@ -231,15 +230,11 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
 
   async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
     const [$, $info] = await Promise.all([
-      this.client
-        .get(`https://ncode.syosetu.com/${novelId}`)
-        .text()
-
-        .then((text) => cheerio.load(text)),
-      this.client
-        .get(`https://ncode.syosetu.com/novelview/infotop/ncode/${novelId}`)
-        .text()
-        .then((text) => cheerio.load(text)),
+      fetchDocument(this.client, `https://ncode.syosetu.com/${novelId}`),
+      fetchDocument(
+        this.client,
+        `https://ncode.syosetu.com/novelview/infotop/ncode/${novelId}`,
+      ),
     ]);
 
     const title = $info('h1').first().text().trim();
@@ -372,10 +367,10 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
       const pageTocs = await Promise.all(
         tocPageNumbers.map((page) =>
           limit(async () => {
-            const $page = await this.client
-              .get(`https://ncode.syosetu.com/${novelId}/?p=${page}`)
-              .text()
-              .then((text) => cheerio.load(text));
+            const $page = await fetchDocument(
+              this.client,
+              `https://ncode.syosetu.com/${novelId}/?p=${page}`,
+            );
 
             return parseTocPage($page);
           }),
@@ -406,10 +401,7 @@ export class Syosetu implements WebNovelProvider<GetRankOptions> {
         ? `https://ncode.syosetu.com/${novelId}`
         : `https://ncode.syosetu.com/${novelId}/${chapterId}`;
 
-    const $ = await this.client
-      .get(url)
-      .text()
-      .then((text) => cheerio.load(text));
+    const $ = await fetchDocument(this.client, url);
 
     $('rp, rt').remove();
     $('br').replaceWith('\n');

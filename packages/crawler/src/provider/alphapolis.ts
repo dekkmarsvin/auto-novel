@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 
 import {
@@ -12,6 +11,7 @@ import {
   WebNovelType,
 } from './types';
 import {
+  fetchDocument,
   numExtractor,
   stringToAttentionEnum,
   substringAfterLast,
@@ -58,8 +58,7 @@ export class Alphapolis implements WebNovelProvider {
   }
 
   async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
-    const html = await this.client.get(this.getMetadataUrl(novelId)).text();
-    const $ = cheerio.load(html);
+    const $ = await fetchDocument(this.client, this.getMetadataUrl(novelId));
 
     const $contentInfo = $('#sidebar').first().find('.content-info').first();
     if ($contentInfo.length === 0) {
@@ -206,10 +205,10 @@ export class Alphapolis implements WebNovelProvider {
     novelId: string,
     chapterId: string,
   ): Promise<WebNovelChapter> {
-    const html = await this.client
-      .get(this.getEpisodeUrl(novelId, chapterId))
-      .text();
-    const $ = cheerio.load(html);
+    const $ = await fetchDocument(
+      this.client,
+      this.getEpisodeUrl(novelId, chapterId),
+    );
 
     let $content = $('div#novelBody');
     if ($content.length === 0) {

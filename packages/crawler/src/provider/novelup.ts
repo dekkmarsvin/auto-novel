@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 
 import {
@@ -12,6 +11,7 @@ import {
   WebNovelType,
 } from './types';
 import {
+  fetchDocument,
   numExtractor,
   parseJapanDateString,
   stringToAttentionEnum,
@@ -46,10 +46,10 @@ export class Novelup implements WebNovelProvider {
   }
 
   async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
-    const html = await this.client
-      .get(`https://novelup.plus/story/${novelId}`)
-      .text();
-    const $ = cheerio.load(html);
+    const $ = await fetchDocument(
+      this.client,
+      `https://novelup.plus/story/${novelId}`,
+    );
 
     const $info = $('table.storyMeta');
     const row = (label: string) =>
@@ -118,10 +118,11 @@ export class Novelup implements WebNovelProvider {
 
     const pages = [$];
     for (let page = 2; page <= totalPage; page += 1) {
-      const subHtml = await this.client
-        .get(`https://novelup.plus/story/${novelId}?p=${page}`)
-        .text();
-      pages.push(cheerio.load(subHtml));
+      const $sub = await fetchDocument(
+        this.client,
+        `https://novelup.plus/story/${novelId}?p=${page}`,
+      );
+      pages.push($sub);
     }
 
     const toc: WebNovelTocItem[] = [];
@@ -173,10 +174,10 @@ export class Novelup implements WebNovelProvider {
     novelId: string,
     chapterId: string,
   ): Promise<WebNovelChapter> {
-    const html = await this.client
-      .get(`https://novelup.plus/story/${novelId}/${chapterId}`)
-      .text();
-    const $ = cheerio.load(html);
+    const $ = await fetchDocument(
+      this.client,
+      `https://novelup.plus/story/${novelId}/${chapterId}`,
+    );
 
     const $content = $('p#episode_content').first();
     $content.find('rp, rt').remove();

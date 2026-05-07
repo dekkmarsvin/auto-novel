@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 
 import {
@@ -13,6 +12,7 @@ import {
   WebNovelType,
 } from './types';
 import {
+  fetchDocument,
   numExtractor,
   parseJapanDateString,
   removePrefix,
@@ -66,15 +66,12 @@ export class Hameln implements WebNovelProvider {
   }
 
   async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
-    const load = (url: string) =>
-      this.client
-        .get(url)
-        .text()
-        .then((html) => cheerio.load(html));
-
     const [$list, $detail] = await Promise.all([
-      load(`${this.baseUrl}/novel/${novelId}`),
-      load(`${this.baseUrl}/?mode=ss_detail&nid=${novelId}`),
+      fetchDocument(this.client, `${this.baseUrl}/novel/${novelId}`),
+      fetchDocument(
+        this.client,
+        `${this.baseUrl}/?mode=ss_detail&nid=${novelId}`,
+      ),
     ]);
 
     const row = (label: string) => {
@@ -196,8 +193,7 @@ export class Hameln implements WebNovelProvider {
         ? `${this.baseUrl}/novel/${novelId}`
         : `${this.baseUrl}/novel/${novelId}/${chapterId}.html`;
 
-    const html = await this.client.get(url).text();
-    const $ = cheerio.load(html);
+    const $ = await fetchDocument(this.client, url);
 
     const paragraphs = $('div#honbun')
       .first()

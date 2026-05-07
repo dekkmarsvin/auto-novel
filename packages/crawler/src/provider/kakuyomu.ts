@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio';
 import type { KyInstance } from 'ky';
 
 import {
@@ -13,7 +12,7 @@ import {
   WebNovelType,
   emptyPage,
 } from './types';
-import { removePrefix } from './utils';
+import { fetchDocument, removePrefix } from './utils';
 
 const RANGE_IDS = {
   每日: 'daily',
@@ -95,12 +94,10 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
     const statusId = STATUS_IDS[options['status']];
     if (!statusId) return emptyPage();
 
-    const $ = await this.client
-      .get(
-        `https://kakuyomu.jp/rankings/${genreId}/${rangeId}?work_variation=${statusId}`,
-      )
-      .text()
-      .then((text) => cheerio.load(text));
+    const $ = await fetchDocument(
+      this.client,
+      `https://kakuyomu.jp/rankings/${genreId}/${rangeId}?work_variation=${statusId}`,
+    );
 
     const items = $('div.widget-media-genresWorkList-right > div.widget-work')
       .map((_, item) => {
@@ -143,10 +140,10 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
   }
 
   async getMetadata(novelId: string): Promise<WebNovelMetadata | null> {
-    const $ = await this.client
-      .get(`https://kakuyomu.jp/works/${novelId}`)
-      .text()
-      .then((text) => cheerio.load(text));
+    const $ = await fetchDocument(
+      this.client,
+      `https://kakuyomu.jp/works/${novelId}`,
+    );
 
     const script = $('#__NEXT_DATA__').first().html();
     if (!script) throw new Error('作品信息解析失败');
@@ -245,10 +242,10 @@ export class Kakuyomu implements WebNovelProvider<GetRankOptions> {
     novelId: string,
     chapterId: string,
   ): Promise<WebNovelChapter> {
-    const $ = await this.client
-      .get(`https://kakuyomu.jp/works/${novelId}/episodes/${chapterId}`)
-      .text()
-      .then((text) => cheerio.load(text));
+    const $ = await fetchDocument(
+      this.client,
+      `https://kakuyomu.jp/works/${novelId}/episodes/${chapterId}`,
+    );
 
     $('rp, rt').remove();
     $('br').replaceWith('\n');

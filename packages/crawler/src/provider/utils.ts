@@ -1,7 +1,19 @@
+import type { CheerioAPI } from 'cheerio';
+import * as cheerio from 'cheerio';
 import { parse } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
+import type { KyInstance } from 'ky';
 
 import { WebNovelAttention } from './types';
+
+export const fetchDocument = async (
+  client: KyInstance,
+  url: string,
+): Promise<CheerioAPI> =>
+  client
+    .get(url)
+    .text()
+    .then((text) => cheerio.load(text));
 
 export const removeSuffix = (suffix: string) => (input: string) =>
   input.endsWith(suffix) ? input.slice(0, -suffix.length) : input;
