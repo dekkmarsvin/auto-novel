@@ -1,3 +1,5 @@
+export { Amazon } from '@/amazon/amazon';
+
 export { Alphapolis } from '@/web/alphapolis';
 export { WebNovelCrawler } from '@/web/crawler';
 export { Hameln } from '@/web/hameln';

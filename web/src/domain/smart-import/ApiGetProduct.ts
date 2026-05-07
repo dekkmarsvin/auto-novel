@@ -1,5 +1,5 @@
-import { AmazonApi } from '@/api';
 import { extractAsin } from './Common';
+import { getAmazon } from './Amazon';
 
 const parseAuthor = (elements: HTMLCollectionOf<Element>) => {
   const authors: string[] = [];
@@ -171,7 +171,7 @@ const parseProductVolume = (doc: Document) => {
 };
 
 export const resolveKindleAsin = async (isbn: string): Promise<string> => {
-  const doc = await AmazonApi.getProduct(isbn);
+  const doc = await (await getAmazon()).getProduct(isbn);
   const kindleLink = doc
     .getElementById('tmm-grid-swatch-KINDLE')
     ?.querySelector('a');
@@ -183,4 +183,6 @@ export const resolveKindleAsin = async (isbn: string): Promise<string> => {
 };
 
 export const getProduct = (asin: string) =>
-  AmazonApi.getProduct(asin).then(parseProduct);
+  getAmazon()
+    .then((amazon) => amazon.getProduct(asin))
+    .then(parseProduct);

@@ -1,5 +1,5 @@
-import { AmazonApi } from '@/api';
 import { extractAsin } from './Common';
+import { getAmazon } from './Amazon';
 
 const parseSearch = (doc: Document) => {
   const items = Array.from(
@@ -45,4 +45,6 @@ const parseSearch = (doc: Document) => {
 };
 
 export const search = (query: string) =>
-  AmazonApi.search(query).then(parseSearch);
+  getAmazon()
+    .then((amazon) => amazon.search(query))
+    .then(parseSearch);
