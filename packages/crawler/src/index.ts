@@ -15,21 +15,14 @@ import { Novelup } from '@/provider/novelup';
 import { Pixiv } from '@/provider/pixiv';
 import { Syosetu } from '@/provider/syosetu';
 
-export {
-  emptyPage,
-  NovelAccessDeniedException,
-  NovelIdShouldBeReplacedException,
-  NovelRateLimitedException,
-  WebNovelAttention,
-  WebNovelType,
-} from '@/provider/types';
+export { emptyPage, WebNovelAttention, WebNovelType } from '@/provider/types';
 export type {
   Page,
+  WebNovelAuthor,
   WebNovelChapter,
   WebNovelListItem,
   WebNovelMetadata,
   WebNovelTocItem,
-  WebNovelAuthor,
   WebNovelProvider,
 } from '@/provider/types';
 export { Alphapolis, Hameln, Kakuyomu, Novelup, Pixiv, Syosetu };

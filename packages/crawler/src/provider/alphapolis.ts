@@ -12,7 +12,6 @@ import {
   WebNovelType,
 } from './types';
 import {
-  assertEl,
   numExtractor,
   stringToAttentionEnum,
   substringAfterLast,
@@ -63,16 +62,24 @@ export class Alphapolis implements WebNovelProvider {
     const $ = cheerio.load(html);
 
     const $contentInfo = $('#sidebar').first().find('.content-info').first();
-    assertEl($contentInfo, 'doc parse failed');
+    if ($contentInfo.length === 0) {
+      throw new Error('作品信息解析失败');
+    }
 
     const $contentMain = $('#main').first().find('.content-main').first();
-    assertEl($contentMain, 'doc parse failed');
+    if ($contentMain.length === 0) {
+      throw new Error('作品主体解析失败');
+    }
 
     const $info = $contentInfo.find('.content-statuses').first();
-    assertEl($info, 'doc parse failed');
+    if ($info.length === 0) {
+      throw new Error('作品状态解析失败');
+    }
 
     const $table = $contentInfo.find('table.detail').first();
-    assertEl($table, 'doc parse failed');
+    if ($table.length === 0) {
+      throw new Error('作品详情解析失败');
+    }
 
     const row = (label: string) =>
       $table
@@ -208,7 +215,9 @@ export class Alphapolis implements WebNovelProvider {
     if ($content.length === 0) {
       $content = $('div.text');
     }
-    assertEl($content, 'doc parse failed');
+    if ($content.length === 0) {
+      throw new Error('章节内容解析失败');
+    }
 
     $content.find('rp, rt').remove();
     $content.find('br').replaceWith('\n');

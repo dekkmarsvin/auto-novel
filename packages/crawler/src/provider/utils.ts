@@ -1,4 +1,3 @@
-import type { Cheerio } from 'cheerio';
 import { parse } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
 
@@ -50,22 +49,6 @@ export const numExtractor = (text: string): number | null => {
   const value = Number(digits);
   return Number.isFinite(value) ? value : null;
 };
-
-export function assertValid<T>(
-  data: T | null | undefined | string,
-  msg: string = 'data is null or undefined',
-): asserts data is T {
-  if (data === null || data === undefined) {
-    throw new Error(msg);
-  }
-}
-
-export function assertEl<T>(
-  data: Cheerio<T>,
-  msg: string = 'doc parse failed',
-) {
-  if (data.length === 0) throw new Error(msg);
-}
 
 export function parseJapanDateString(
   pattern: string,

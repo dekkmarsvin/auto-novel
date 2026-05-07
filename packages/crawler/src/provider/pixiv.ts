@@ -8,7 +8,6 @@ import {
   type WebNovelMetadata,
   type WebNovelProvider,
   type WebNovelTocItem,
-  NovelAccessDeniedException,
   WebNovelAttention,
   WebNovelType,
 } from './types';
@@ -115,7 +114,7 @@ export class Pixiv implements WebNovelProvider {
 
       contents.forEach((seriesContent: any) => {
         if (seriesContent.title == undefined) {
-          throw NovelAccessDeniedException();
+          throw new Error('当前账号无法获取该小说资源');
         }
 
         keywords.push(...(seriesContent.tags ?? []));
@@ -150,7 +149,7 @@ export class Pixiv implements WebNovelProvider {
 
     items.forEach((item: any) => {
       if (!item.available) {
-        throw NovelAccessDeniedException();
+        throw new Error('当前账号无法获取该小说资源');
       }
 
       toc.push({
