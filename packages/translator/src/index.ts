@@ -1,4 +1,4 @@
-export { DefaultTranslationPipeline } from './pipeline/translation_pipeline';
+export { TranslationPipeline } from './pipeline/translation_pipeline';
 export { DefaultSegmentQueue } from './segment';
 
 export { OpenAiTranslator } from './translator/openai-translator';

@@ -1,4 +1,5 @@
 import type { PromptBuilder, SegmentContext } from '@/types';
+
 import type { SakuraVersion } from './sakura-translator';
 
 export const createSakuraPromptBuilder = (

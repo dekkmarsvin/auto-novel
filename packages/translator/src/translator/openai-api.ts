@@ -2,7 +2,34 @@
 import type { Options } from 'ky';
 import ky, { HTTPError } from 'ky';
 
-import { parseEventStream, safeJson } from '@/utils';
+/**
+ * Parses a server-sent event stream.
+ * @param text The event stream text.
+ */
+function* parseEventStream<T>(text: string) {
+  for (const line of text.split('\n')) {
+    if (line == '[DONE]') {
+      return;
+    } else if (!line.trim() || line.startsWith(': ping')) {
+      continue;
+    } else {
+      try {
+        const obj: T = JSON.parse(line.replace(/^data\:/, '').trim());
+        yield obj;
+      } catch {
+        continue;
+      }
+    }
+  }
+}
+
+const safeJson = <T extends object>(text: string) => {
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    return undefined;
+  }
+};
 
 export const createOpenAiApi = (endpoint: string, key: string) => {
   const endpointUrl = new URL(endpoint);

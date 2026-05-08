@@ -1,32 +1,3 @@
-/**
- * Parses a server-sent event stream.
- * @param text The event stream text.
- */
-export function* parseEventStream<T>(text: string) {
-  for (const line of text.split('\n')) {
-    if (line == '[DONE]') {
-      return;
-    } else if (!line.trim() || line.startsWith(': ping')) {
-      continue;
-    } else {
-      try {
-        const obj: T = JSON.parse(line.replace(/^data\:/, '').trim());
-        yield obj;
-      } catch {
-        continue;
-      }
-    }
-  }
-}
-
-export const safeJson = <T extends object>(text: string) => {
-  try {
-    return JSON.parse(text) as T;
-  } catch (err) {
-    return undefined;
-  }
-};
-
 export namespace RegexUtil {
   const englishChars = /[a-z]|[A-Z]/;
   export const hasEnglishChars = (str: string) => englishChars.test(str);

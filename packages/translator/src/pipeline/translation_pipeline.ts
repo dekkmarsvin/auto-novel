@@ -1,24 +1,29 @@
-import { Semaphore } from '@/utils';
 import {
-  TranslationHistory,
-  TranslationLoop,
-  TranslationPipeline,
-  SegmentQueue,
-  Translator,
+  createLineSegmenter,
+  createSegmentAssembler,
+  DefaultSegmentQueue,
+} from '@/segment';
+import {
+  Glossary,
   LineSegmenter,
   SegmentAssembler,
-  Glossary,
+  SegmentQueue,
+  TranslationHistory,
+  TranslationLoop,
+  Translator,
+  Visualizer,
 } from '@/types';
-import { createLineSegmenter, createSegmentAssembler } from '@/segment';
-import { DefaultSegmentQueue } from '@/segment';
+import { Semaphore } from '@/utils';
 
-export class DefaultTranslationPipeline extends TranslationPipeline {
+export class TranslationPipeline {
   protected queue: SegmentQueue;
+  protected translatorLoops: Map<string, TranslationLoop>;
+  protected visualizer?: Visualizer;
   private segmenter: LineSegmenter;
   private assembler: SegmentAssembler;
 
   constructor(highWaterMark?: number, segmenter?: LineSegmenter) {
-    super();
+    this.translatorLoops = new Map();
     this.queue = new DefaultSegmentQueue(highWaterMark ?? 50);
     this.segmenter = segmenter ?? createLineSegmenter(1500, 30);
     this.assembler = createSegmentAssembler();
@@ -145,5 +150,9 @@ export class DefaultTranslationPipeline extends TranslationPipeline {
         this.translatorLoops.delete(id);
       }
     }
+  }
+
+  waitUntilBelowHighWaterMark(signal?: AbortSignal): Promise<void> {
+    return this.queue.waitUntilBelowHighWaterMark(signal);
   }
 }
