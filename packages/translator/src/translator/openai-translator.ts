@@ -1,22 +1,20 @@
 import type { PromptBuilder, SegmentContext, Translator } from '@/types';
 import { detectChinese } from '@/utils';
 
-import { createOpenAiApi } from '@/api/OpenAiApi';
+import { createOpenAiApi } from './openai-api';
 import { createOpenAiPromptBuilder } from './openai-prompt';
 
 export type OpenAiTranslatorConfig = {
-  type: 'openai';
   endpoint: string;
   key: string;
   model: string;
-  //如果不指定，则由翻译器创建默认翻译Prompt
   promptBuilder?: PromptBuilder;
 };
 
 export class OpenAiTranslator implements Translator {
   private api: ReturnType<typeof createOpenAiApi>;
   private model: string;
-  private promptBuilder: NonNullable<OpenAiTranslatorConfig['promptBuilder']>;
+  private promptBuilder: PromptBuilder;
 
   constructor(config: OpenAiTranslatorConfig) {
     this.api = createOpenAiApi(config.endpoint, config.key);

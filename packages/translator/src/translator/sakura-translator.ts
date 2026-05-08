@@ -1,11 +1,11 @@
 import type { SegmentContext, Translator, PromptBuilder } from '@/types';
-import { createOpenAiApi } from '@/api/OpenAiApi';
+
+import { createOpenAiApi } from './openai-api';
 import { createSakuraPromptBuilder } from './sakura-prompt';
 
 export type SakuraVersion = '0.8' | '0.9' | '0.10' | '1.0';
 
 export type SakuraTranslatorConfig = {
-  type: 'sakura';
   endpoint: string;
   version?: SakuraVersion;
   prevSegLength?: number;
@@ -16,7 +16,7 @@ export class SakuraTranslator implements Translator {
   private api: ReturnType<typeof createOpenAiApi>;
   private version: SakuraVersion;
   private prevSegLength: number;
-  private promptBuilder: NonNullable<SakuraTranslatorConfig['promptBuilder']>;
+  private promptBuilder: PromptBuilder;
 
   constructor(config: SakuraTranslatorConfig) {
     this.api = createOpenAiApi(config.endpoint, 'no-key');
