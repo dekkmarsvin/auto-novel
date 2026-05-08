@@ -1,6 +1,6 @@
 import type { SegmentContext, Translator, PromptBuilder } from '@/types';
 import { createOpenAiApi } from '@/api/OpenAiApi';
-import { createSakuraPromptBuilder } from './prompt_sakura';
+import { createSakuraPromptBuilder } from './sakura-prompt';
 
 export type SakuraVersion = '0.8' | '0.9' | '0.10' | '1.0';
 

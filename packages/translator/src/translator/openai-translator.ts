@@ -1,7 +1,8 @@
-import type { SegmentContext, Translator, PromptBuilder } from '@/types';
-import { createOpenAiApi } from '@/api/OpenAiApi';
+import type { PromptBuilder, SegmentContext, Translator } from '@/types';
 import { detectChinese } from '@/utils';
-import { createOpenAiPromptBuilder } from './prompt_openai';
+
+import { createOpenAiApi } from '@/api/OpenAiApi';
+import { createOpenAiPromptBuilder } from './openai-prompt';
 
 export type OpenAiTranslatorConfig = {
   type: 'openai';

@@ -1,5 +1,10 @@
-import { createTranslator } from './translator';
-import { DefaultTranslationPipeline } from './pipeline/translation_pipeline';
-import { DefaultSegmentQueue } from './segment';
+export { DefaultTranslationPipeline } from './pipeline/translation_pipeline';
+export { DefaultSegmentQueue } from './segment';
 
-export { createTranslator, DefaultTranslationPipeline, DefaultSegmentQueue };
+export { OpenAiTranslator } from './translator/openai-translator';
+export type { OpenAiTranslatorConfig } from './translator/openai-translator';
+export { SakuraTranslator } from './translator/sakura-translator';
+export type {
+  SakuraVersion,
+  SakuraTranslatorConfig,
+} from './translator/sakura-translator';
