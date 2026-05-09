@@ -101,6 +101,9 @@ importers:
       '@auto-novel/crawler':
         specifier: workspace:*
         version: link:../packages/crawler
+      '@auto-novel/translator':
+        specifier: workspace:*
+        version: link:../packages/translator
       '@img-comparison-slider/vue':
         specifier: ^8.0.0
         version: 8.0.0
