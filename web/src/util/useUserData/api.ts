@@ -1,4 +1,3 @@
-import { isLegacyHost, officialBaseDomain } from '@/util/origin';
 import ky from 'ky';
 
 export const AuthUrl = (() => {
@@ -10,7 +9,7 @@ export const AuthUrl = (() => {
   }
 
   // 不考虑 a.co.uk 这种顶级域名
-  //  books.kotoban.top => auth.novelia.cc
+  //  books.kotoban.top => auth.kotoban.top
   //  test.com => auth.test.com
   const parts = host.split('.');
   const baseDomain = parts.length > 2 ? parts.slice(-2).join('.') : host;

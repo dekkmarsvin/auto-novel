@@ -2,7 +2,6 @@ import { jwtDecode } from 'jwt-decode';
 import { HTTPError } from 'ky';
 
 import { useLocalStorage } from '../useStorage';
-import { shouldUseNewStorageKeys } from '@/util/origin';
 import { AuthApi } from './api';
 export { AuthUrl } from './api';
 

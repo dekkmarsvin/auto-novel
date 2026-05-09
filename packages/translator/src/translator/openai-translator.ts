@@ -1,0 +1,133 @@
+import type { PromptBuilder, SegmentContext, Translator } from '@/types';
+import { detectChinese } from '@/utils';
+
+import { createOpenAiApi } from './openai-api';
+import { createOpenAiPromptBuilder } from './openai-prompt';
+
+export type OpenAiTranslatorConfig = {
+  endpoint: string;
+  key: string;
+  model: string;
+  promptBuilder?: PromptBuilder;
+};
+
+export class OpenAiTranslator implements Translator {
+  private api: ReturnType<typeof createOpenAiApi>;
+  private model: string;
+  private promptBuilder: PromptBuilder;
+
+  constructor(config: OpenAiTranslatorConfig) {
+    this.api = createOpenAiApi(config.endpoint, config.key);
+    this.model = config.model;
+    this.promptBuilder = config.promptBuilder ?? createOpenAiPromptBuilder();
+  }
+
+  async translate(
+    lines: string[],
+    context?: SegmentContext,
+    signal?: AbortSignal,
+  ): Promise<string[]> {
+    if (lines.length === 0) return [];
+
+    let retry = 0;
+    let failBecauseLineNumberNotMatch = 0;
+
+    while (retry < 3) {
+      const result = await this.translateLines(lines, context, signal);
+
+      if (lines.length !== result.length) {
+        failBecauseLineNumberNotMatch++;
+        retry++;
+        continue;
+      }
+
+      const joined = result.join(' ');
+      if (!detectChinese(joined)) {
+        retry++;
+        continue;
+      }
+      return result;
+    }
+
+    // 仅当连续3次行数不匹配且行数大于1时，启动二分翻译
+    if (failBecauseLineNumberNotMatch === 3 && lines.length > 1) {
+      return this.binaryTranslate(lines, context, signal);
+    }
+    throw new Error('翻译失败：重试次数过多');
+  }
+
+  private async translateLines(
+    lines: string[],
+    context?: SegmentContext,
+    signal?: AbortSignal,
+  ): Promise<string[]> {
+    const messages = this.promptBuilder(lines, context);
+    const completion = await this.api.createChatCompletions(
+      {
+        model: this.model,
+        messages,
+        temperature: 0.1,
+        top_p: 0.3,
+        max_tokens: Math.max(Math.ceil(lines.join('').length * 1.7), 100),
+      },
+      { signal },
+    );
+
+    const content = completion.choices[0]?.message?.content ?? '';
+    return this.parseAnswer(content);
+  }
+
+  private parseAnswer(answer: string): string[] {
+    return answer
+      .split('\n')
+      .filter((s) => s.trim())
+      .map((s, i) =>
+        s
+          .replace(`#${i + 1}:`, '')
+          .replace(`#${i + 1}：`, '')
+          .trim(),
+      );
+  }
+
+  private async binaryTranslate(
+    lines: string[],
+    context?: SegmentContext,
+    signal?: AbortSignal,
+  ): Promise<string[]> {
+    const binary = async (left: number, right: number): Promise<string[]> => {
+      signal?.throwIfAborted();
+
+      if (left >= right) return [];
+      if (right - left === 1) {
+        const result = await this.translateLines(
+          [lines[left]],
+          context,
+          signal,
+        );
+        return result.length === 1 ? result : [lines[left]];
+      }
+
+      const mid = Math.floor((left + right) / 2);
+      const [partLeft, partRight] = await Promise.all([
+        binary(left, mid),
+        binary(mid, right),
+      ]);
+
+      // 校验子结果行数是否匹配，不匹配则继续递归
+      const expectedLeftLen = mid - left;
+      const expectedRightLen = right - mid;
+      const fixedLeft =
+        partLeft.length === expectedLeftLen
+          ? partLeft
+          : await binary(left, mid);
+      const fixedRight =
+        partRight.length === expectedRightLen
+          ? partRight
+          : await binary(mid, right);
+
+      return fixedLeft.concat(fixedRight);
+    };
+
+    return binary(0, lines.length);
+  }
+}

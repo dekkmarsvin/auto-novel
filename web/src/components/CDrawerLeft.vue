@@ -1,7 +1,5 @@
 <script lang="ts" setup>
-import { getOfficialAssetUrl } from '@/util/origin';
-
-const heroImageUrl = getOfficialAssetUrl('/files-extra/girl.6e4fe22c238737fd028247f8f0cfd4ee.webp');
+const heroImageUrl = '/files-extra/girl.6e4fe22c238737fd028247f8f0cfd4ee.webp';
 </script>
 
 <template>

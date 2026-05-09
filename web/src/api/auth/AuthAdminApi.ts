@@ -1,4 +1,3 @@
-import { isLegacyHost, officialBaseDomain } from '@/util/origin';
 import type { PageX } from '@/model/Page';
 import type { UserRole } from '@/model/User';
 import { client } from '../novel/client';

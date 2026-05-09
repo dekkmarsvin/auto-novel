@@ -5,12 +5,15 @@ on:
   push:
     branches: [main]
     paths:
-      - .github/workflows/cd-web.yml
-      - web/**
-      - crawler/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
+      [
+        .github/workflows/cd-web.yml,
+        web/**,
+        packages/crawler/**,
+        packages/translator/**,
+        package.json,
+        pnpm-lock.yaml,
+        pnpm-workspace.yaml,
+      ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-web
@@ -50,5 +53,5 @@ jobs:
       - uses: actions/delete-package-versions@v5
         with:
           package-name: ${{ env.IMAGE_NAME }}
-          package-type: "container"
+          package-type: 'container'
           min-versions-to-keep: 1

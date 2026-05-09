@@ -105,12 +105,9 @@ val appModule = module {
         )
     }
     single {
-        val host = envDbHost("DB_HOST_ES")
-        val port = envDbPort("DB_PORT_ES")
-        println("Connecting to ES at $host:$port")
         elasticSearchClient(
-            host = host,
-            port = port,
+            host = envDbHost("DB_HOST_ES"),
+            port = envDbPort("DB_PORT_ES"),
         )
     }
     single {
