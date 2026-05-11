@@ -11,6 +11,27 @@ import type {
 } from '@/model/WebNovel';
 import { client } from './client';
 
+export interface WebNovelMutationTocItem {
+  title: string;
+  chapterId?: string | null;
+  createAt?: string | null;
+}
+
+export interface WebNovelMutationBody {
+  title: string;
+  authors: {
+    name: string;
+    link?: string | null;
+  }[];
+  type: '连载中' | '已完结' | '短篇';
+  attentions: ('R15' | 'R18' | '残酷描写' | '暴力描写' | '性描写')[];
+  keywords: string[];
+  points?: number | null;
+  totalCharacters: number;
+  introduction: string;
+  toc: WebNovelMutationTocItem[];
+}
+
 const listNovel = ({
   page,
   pageSize,
@@ -61,16 +82,17 @@ const getChapter = (providerId: string, novelId: string, chapterId: string) =>
     .get(`novel/${providerId}/${novelId}/chapter/${chapterId}`)
     .json<WebNovelChapterDto>();
 
+const createNovel = (
+  providerId: string,
+  novelId: string,
+  json: WebNovelMutationBody,
+) => client.post(`novel/${providerId}/${novelId}`, { json });
+
 const updateNovel = (
   providerId: string,
   novelId: string,
-  json: {
-    title: string;
-    introduction: string;
-    toc: { [key: string]: string };
-    wenkuId?: string;
-  },
-) => client.post(`novel/${providerId}/${novelId}`, { json });
+  json: WebNovelMutationBody,
+) => client.put(`novel/${providerId}/${novelId}`, { json });
 
 const updateNovelTranslation = (
   providerId: string,
@@ -194,6 +216,7 @@ export const WebNovelApi = {
   getNovel,
   getChapter,
 
+  createNovel,
   updateNovel,
   updateNovelTranslation,
   updateNovelWenkuId,

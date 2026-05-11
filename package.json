@@ -2,13 +2,6 @@
   "name": "auto-novel",
   "version": "0.0.0",
   "type": "module",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "core-js",
-      "esbuild",
-      "vue-demi"
-    ]
-  },
   "scripts": {
     "build": "pnpm --stream -r run build"
   }

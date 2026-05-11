@@ -92,7 +92,7 @@ const updateNovel = () => {
   }
   return doAction(
     CrawlerService.updateWebNovel(providerId, novelId),
-    '更新小说（伪）',
+    '更新小说',
     message,
   );
 };

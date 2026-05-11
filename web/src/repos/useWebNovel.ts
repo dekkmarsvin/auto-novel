@@ -94,6 +94,7 @@ export const WebNovelRepo = {
   useWebNovelHistoryList,
   useWebNovelFavoredList,
 
+  createNovel: WebNovelApi.createNovel,
   updateNovel: withOnSuccess(
     WebNovelApi.updateNovel,
     (_, providerId, novelId) =>
