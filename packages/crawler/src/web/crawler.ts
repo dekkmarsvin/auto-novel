@@ -1,4 +1,4 @@
-import type { KyInstance } from 'ky';
+import ky from 'ky';
 
 import type {
   Page,
@@ -15,7 +15,7 @@ import { Novelup } from './novelup';
 import { Pixiv } from './pixiv';
 import { Syosetu } from './syosetu';
 
-type ProviderInitFn = (_: KyInstance) => WebNovelProvider;
+type ProviderInitFn = () => WebNovelProvider;
 
 type ProviderId =
   | 'alphapolis'
@@ -25,26 +25,25 @@ type ProviderId =
   | 'pixiv'
   | 'syosetu';
 
-type ProviderRegistry = Record<ProviderId, ProviderInitFn>;
+type ProviderRegistry = Partial<Record<ProviderId, ProviderInitFn>>;
 
 export class WebNovelCrawler {
-  readonly client: KyInstance;
-
   private readonly providers = new Map<string, ProviderInitFn>();
   private readonly providerInstances = new Map<string, WebNovelProvider>();
 
-  constructor(
-    client: KyInstance,
-    initialProviders: ProviderRegistry = {
-      alphapolis: (ky) => new Alphapolis(ky),
-      hameln: (ky) => new Hameln(ky),
-      pixiv: (ky) => new Pixiv(ky),
-      novelup: (ky) => new Novelup(ky),
-      kakuyomu: (ky) => new Kakuyomu(ky),
-      syosetu: (ky) => new Syosetu(ky, { concurrency: 2 }),
-    },
-  ) {
-    this.client = client;
+  constructor(initialProviders: ProviderRegistry = {}) {
+    const defaultProviders: Record<ProviderId, ProviderInitFn> = {
+      alphapolis: () => new Alphapolis(ky),
+      hameln: () => new Hameln(ky),
+      pixiv: () => new Pixiv(ky),
+      novelup: () => new Novelup(ky),
+      kakuyomu: () => new Kakuyomu(ky),
+      syosetu: () => new Syosetu(ky, { concurrency: 2 }),
+    };
+
+    for (const [providerId, provider] of Object.entries(defaultProviders)) {
+      this.providers.set(providerId, provider);
+    }
     for (const [providerId, provider] of Object.entries(initialProviders)) {
       this.providers.set(providerId, provider);
     }
@@ -61,7 +60,7 @@ export class WebNovelCrawler {
       throw new Error(`Unknown providerId: ${providerId}`);
     }
 
-    const provider = providerInit(this.client);
+    const provider = providerInit();
     this.providerInstances.set(providerId, provider);
     return provider;
   }

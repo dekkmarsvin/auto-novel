@@ -11,8 +11,6 @@ import {
   useWhoamiStore,
   useWorkspaceStore,
 } from '@/stores';
-import { CrawlerService } from '@/domain/crawler';
-import { doAction } from '@/pages/util';
 
 const props = defineProps<{
   providerId: string;
@@ -33,7 +31,6 @@ const { providerId, novelId, titleJp, titleZh, total } = props;
 
 const emit = defineEmits<{
   'update:jp': [number];
-  'update:baidu': [number];
   'update:youdao': [number];
   'update:gpt': [number];
   'update:themeGlossaryId': [string | undefined];
@@ -49,7 +46,7 @@ const { setting } = storeToRefs(settingStore);
 
 const translateOptions = useTemplateRef('translateOptions');
 const translateTask = useTemplateRef('translateTask');
-const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
+const startTranslateTask = (translatorId: 'youdao') =>
   translateTask?.value?.startTask(
     { type: 'web', providerId, novelId },
     translateOptions.value!.getTranslateTaskParams(),
@@ -84,18 +81,6 @@ const files = computed(() => {
     }),
   };
 });
-
-const updateNovel = () => {
-  if (!CrawlerService.checkAddon()) {
-    message.error('无法更新目录：未检测到Addon');
-    return;
-  }
-  return doAction(
-    CrawlerService.updateWebNovel(providerId, novelId),
-    '更新小说',
-    message,
-  );
-};
 
 const importToWorkspace = async () => {
   const blob = await ky.get(files.value.jp.url).blob();
@@ -193,12 +178,6 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     <template v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0">
       <n-button-group>
         <c-button
-          v-if="setting.enabledTranslator.includes('baidu')"
-          label="更新百度"
-          :round="false"
-          @action="startTranslateTask('baidu')"
-        />
-        <c-button
           v-if="setting.enabledTranslator.includes('youdao')"
           label="更新有道"
           :round="false"
@@ -241,19 +220,12 @@ const submitJob = (id: 'gpt' | 'sakura') => {
         :round="false"
         @action="importToWorkspace"
       />
-      <c-button
-        v-if="whoami.isAdmin"
-        label="更新目录"
-        :round="false"
-        @action="updateNovel()"
-      />
     </n-button-group>
   </n-flex>
 
   <TranslateTask
     ref="translateTask"
     @update:jp="(zh) => emit('update:jp', zh)"
-    @update:baidu="(zh) => emit('update:baidu', zh)"
     @update:youdao="(zh) => emit('update:youdao', zh)"
     @update:gpt="(zh) => emit('update:gpt', zh)"
     style="margin-top: 20px"

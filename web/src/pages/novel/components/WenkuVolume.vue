@@ -27,7 +27,7 @@ const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
 const translateTask = useTemplateRef('translateTask');
-const startTranslateTask = (translatorId: 'baidu' | 'youdao') => {
+const startTranslateTask = (translatorId: 'youdao') => {
   return translateTask?.value?.startTask(
     { type: 'wenku', novelId, volumeId: volume.volumeId },
     getParams(),
@@ -90,13 +90,6 @@ const submitJob = (id: 'gpt' | 'sakura') => {
 
       <n-flex :size="8">
         <c-button
-          v-if="setting.enabledTranslator.includes('baidu')"
-          label="更新百度"
-          size="tiny"
-          secondary
-          @action="startTranslateTask('baidu')"
-        />
-        <c-button
           v-if="setting.enabledTranslator.includes('youdao')"
           label="更新有道"
           size="tiny"
@@ -142,7 +135,6 @@ const submitJob = (id: 'gpt' | 'sakura') => {
 
   <TranslateTask
     ref="translateTask"
-    @update:baidu="(zh) => (volume.baidu = zh)"
     @update:youdao="(zh) => (volume.youdao = zh)"
     @update:gpt="(zh) => (volume.gpt = zh)"
     @update:sakura="(zh) => (volume.sakura = zh)"

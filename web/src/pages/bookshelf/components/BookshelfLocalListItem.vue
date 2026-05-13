@@ -20,7 +20,7 @@ const gpt = ref(calculateFinished('gpt'));
 const sakura = ref(calculateFinished('sakura'));
 
 const translateTask = useTemplateRef('translateTask');
-const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
+const startTranslateTask = (translatorId: 'youdao') =>
   translateTask?.value?.startTask(
     { type: 'local', volumeId: props.volume.id },
     {
@@ -50,13 +50,6 @@ const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
 
     <n-flex :size="8">
       <c-button
-        v-if="setting.enabledTranslator.includes('baidu')"
-        label="更新百度"
-        size="tiny"
-        secondary
-        @action="startTranslateTask('baidu')"
-      />
-      <c-button
         v-if="setting.enabledTranslator.includes('youdao')"
         label="更新有道"
         size="tiny"
@@ -74,7 +67,6 @@ const startTranslateTask = (translatorId: 'baidu' | 'youdao') =>
   <TranslateTask
     ref="translateTask"
     style="margin-top: 20px"
-    @update:baidu="(zh) => (baidu = zh)"
     @update:youdao="(zh) => (youdao = zh)"
   />
 </template>

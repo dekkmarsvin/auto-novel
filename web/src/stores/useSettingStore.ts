@@ -1,10 +1,10 @@
-import type { TranslatorId } from '@/model/Translator';
+import type { ActiveTranslatorId, TranslatorId } from '@/model/Translator';
 import { defaultConverter, useLocalStorage, useOpenCC } from '@/util';
 import { LSKey } from './key';
 
 export interface Setting {
   theme: 'light' | 'dark' | 'system';
-  enabledTranslator: TranslatorId[];
+  enabledTranslator: ActiveTranslatorId[];
   tocSortReverse: boolean;
   //
   tocCollapseInNarrowScreen: boolean;
@@ -22,7 +22,7 @@ export interface Setting {
   downloadFormat: {
     mode: 'zh' | 'zh-jp' | 'jp-zh';
     translationsMode: 'parallel' | 'priority';
-    translations: TranslatorId[];
+    translations: ActiveTranslatorId[];
     type: 'epub' | 'txt';
   };
   workspaceSound: boolean;
@@ -36,10 +36,32 @@ export interface Setting {
   searchLocaleAware: boolean;
 }
 
+const defaultEnabledTranslators = [
+  'sakura',
+  'gpt',
+  'youdao',
+] satisfies ActiveTranslatorId[];
+const defaultTranslationPriority = [
+  'sakura',
+  'gpt',
+  'youdao',
+] satisfies ActiveTranslatorId[];
+type LegacyTranslatorId = TranslatorId;
+
+const sanitizeTranslators = (
+  translators: LegacyTranslatorId[] | undefined,
+  fallback: ActiveTranslatorId[],
+) => {
+  const filtered = (translators ?? []).filter(
+    (id): id is ActiveTranslatorId => id !== 'baidu',
+  );
+  return filtered.length === 0 ? fallback.slice() : filtered;
+};
+
 export namespace Setting {
   export const defaultValue: Setting = {
     theme: 'system',
-    enabledTranslator: ['baidu', 'youdao', 'gpt', 'sakura'],
+    enabledTranslator: defaultEnabledTranslators.slice(),
     tocSortReverse: false,
     //
     tocCollapseInNarrowScreen: true,
@@ -57,7 +79,7 @@ export namespace Setting {
     downloadFormat: {
       mode: 'zh-jp',
       translationsMode: 'priority',
-      translations: ['sakura', 'gpt', 'youdao', 'baidu'],
+      translations: defaultTranslationPriority.slice(),
       type: 'epub',
     },
     workspaceSound: false,
@@ -78,9 +100,10 @@ export namespace Setting {
       }
       delete setting.isDark;
     }
-    if (setting.enabledTranslator === undefined) {
-      setting.enabledTranslator = ['baidu', 'youdao', 'gpt', 'sakura'];
-    }
+    setting.enabledTranslator = sanitizeTranslators(
+      setting.enabledTranslator,
+      defaultEnabledTranslators,
+    );
     if ((setting.downloadFormat.mode as string) === 'mix') {
       setting.downloadFormat.mode = 'zh-jp';
     } else if ((setting.downloadFormat.mode as string) === 'mix-reverse') {
@@ -88,6 +111,10 @@ export namespace Setting {
     } else if ((setting.downloadFormat.mode as string) === 'jp') {
       setting.downloadFormat.mode = 'zh';
     }
+    setting.downloadFormat.translations = sanitizeTranslators(
+      setting.downloadFormat.translations,
+      defaultTranslationPriority,
+    );
     // 2024-03-05
     if (setting.workspaceSound === undefined) {
       setting.workspaceSound = false;
@@ -136,7 +163,7 @@ export namespace Setting {
 export interface ReaderSetting {
   mode: 'jp' | 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: TranslatorId[];
+  translations: ActiveTranslatorId[];
   clickArea: 'default' | 'left-right' | 'up-down' | 'none';
   speakLanguages: string[];
   pageTurnMode: 'page' | 'scroll';
@@ -162,7 +189,7 @@ export namespace ReaderSetting {
   export const defaultValue: ReaderSetting = {
     mode: 'zh-jp',
     translationsMode: 'priority',
-    translations: ['sakura', 'gpt', 'youdao', 'baidu'],
+    translations: defaultTranslationPriority.slice(),
     clickArea: 'default',
     speakLanguages: ['jp'],
     pageTurnMode: 'page',
@@ -217,6 +244,10 @@ export namespace ReaderSetting {
       }
       delete setting.trimLeadingSpaces;
     }
+    setting.translations = sanitizeTranslators(
+      setting.translations,
+      defaultTranslationPriority,
+    );
   };
 
   export const modeOptions = [

@@ -1,18 +1,9 @@
-import ky from 'ky';
+import { isEqual } from 'lodash-es';
 
+import type { WebNovelMetadata } from '@/api';
+import { WebNovelApi, WebNovelCrawlerApi } from '@/api';
+import type { WebNovelDto } from '@/model/WebNovel';
 import { WebNovelRepo } from '@/repos';
-import type { WebNovelMetadata } from '@auto-novel/crawler';
-import { WebNovelCrawler } from '@auto-novel/crawler';
-
-const checkAddon = () => {
-  return window.Addon !== undefined;
-};
-
-const getCrawler = () => {
-  if (!window.Addon) return undefined;
-  const client = ky.create({ fetch: window.Addon.fetch });
-  return new WebNovelCrawler(client);
-};
 
 const toMutationBody = (metadata: WebNovelMetadata) => ({
   title: metadata.title,
@@ -33,18 +24,41 @@ const toMutationBody = (metadata: WebNovelMetadata) => ({
   })),
 });
 
-const updateWebNovel = async (providerId: string, novelId: string) => {
-  const crawler = getCrawler();
-  if (!crawler) throw new Error('未检测到浏览器扩展');
+const toCurrentMutationBody = (novel: WebNovelDto) => ({
+  title: novel.titleJp,
+  authors: novel.authors.map((author) => ({
+    name: author.name,
+    link: author.link ?? null,
+  })),
+  type: novel.type as WebNovelMetadata['type'],
+  attentions: novel.attentions as WebNovelMetadata['attentions'],
+  keywords: novel.keywords,
+  points: novel.points ?? null,
+  totalCharacters: novel.totalCharacters ?? 0,
+  introduction: novel.introductionJp,
+  toc: novel.toc.map((item) => ({
+    title: item.titleJp,
+    chapterId: item.chapterId ?? null,
+    createAt:
+      item.createAt != null
+        ? new Date(item.createAt * 1000).toISOString()
+        : null,
+  })),
+});
 
-  const metadata = await crawler.getMetadata(providerId, novelId);
+const updateWebNovel = async (providerId: string, novelId: string) => {
+  const metadata = await WebNovelCrawlerApi.getMetadata(providerId, novelId);
   if (metadata == null) throw new Error('未找到小说');
 
   const body = toMutationBody(metadata);
+  const current = await WebNovelApi.getNovel(providerId, novelId);
+  if (isEqual(body, toCurrentMutationBody(current))) {
+    throw new Error('没有必要更新');
+  }
+
   await WebNovelRepo.updateNovel(providerId, novelId, body);
 };
 
 export const CrawlerService = {
-  checkAddon,
   updateWebNovel,
 };

@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-import { BookOutlined, EditNoteOutlined } from '@vicons/material';
-import { NA, NText } from 'naive-ui';
+import { BookOutlined, EditNoteOutlined, SyncOutlined } from '@vicons/material';
+import { NText } from 'naive-ui';
 
+import { CrawlerService } from '@/domain/crawler';
 import type { WebNovelDto } from '@/model/WebNovel';
 import { useWhoamiStore } from '@/stores';
 import { WebUtil } from '@/util/web';
 
-import { useIsWideScreen } from '@/pages/util';
+import { doAction } from '@/pages/util';
 
 const props = defineProps<{
   providerId: string;
@@ -14,10 +15,9 @@ const props = defineProps<{
   novel: WebNovelDto;
 }>();
 
-const isWideScreen = useIsWideScreen();
-
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
+const message = useMessage();
 
 const labels = computed(() => {
   const readableNumber = (num: number | undefined) => {
@@ -79,6 +79,14 @@ const latestChapterCreateAt = computed(() => {
   if (createAtList.length === 0) return undefined;
   else return Math.max(...createAtList);
 });
+
+const updateNovel = () => {
+  return doAction(
+    CrawlerService.updateWebNovel(props.providerId, props.novelId),
+    '更新小说',
+    message,
+  );
+};
 </script>
 
 <template>
@@ -120,6 +128,14 @@ const latestChapterCreateAt = computed(() => {
       :novel="{ type: 'web', providerId, novelId }"
     />
 
+    <c-button
+      v-if="whoami.hasNovelAccess"
+      label="更新"
+      :round="false"
+      :icon="SyncOutlined"
+      @action="updateNovel()"
+    />
+
     <router-link v-if="novel.wenkuId" :to="`/wenku/${novel.wenkuId}`">
       <c-button label="文库" :icon="BookOutlined" />
     </router-link>
@@ -142,19 +158,10 @@ const latestChapterCreateAt = computed(() => {
     </template>
   </n-p>
 
-  <n-ellipsis
-    :expand-trigger="isWideScreen ? undefined : 'click'"
-    :line-clamp="isWideScreen ? 999 : 5"
-    :tooltip="false"
-    style="word-break: break-all; margin-bottom: 0"
-  >
-    <template v-if="novel.introductionZh !== undefined">
-      {{ novel.introductionZh }}
-      <br />
-      <br />
-    </template>
-    {{ novel.introductionJp }}
-  </n-ellipsis>
+  <web-novel-introduction
+    :introduction-jp="novel.introductionJp"
+    :introduction-zh="novel.introductionZh"
+  />
 
   <n-flex :size="[4, 4]">
     <router-link
