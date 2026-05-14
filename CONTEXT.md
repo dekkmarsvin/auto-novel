@@ -12,6 +12,10 @@ _Avoid_: Full upstream sync, blind upstream merge
 A fork-authored commit that manually integrates selected upstream changes instead of merging upstream wholesale.
 _Avoid_: Merge commit, upstream parity commit
 
+**Upstream-Compatible Maintenance**:
+A fork-adapted engineering maintenance change that follows upstream's direction without adopting patches that would weaken fork invariants.
+_Avoid_: Blind maintenance sync, upstream cleanup
+
 **Fork Capability**:
 A product capability that this fork intentionally preserves even when upstream removes or changes it.
 _Avoid_: Local patch, temporary customization
@@ -56,6 +60,8 @@ _Avoid_: Source of truth
 
 - **Selective Feature Sync** evaluates changes from **Upstream**
 - **Curated Upstream Sync Commit** is the preferred implementation form for **Selective Feature Sync**
+- **Upstream-Compatible Maintenance** may be adopted more proactively than product changes
+- **Upstream-Compatible Maintenance** must preserve every **Fork Capability**
 - **Selective Feature Sync** preserves every **Fork Capability**
 - **Selective Feature Sync** may remove active entry points for a **Legacy Capability**
 - **Baidu Translation** is a **Legacy Capability**
@@ -73,6 +79,9 @@ _Avoid_: Source of truth
 >
 > **Dev:** "Should the sync be represented by a direct upstream merge commit?"
 > **Domain expert:** "No. Use a **Curated Upstream Sync Commit** so accepted upstream changes and rejected removals are explicit."
+>
+> **Dev:** "Can we take upstream's dependency refresh to reduce diff noise?"
+> **Domain expert:** "Yes, as **Upstream-Compatible Maintenance** if the fork invariants still pass and Docker/CI changes are adapted to this fork."
 >
 > **Dev:** "Upstream removed the Baidu translation buttons. Is that the same as removing ThemeGlossary?"
 > **Domain expert:** "No. **Baidu Translation** is a **Legacy Capability**: keep old data readable, but active entry points can be removed."
@@ -99,6 +108,7 @@ _Avoid_: Source of truth
 
 - "upstream sync" was used ambiguously between full upstream parity and selective adoption. Resolved: this fork uses **Selective Feature Sync**.
 - "sync commit" was ambiguous between direct upstream merge and manual integration. Resolved: use a **Curated Upstream Sync Commit**.
+- "engineering sync" was ambiguous between reducing maintenance diff and accepting upstream cleanup verbatim. Resolved: use **Upstream-Compatible Maintenance** for fork-adapted engineering maintenance.
 - "百度翻譯" was used ambiguously between an actively supported translator and historical translation compatibility. Resolved: **Baidu Translation** is a **Legacy Capability**.
 - "translation source" was used ambiguously between sources that can run new tasks and sources that can display stored text. Resolved: use **Readable Translation Source** for reader/export choices.
 - "OpenAI web worker" could mean normal GPT translation or a ChatGPT web-backend integration. Resolved: **OpenAI Web Worker Translation** is legacy; OpenAI-compatible API translation remains supported.
