@@ -1,5 +1,5 @@
 import { parseFile } from '@/util/file';
-import type { ActiveTranslatorId } from '@/model/Translator';
+import type { ReadableTranslatorId } from '@/model/Translator';
 
 import { EpubParserV1 } from './EpubParser';
 import type { LocalVolumeDao } from './LocalVolumeDao';
@@ -15,7 +15,7 @@ export const getTranslationFile = async (
     id: string;
     mode: 'zh' | 'zh-jp' | 'jp-zh';
     translationsMode: 'parallel' | 'priority';
-    translations: ActiveTranslatorId[];
+    translations: ReadableTranslatorId[];
   },
 ) => {
   const filename = [

@@ -292,6 +292,7 @@ const queueJobs = (type: 'gpt' | 'sakura') => {
           />
           <translator-check
             v-model:value="setting.downloadFormat.translations"
+            include-legacy
             show-order
             :two-line="!isWideScreen"
           />

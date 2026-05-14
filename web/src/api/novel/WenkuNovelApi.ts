@@ -1,6 +1,7 @@
 import type { Page } from '@/model/Page';
 import type {
   ActiveTranslatorId,
+  ReadableTranslatorId,
   WenkuChapterTranslateTask,
   WenkuTranslateTask,
 } from '@/model/Translator';
@@ -118,7 +119,7 @@ const createFileUrl = ({
   volumeId: string;
   mode: 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ActiveTranslatorId[];
+  translations: ReadableTranslatorId[];
 }) => {
   const filename = [
     mode,

@@ -1,4 +1,8 @@
-import type { ActiveTranslatorId, TranslatorId } from '@/model/Translator';
+import type {
+  ActiveTranslatorId,
+  ReadableTranslatorId,
+  TranslatorId,
+} from '@/model/Translator';
 import { defaultConverter, useLocalStorage, useOpenCC } from '@/util';
 import { LSKey } from './key';
 
@@ -22,7 +26,7 @@ export interface Setting {
   downloadFormat: {
     mode: 'zh' | 'zh-jp' | 'jp-zh';
     translationsMode: 'parallel' | 'priority';
-    translations: ActiveTranslatorId[];
+    translations: ReadableTranslatorId[];
     type: 'epub' | 'txt';
   };
   workspaceSound: boolean;
@@ -48,12 +52,29 @@ const defaultTranslationPriority = [
 ] satisfies ActiveTranslatorId[];
 type LegacyTranslatorId = TranslatorId;
 
-const sanitizeTranslators = (
+const allReadableTranslators = new Set<TranslatorId>([
+  'baidu',
+  'youdao',
+  'gpt',
+  'sakura',
+]);
+
+const sanitizeActiveTranslators = (
   translators: LegacyTranslatorId[] | undefined,
   fallback: ActiveTranslatorId[],
 ) => {
   const filtered = (translators ?? []).filter(
     (id): id is ActiveTranslatorId => id !== 'baidu',
+  );
+  return filtered.length === 0 ? fallback.slice() : filtered;
+};
+
+const sanitizeReadableTranslators = (
+  translators: LegacyTranslatorId[] | undefined,
+  fallback: ReadableTranslatorId[],
+) => {
+  const filtered = (translators ?? []).filter(
+    (id): id is ReadableTranslatorId => allReadableTranslators.has(id),
   );
   return filtered.length === 0 ? fallback.slice() : filtered;
 };
@@ -100,7 +121,7 @@ export namespace Setting {
       }
       delete setting.isDark;
     }
-    setting.enabledTranslator = sanitizeTranslators(
+    setting.enabledTranslator = sanitizeActiveTranslators(
       setting.enabledTranslator,
       defaultEnabledTranslators,
     );
@@ -111,7 +132,7 @@ export namespace Setting {
     } else if ((setting.downloadFormat.mode as string) === 'jp') {
       setting.downloadFormat.mode = 'zh';
     }
-    setting.downloadFormat.translations = sanitizeTranslators(
+    setting.downloadFormat.translations = sanitizeReadableTranslators(
       setting.downloadFormat.translations,
       defaultTranslationPriority,
     );
@@ -163,7 +184,7 @@ export namespace Setting {
 export interface ReaderSetting {
   mode: 'jp' | 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ActiveTranslatorId[];
+  translations: ReadableTranslatorId[];
   clickArea: 'default' | 'left-right' | 'up-down' | 'none';
   speakLanguages: string[];
   pageTurnMode: 'page' | 'scroll';
@@ -244,7 +265,7 @@ export namespace ReaderSetting {
       }
       delete setting.trimLeadingSpaces;
     }
-    setting.translations = sanitizeTranslators(
+    setting.translations = sanitizeReadableTranslators(
       setting.translations,
       defaultTranslationPriority,
     );

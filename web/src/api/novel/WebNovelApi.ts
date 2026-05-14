@@ -1,6 +1,7 @@
 import type { Page } from '@/model/Page';
 import type {
   ActiveTranslatorId,
+  ReadableTranslatorId,
   WebChapterTranslateTask,
   WebTranslateTask,
 } from '@/model/Translator';
@@ -181,7 +182,7 @@ const createFileUrl = ({
   novelId: string;
   mode: 'jp' | 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ActiveTranslatorId[];
+  translations: ReadableTranslatorId[];
   type: 'epub' | 'txt';
   title: string;
 }) => {

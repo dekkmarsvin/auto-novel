@@ -1,22 +1,32 @@
 <script lang="ts" setup>
-import type { ActiveTranslatorId } from '@/model/Translator';
+import type { TranslatorId } from '@/model/Translator';
 
 const props = defineProps<{
-  value: ActiveTranslatorId[];
+  value: TranslatorId[];
   showOrder?: boolean;
   twoLine?: boolean;
+  includeLegacy?: boolean;
 }>();
 const emit = defineEmits<{
-  'update:value': [ActiveTranslatorId[]];
+  'update:value': [TranslatorId[]];
 }>();
 
-const translationOptions: { label: string; value: ActiveTranslatorId }[] = [
+const activeTranslationOptions: { label: string; value: TranslatorId }[] = [
   { label: '有道', value: 'youdao' },
   { label: 'GPT', value: 'gpt' },
   { label: 'Sakura', value: 'sakura' },
 ];
+const legacyTranslationOptions: { label: string; value: TranslatorId }[] = [
+  { label: '百度(历史)', value: 'baidu' },
+];
 
-const toggleTranslator = (id: ActiveTranslatorId) => {
+const translationOptions = computed(() =>
+  props.includeLegacy
+    ? [...legacyTranslationOptions, ...activeTranslationOptions]
+    : activeTranslationOptions,
+);
+
+const toggleTranslator = (id: TranslatorId) => {
   if (props.value.includes(id)) {
     emit(
       'update:value',
@@ -27,7 +37,7 @@ const toggleTranslator = (id: ActiveTranslatorId) => {
   }
 };
 
-const calculateTranslatorOrderLabel = (id: ActiveTranslatorId) => {
+const calculateTranslatorOrderLabel = (id: TranslatorId) => {
   const index = props.value.indexOf(id);
   if (index < 0) {
     return '[x]';

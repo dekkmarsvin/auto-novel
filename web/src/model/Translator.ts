@@ -2,6 +2,7 @@ import type { Glossary } from './Glossary';
 
 export type TranslatorId = 'sakura' | 'baidu' | 'youdao' | 'gpt';
 export type ActiveTranslatorId = Exclude<TranslatorId, 'baidu'>;
+export type ReadableTranslatorId = TranslatorId;
 
 export interface GptWorker {
   id: string;

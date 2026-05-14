@@ -3,7 +3,7 @@ import { createReusableTemplate, onKeyDown } from '@vueuse/core';
 
 import { ReadHistoryApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
-import type { ActiveTranslatorId } from '@/model/Translator';
+import type { ReadableTranslatorId } from '@/model/Translator';
 import { checkIsMobile } from '@/pages/util';
 import { ReadPositionRepo } from '@/repos';
 import {
@@ -230,7 +230,7 @@ onKeyDown(['ArrowRight'], (e) => {
   }
 });
 
-onKeyDown(['1', '2', '3'], (e) => {
+onKeyDown(['1', '2', '3', '4'], (e) => {
   if (e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) {
     return;
   }
@@ -238,7 +238,12 @@ onKeyDown(['1', '2', '3'], (e) => {
     return;
   }
   const setting = readerSetting.value;
-  const translatorIds = <ActiveTranslatorId[]>['youdao', 'gpt', 'sakura'];
+  const translatorIds = <ReadableTranslatorId[]>[
+    'baidu',
+    'youdao',
+    'gpt',
+    'sakura',
+  ];
   const translatorId = translatorIds[parseInt(e.key, 10) - 1];
   if (setting.translationsMode === 'parallel') {
     if (setting.translations.includes(translatorId)) {
