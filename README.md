@@ -21,7 +21,7 @@ ThemeGlossary 允许用户创建、管理和共享跨小说的术语表主题。
 涉及文件：
 
 - **后端：** `RouteThemeGlossary.kt`、`ThemeGlossary.kt`、`ThemeGlossaryRepository.kt`、以及 `Application.kt`、`RouteWebNovel.kt`、`RouteWenkuNovel.kt` 中的相关引用
-- **前端：** `ThemeGlossaryApi.ts`、`ThemeGlossary.ts`（model）、`GlossaryButton.vue`、`ToolboxItemThemeGlossary.vue`、`TranslateOptions.vue`、`WebNovelWide.vue`、`WebTranslate.vue`
+- **前端：** `ThemeGlossaryApi.ts`、`ThemeGlossary.ts`（model）、`GlossaryButton.vue`、`ToolboxItemThemeGlossary.vue`、`TranslateOptions.vue`、`WebNovelWide.vue`、`WebNovelNarrow.vue`、`WebTranslate.vue`
 - **数据库：** MongoDB collection `theme-glossary`
 
 > [!CAUTION] > **合并上游更新时，务必保留 ThemeGlossary 相关代码。** 上游已删除此功能，合并时可能会意外移除。

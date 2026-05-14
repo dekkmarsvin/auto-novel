@@ -37,6 +37,7 @@ The upstream has removed this feature entirely. When merging upstream updates, y
 - `web/src/pages/workspace/components/ToolboxItemThemeGlossary.vue` — workspace management UI
 - `web/src/pages/novel/components/TranslateOptions.vue` — passes themeGlossaryId prop
 - `web/src/pages/novel/components/WebNovelWide.vue` — binds themeGlossaryId
+- `web/src/pages/novel/components/WebNovelNarrow.vue` — binds themeGlossaryId
 - `web/src/pages/novel/components/WebTranslate.vue` — passes themeGlossaryId prop
 - `web/src/pages/novel/WenkuNovel.vue` — binds themeGlossaryId into TranslateOptions
 - `web/src/api/novel/WebNovelApi.ts` — `themeGlossaryId` in updateGlossary

@@ -52,6 +52,9 @@ const updateWebNovel = async (providerId: string, novelId: string) => {
 
   const body = toMutationBody(metadata);
   const current = await WebNovelApi.getNovel(providerId, novelId);
+  if (body.toc.length < current.toc.length) {
+    throw new Error('目录变短，放弃更新，请手动打开源站确保你有办法访问');
+  }
   if (isEqual(body, toCurrentMutationBody(current))) {
     throw new Error('没有必要更新');
   }
