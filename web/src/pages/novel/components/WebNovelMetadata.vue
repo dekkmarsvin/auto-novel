@@ -56,11 +56,6 @@ const latestChapterCreateAt = computed(() => {
 
   <n-divider />
 
-  <WebNovelIntroduction
-    :introduction-jp="novel.introductionJp"
-    :introduction-zh="novel.introductionZh"
-  />
-
   <WebNovelStat
     :type="novel.type"
     :total-characters="novel.totalCharacters"
@@ -68,11 +63,17 @@ const latestChapterCreateAt = computed(() => {
     :latest-chapter-create-at="latestChapterCreateAt"
   />
 
+  <WebNovelIntroduction
+    :introduction-jp="novel.introductionJp"
+    :introduction-zh="novel.introductionZh"
+    style="margin-top: 24px"
+  />
+
   <WebNovelTags
     :provider-id="providerId"
     :attentions="novel.attentions"
     :keywords="novel.keywords"
     :points="novel.points"
-    style="margin-top: 16px"
+    style="margin-top: 12px"
   />
 </template>
