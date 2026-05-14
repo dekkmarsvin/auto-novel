@@ -631,7 +631,6 @@ class WebNovelApi(
         novelId: String,
         body: WebNovelUpdateBody,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 
@@ -677,7 +676,6 @@ class WebNovelApi(
         novelId: String,
         body: WebNovelUpdateBody,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 

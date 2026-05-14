@@ -24,6 +24,10 @@ _Avoid_: Fork capability, supported feature
 A legacy machine-translation path whose existing data may remain readable while its active translation entry points can follow upstream removal.
 _Avoid_: Required translator
 
+**OpenAI Web Worker Translation**:
+A legacy GPT translation path that calls the ChatGPT web backend instead of a compatible OpenAI-style API endpoint.
+_Avoid_: GPT translation, OpenAI API translation
+
 **Addon-Assisted Recovery**:
 A recovery path where the browser addon fetches WebNovel metadata after the backend cannot load an existing novel.
 _Avoid_: Automatic backend sync, normal import
@@ -51,6 +55,7 @@ _Avoid_: Source of truth
 - **Selective Feature Sync** preserves every **Fork Capability**
 - **Selective Feature Sync** may remove active entry points for a **Legacy Capability**
 - **Baidu Translation** is a **Legacy Capability**
+- **OpenAI Web Worker Translation** is a **Legacy Capability**
 - **Addon-Assisted Recovery** is triggered only after a WebNovel lookup fails
 - **Novel Access** is sufficient for WebNovel metadata updates
 - **Introduction Translation Toggle** changes presentation, not WebNovel metadata
@@ -66,6 +71,9 @@ _Avoid_: Source of truth
 >
 > **Dev:** "Upstream removed the Baidu translation buttons. Is that the same as removing ThemeGlossary?"
 > **Domain expert:** "No. **Baidu Translation** is a **Legacy Capability**: keep old data readable, but active entry points can be removed."
+>
+> **Dev:** "Upstream removed ChatGPT web backend worker support. Is that part of GPT translation?"
+> **Domain expert:** "No. **OpenAI Web Worker Translation** is a **Legacy Capability**; keep normal OpenAI-compatible API translation as the supported GPT path."
 >
 > **Dev:** "If a WebNovel page fails to load, can the browser addon create it?"
 > **Domain expert:** "Yes, through **Addon-Assisted Recovery**. Do not describe it as normal backend sync."
@@ -84,6 +92,7 @@ _Avoid_: Source of truth
 - "upstream sync" was used ambiguously between full upstream parity and selective adoption. Resolved: this fork uses **Selective Feature Sync**.
 - "sync commit" was ambiguous between direct upstream merge and manual integration. Resolved: use a **Curated Upstream Sync Commit**.
 - "百度翻譯" was used ambiguously between an actively supported translator and historical translation compatibility. Resolved: **Baidu Translation** is a **Legacy Capability**.
+- "OpenAI web worker" could mean normal GPT translation or a ChatGPT web-backend integration. Resolved: **OpenAI Web Worker Translation** is legacy; OpenAI-compatible API translation remains supported.
 - "補錄小說" could mean normal import, sync, or recovery. Resolved: addon-based creation after a failed lookup is **Addon-Assisted Recovery**.
 - "更新小說權限" could mean admin-only moderation or normal novel maintenance. Resolved: WebNovel metadata updates require **Novel Access**, not admin-only access.
 - "簡介切換" could mean editing metadata or changing presentation. Resolved: switching original/translated introduction display is **Introduction Translation Toggle**.

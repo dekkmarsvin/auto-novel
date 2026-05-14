@@ -60,7 +60,6 @@ const translate = async () => {
     selectedWorker = worker;
     config = {
       id,
-      type: worker.type,
       model: worker.model,
       endpoint: worker.endpoint,
       key: worker.key,

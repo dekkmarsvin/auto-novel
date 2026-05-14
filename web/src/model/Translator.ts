@@ -6,7 +6,6 @@ export type ActiveTranslatorId = Exclude<TranslatorId, 'baidu'>;
 export interface GptWorker {
   id: string;
   endpoint: string;
-  type: 'web' | 'api';
   model: string;
   key: string;
 }

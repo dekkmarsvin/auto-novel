@@ -1,6 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
-
-import { createOpenAiApi, createOpenAiWebApi, OpenAiError } from '@/api';
+import { createOpenAiApi, OpenAiError } from '@/api';
 import type { Glossary } from '@/model/Glossary';
 import { delay, RegexUtil } from '@/util';
 
@@ -8,25 +6,17 @@ import type { Logger, SegmentContext, SegmentTranslator } from './Common';
 import { createLengthSegmentor } from './Common';
 
 type OpenAi = ReturnType<typeof createOpenAiApi>;
-type OpenAiWeb = ReturnType<typeof createOpenAiWebApi>;
 
 export class OpenAiTranslator implements SegmentTranslator {
   id = <const>'gpt';
   log: Logger;
-  private api: OpenAi | OpenAiWeb;
+  private api: OpenAi;
   private model: string;
 
-  constructor(
-    log: Logger,
-    { type, model, endpoint, key }: OpenAiTranslator.Config,
-  ) {
+  constructor(log: Logger, { model, endpoint, key }: OpenAiTranslator.Config) {
     this.log = log;
     this.model = model;
-    if (type === 'web') {
-      this.api = createOpenAiWebApi(endpoint, key);
-    } else {
-      this.api = createOpenAiApi(endpoint, key);
-    }
+    this.api = createOpenAiApi(endpoint, key);
   }
 
   segmentor = createLengthSegmentor(1500, 30);
@@ -204,69 +194,26 @@ export class OpenAiTranslator implements SegmentTranslator {
     };
 
     const messages = buildMessages(lines, glossary, enableBypass);
-    if ('createChatCompletionsStream' in this.api) {
-      return askApi(this.api, this.model, messages, signal)
-        .then((it) => ({
-          answer: parseAnswer(it.answer),
-          fromHistory: false,
-        }))
-        .catch((e: unknown) => {
-          if (e instanceof OpenAiError) {
-            const errors: [string, string, number][] = [
-              ['rate_limit_exceeded', '触发GPT限速', 21],
-            ];
-            for (const [code, message, delaySeconds] of errors) {
-              if (e.code === code) {
-                return { message, delaySeconds };
-              }
+    return askApi(this.api, this.model, messages, signal)
+      .then((it) => ({
+        answer: parseAnswer(it.answer),
+        fromHistory: false,
+      }))
+      .catch((e: unknown) => {
+        if (e instanceof OpenAiError) {
+          const errors: [string, string, number][] = [
+            ['rate_limit_exceeded', '触发GPT限速', 21],
+          ];
+          for (const [code, message, delaySeconds] of errors) {
+            if (e.code === code) {
+              return { message, delaySeconds };
             }
-            return { message: e.message };
-          } else {
-            return { message: e instanceof Error ? e.message : String(e) };
           }
-        });
-    } else {
-      const parseError = (error: string) => {
-        const errors: [string, string, number][] = [
-          ['token_expired', 'Access token过期', -1],
-          ['invalid_api_key', 'Access token无效', -1],
-          ['account_deactivated', '帐号已经被封', -1],
-          // "You've reached our limit of messages per hour. Please try again later.",
-          [
-            "You've reached our limit of messages per hour",
-            '触发每小时限制',
-            20 * 60,
-          ],
-          // "You've reached our limit of messages per 24 hours. Please try again later.",
-          [
-            "You've reached our limit of messages per 24 hours",
-            '触发24小时限制',
-            -1,
-          ],
-          ['Only one message at a time.', '帐号被占用或是未正常退出', 2 * 60],
-          ['rate limited', '触发GPT代理限速', 5],
-        ];
-
-        for (const [prefix, message, delaySeconds] of errors) {
-          if (error.startsWith(prefix)) {
-            return { message, delaySeconds };
-          }
+          return { message: e.message };
+        } else {
+          return { message: e instanceof Error ? e.message : String(e) };
         }
-        return { message: error };
-      };
-
-      const result = await askApiWeb(this.api, this.model, messages, signal);
-      if (typeof result === 'object') {
-        return {
-          answer: parseAnswer(result.answer),
-          fromHistory: result.fromHistory,
-        };
-      } else if (result === 'censored') {
-        return result;
-      } else {
-        return parseError(result);
-      }
-    }
+      });
   }
 
   private async onError(
@@ -298,7 +245,6 @@ export class OpenAiTranslator implements SegmentTranslator {
 
 export namespace OpenAiTranslator {
   export interface Config {
-    type: 'web' | 'api';
     model: string;
     endpoint: string;
     key: string;
@@ -329,78 +275,6 @@ const askApi = (
         .join('');
       return { answer };
     });
-
-const askApiWeb = async (
-  api: OpenAiWeb,
-  model: string,
-  messages: ['user' | 'assistant', string][],
-  signal?: AbortSignal,
-): Promise<{ answer: string; fromHistory: boolean } | string> => {
-  const chunks = await api.createConversation(
-    {
-      action: 'next',
-      parent_message_id: uuidv4(),
-      model,
-      messages: messages.map(([role, message]) => ({
-        id: uuidv4(),
-        author: { role },
-        content: { content_type: 'text', parts: [message] },
-      })),
-      history_and_training_disabled: false,
-    },
-    {
-      signal,
-      throwHttpErrors: false,
-    },
-  );
-
-  let conversationId = '';
-  let censored = false;
-  let answer = '';
-
-  for (const chunk of chunks) {
-    if (typeof chunk === 'object') {
-      if ('detail' in chunk) {
-        if (typeof chunk.detail === 'string') {
-          return chunk.detail;
-        } else {
-          return chunk.detail.code;
-        }
-      } else if ('moderation_response' in chunk) {
-        conversationId = chunk.conversation_id;
-        censored = true;
-      } else if ('message' in chunk) {
-        conversationId = chunk.conversation_id;
-        if (chunk.message.author.role === 'assistant') {
-          answer = chunk.message.content.parts[0] ?? '';
-        }
-      }
-    } else {
-      return chunk;
-    }
-  }
-
-  if (answer || !censored) {
-    return { answer, fromHistory: false };
-  } else {
-    if (conversationId) {
-      const conversation = await api.getConversation(conversationId, {
-        signal,
-      });
-      try {
-        const mapping = Object.values(conversation.mapping);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const obj: any = mapping[mapping.length - 1];
-        if (obj.message.author.role === 'assistant') {
-          answer = obj.message.content.parts[0];
-
-          return { answer, fromHistory: true };
-        }
-      } catch {}
-    }
-    return 'censored';
-  }
-};
 
 const buildMessages = (
   lines: string[],

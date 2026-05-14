@@ -117,23 +117,24 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
 
 const createGptWorkspaceStore = () =>
   createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, [], (workspace) => {
-    // 2024-3-8
-    workspace.value.workers.forEach((it: GptWorker) => {
-      if (it.endpoint.length === 0) {
-        if (it.type === 'web') {
-          it.endpoint = 'https://chat.openai.com/backend-api';
-        } else {
-          it.endpoint = 'https://api.openai.com';
-        }
-      }
-      if (it.type === 'web') {
-        it.model = 'text-davinci-002-render-sha';
-      } else {
-        if (it.model === undefined || it.model === 'gpt-3.5') {
-          it.model = 'gpt-3.5-turbo';
-        }
-      }
-    });
+    // 2026-5-14: retire ChatGPT web-backend workers, keep API workers.
+    workspace.value.workers = workspace.value.workers
+      .filter((it) => !('type' in it && it.type === 'web'))
+      .map((it) => {
+        const worker = it as GptWorker & { type?: 'api' };
+        return {
+          id: worker.id,
+          endpoint:
+            worker.endpoint.length > 0
+              ? worker.endpoint
+              : 'https://api.openai.com',
+          model:
+            worker.model === undefined || worker.model === 'gpt-3.5'
+              ? 'gpt-3.5-turbo'
+              : worker.model,
+          key: worker.key,
+        };
+      });
   });
 
 const createSakuraWorkspaceStore = () =>
