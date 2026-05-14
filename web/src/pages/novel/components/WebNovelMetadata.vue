@@ -47,6 +47,20 @@ const latestChapterCreateAt = computed(() => {
     <c-a :to="generateSearchUrl(novel.titleJp)">搜索标题</c-a>
   </n-p>
 
+  <WebNovelActions
+    :provider-id="providerId"
+    :novel-id="novelId"
+    :novel="novel"
+    style="margin-top: 20px"
+  />
+
+  <n-divider />
+
+  <WebNovelIntroduction
+    :introduction-jp="novel.introductionJp"
+    :introduction-zh="novel.introductionZh"
+  />
+
   <WebNovelStat
     :type="novel.type"
     :total-characters="novel.totalCharacters"
@@ -60,19 +74,5 @@ const latestChapterCreateAt = computed(() => {
     :keywords="novel.keywords"
     :points="novel.points"
     style="margin-top: 16px"
-  />
-
-  <WebNovelActions
-    :provider-id="providerId"
-    :novel-id="novelId"
-    :novel="novel"
-    style="margin-top: 20px"
-  />
-
-  <n-divider />
-
-  <WebNovelIntroduction
-    :introduction-jp="novel.introductionJp"
-    :introduction-zh="novel.introductionZh"
   />
 </template>

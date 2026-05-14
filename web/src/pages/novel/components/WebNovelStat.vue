@@ -33,7 +33,13 @@ const readableCount = (num: number | undefined) => {
 const totalCharacters = computed(() =>
   readableCharacterCount(props.totalCharacters),
 );
+const exactTotalCharacters = computed(() =>
+  props.totalCharacters === undefined
+    ? undefined
+    : `${formatExactNumber(props.totalCharacters)} 字`,
+);
 const visited = computed(() => readableCount(props.visited) ?? '0');
+const exactVisited = computed(() => formatExactNumber(props.visited) ?? '0');
 </script>
 
 <template>
@@ -48,9 +54,19 @@ const visited = computed(() => readableCount(props.visited) ?? '0');
 
     <div class="metadata-stat-item">
       <n-text depth="3" style="font-size: 12px; line-height: 1.2">字数</n-text>
-      <n-text style="font-size: 12px; line-height: 1.25">
-        {{ totalCharacters ?? 'NA' }}
-      </n-text>
+      <n-tooltip
+        v-if="exactTotalCharacters"
+        placement="top-start"
+        trigger="click"
+      >
+        <template #trigger>
+          <n-text style="font-size: 12px; line-height: 1.25">
+            {{ totalCharacters }}
+          </n-text>
+        </template>
+        {{ exactTotalCharacters }}
+      </n-tooltip>
+      <n-text v-else style="font-size: 12px; line-height: 1.25">NA</n-text>
     </div>
     <n-divider vertical class="metadata-stat-divider" />
 
@@ -58,22 +74,35 @@ const visited = computed(() => readableCount(props.visited) ?? '0');
       <n-text depth="3" style="font-size: 12px; line-height: 1.2">
         更新时间
       </n-text>
-      <n-text style="font-size: 12px; line-height: 1.25">
+      <n-tooltip
+        v-if="latestChapterCreateAt"
+        placement="top-start"
+        trigger="click"
+      >
+        <template #trigger>
+          <n-text style="font-size: 12px; line-height: 1.25">
+            <n-time :time="latestChapterCreateAt * 1000" type="relative" />
+          </n-text>
+        </template>
         <n-time
-          v-if="latestChapterCreateAt"
           :time="latestChapterCreateAt * 1000"
-          type="relative"
+          format="yyyy-MM-dd HH:mm"
         />
-        <template v-else>NA</template>
-      </n-text>
+      </n-tooltip>
+      <n-text v-else style="font-size: 12px; line-height: 1.25">NA</n-text>
     </div>
     <n-divider vertical class="metadata-stat-divider" />
 
     <div class="metadata-stat-item">
       <n-text depth="3" style="font-size: 12px; line-height: 1.2">浏览</n-text>
-      <n-text style="font-size: 12px; line-height: 1.25">
-        {{ visited }}
-      </n-text>
+      <n-tooltip placement="top-start" trigger="click">
+        <template #trigger>
+          <n-text style="font-size: 12px; line-height: 1.25">
+            {{ visited }}
+          </n-text>
+        </template>
+        {{ exactVisited }}
+      </n-tooltip>
     </div>
   </n-flex>
 </template>
