@@ -141,7 +141,7 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
           v-if="whoami.hasNovelAccess"
           :to="`/wenku-edit/${novelId}`"
         >
-          <c-button label="编辑" :icon="EditNoteOutlined" />
+          <c-button label="编辑" :round="false" :icon="EditNoteOutlined" />
         </router-link>
 
         <favorite-button
@@ -152,6 +152,7 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         <c-button
           v-if="novel.webIds.length > 0"
           label="网络"
+          :round="false"
           :icon="LanguageOutlined"
           @action="showWebNovelsModal = true"
         />
