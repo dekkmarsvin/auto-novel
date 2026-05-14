@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "pnpm --stream -r run build"
+    "build": "pnpm --stream -r run build",
+    "check:fork": "pwsh ./scripts/check-fork-invariants.ps1",
+    "check:sync": "pwsh ./scripts/check-selective-feature-sync.ps1"
   }
 }

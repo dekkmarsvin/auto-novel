@@ -169,3 +169,4 @@ if ($Failures.Count -gt 0) {
 }
 
 Write-Host 'Fork invariant check passed.' -ForegroundColor Green
+exit 0

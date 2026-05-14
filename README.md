@@ -19,18 +19,19 @@
 ThemeGlossary 允许用户创建、管理和共享跨小说的术语表主题。翻译时，ThemeGlossary 中的术语会与小说自身术语表合并使用，确保同一世界观下的作品翻译一致。
 
 涉及文件：
+
 - **后端：** `RouteThemeGlossary.kt`、`ThemeGlossary.kt`、`ThemeGlossaryRepository.kt`、以及 `Application.kt`、`RouteWebNovel.kt`、`RouteWenkuNovel.kt` 中的相关引用
 - **前端：** `ThemeGlossaryApi.ts`、`ThemeGlossary.ts`（model）、`GlossaryButton.vue`、`ToolboxItemThemeGlossary.vue`、`TranslateOptions.vue`、`WebNovelWide.vue`、`WebTranslate.vue`
 - **数据库：** MongoDB collection `theme-glossary`
 
-> [!CAUTION]
-> **合并上游更新时，务必保留 ThemeGlossary 相关代码。** 上游已删除此功能，合并时可能会意外移除。
+> [!CAUTION] > **合并上游更新时，务必保留 ThemeGlossary 相关代码。** 上游已删除此功能，合并时可能会意外移除。
 
 ### 🌐 域名配置
 
 本 Fork 使用 `books.kotoban.top` 作为生产域名（上游使用 `n.novelia.cc`）。
 
 合并上游代码时，需将以下 hardcoded 域名替换为本 Fork 的域名：
+
 - `web/vite.config.ts` — API proxy target
 - `web/src/components/markdown/MarkdownView.vue` — currentHost fallback
 - `web/src/util/useUserData/api.ts` — 认证域名注释
@@ -44,16 +45,28 @@ Docker image owner 使用 `dekkmarsvin`（而非上游的 `auto-novel`）。
 
 ## 与上游同步
 
-```bash
-# 设置上游远程仓库
+本 Fork 采用 **Selective Feature Sync**：上游变更是候选变更，不是自动同步来源。同步时应创建 **Curated Upstream Sync Commit**，只纳入明确接受的上游修复与用户价值，并保留 ThemeGlossary、`books.kotoban.top`、`docker-compose.dev.yml` 等 Fork Capability。
+
+```powershell
+# 1. 设置上游远程仓库（若尚未设置）
 git remote add upstream https://github.com/auto-novel/auto-novel.git
 
-# 获取上游更新
+# 2. 获取上游更新并查看候选提交
 git fetch upstream
+git log --oneline HEAD..upstream/main
 
-# 合并（注意解决冲突时保留 ThemeGlossary）
-git merge upstream/main
+# 3. 在同步分支上手动纳入选定变更
+git switch -c sync/upstream-YYYYMMDD
+git cherry-pick -n <accepted-upstream-commit>
+
+# 4. 验证 fork invariant 与选择性同步规则
+.\scripts\check-selective-feature-sync.ps1
+
+# 5. 提交为 fork-authored curated sync commit
+git commit -m "Curated upstream sync: <scope>"
 ```
+
+若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Legacy Capability（例如 Baidu Translation）可跟随上游移除主动入口，但应尽量保留历史数据可读性。
 
 ## 部署
 
@@ -83,4 +96,3 @@ docker compose up -d
 ```
 
 启动后，访问 http://localhost 即可。
-
