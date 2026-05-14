@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const sortedAttentions = computed(() => props.attentions.slice().sort());
 
-const buildTagQuery = (tag: string) => `/novel?query=${tag}\\$`;
+const buildTagQuery = (tag: string) => `/novel?query=${tag}\$`;
 </script>
 
 <template>
