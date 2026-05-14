@@ -48,17 +48,17 @@ const latestChapterCreateAt = computed(() => {
   </n-p>
 
   <WebNovelStat
-    :provider-id="providerId"
     :type="novel.type"
-    :points="novel.points"
     :total-characters="novel.totalCharacters"
     :visited="novel.visited"
     :latest-chapter-create-at="latestChapterCreateAt"
   />
 
   <WebNovelTags
+    :provider-id="providerId"
     :attentions="novel.attentions"
     :keywords="novel.keywords"
+    :points="novel.points"
     style="margin-top: 16px"
   />
 

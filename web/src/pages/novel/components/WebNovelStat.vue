@@ -1,18 +1,10 @@
 <script lang="ts" setup>
 const props = defineProps<{
-  providerId: string;
   type: string;
-  points?: number;
   totalCharacters?: number;
   visited: number;
   latestChapterCreateAt?: number;
 }>();
-
-const readableNumber = (num: number | undefined) => {
-  if (typeof num !== 'number') return undefined;
-  if (num < 1000) return num.toString();
-  return `${(num / 1000).toFixed(1)}k`;
-};
 
 const formatExactNumber = (num: number | undefined) => {
   if (typeof num !== 'number') return undefined;
@@ -38,13 +30,6 @@ const readableCount = (num: number | undefined) => {
   return `${(num / 10000).toFixed(num < 100000 ? 1 : 0).replace(/\.0$/, '')} 万`;
 };
 
-const withPointDeco = (str: string | undefined) => {
-  if (typeof str !== 'string') return undefined;
-  if (props.providerId === 'kakuyomu') return `★${str}`;
-  return `${str} PT`;
-};
-
-const points = computed(() => withPointDeco(readableNumber(props.points)));
 const totalCharacters = computed(() =>
   readableCharacterCount(props.totalCharacters),
 );
@@ -88,14 +73,6 @@ const visited = computed(() => readableCount(props.visited) ?? '0');
       <n-text depth="3" style="font-size: 12px; line-height: 1.2">浏览</n-text>
       <n-text style="font-size: 12px; line-height: 1.25">
         {{ visited }}
-      </n-text>
-    </div>
-    <n-divider v-if="points" vertical class="metadata-stat-divider" />
-
-    <div v-if="points" class="metadata-stat-item">
-      <n-text depth="3" style="font-size: 12px; line-height: 1.2">点数</n-text>
-      <n-text style="font-size: 12px; line-height: 1.25">
-        {{ points }}
       </n-text>
     </div>
   </n-flex>
