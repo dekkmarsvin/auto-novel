@@ -18,7 +18,7 @@ const buildTagQuery = (tag: string) => `/novel?query=${tag}\$`;
       :key="attention"
       :to="buildTagQuery(attention)"
     >
-      <novel-tag :tag="attention" strong />
+      <NovelTag :tag="attention" strong />
     </router-link>
 
     <router-link
@@ -26,7 +26,7 @@ const buildTagQuery = (tag: string) => `/novel?query=${tag}\$`;
       :key="keyword"
       :to="buildTagQuery(keyword)"
     >
-      <novel-tag :tag="WebUtil.tryTranslateKeyword(keyword)" />
+      <NovelTag :tag="WebUtil.tryTranslateKeyword(keyword)" />
     </router-link>
   </n-flex>
 </template>

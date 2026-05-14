@@ -52,6 +52,8 @@ const updateNovel = () => {
     >
       <c-button
         :label="startReadChapter.type === 'continue' ? '继续阅读' : '开始阅读'"
+        type="primary"
+        secondary
         :round="false"
       />
     </router-link>
