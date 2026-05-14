@@ -14,6 +14,30 @@ const readableNumber = (num: number | undefined) => {
   return `${(num / 1000).toFixed(1)}k`;
 };
 
+const formatExactNumber = (num: number | undefined) => {
+  if (typeof num !== 'number') return undefined;
+  return new Intl.NumberFormat('zh-CN').format(num);
+};
+
+const readableCharacterCount = (num: number | undefined) => {
+  if (typeof num !== 'number') return undefined;
+
+  const exact = formatExactNumber(num);
+  if (num < 10000) return `${exact} 字`;
+
+  const wan = (num / 10000).toFixed(num < 100000 ? 1 : 0).replace(/\.0$/, '');
+  return `${wan} 万字`;
+};
+
+const readableCount = (num: number | undefined) => {
+  if (typeof num !== 'number') return undefined;
+
+  const exact = formatExactNumber(num);
+  if (num < 10000) return exact;
+
+  return `${(num / 10000).toFixed(num < 100000 ? 1 : 0).replace(/\.0$/, '')} 万`;
+};
+
 const withPointDeco = (str: string | undefined) => {
   if (typeof str !== 'string') return undefined;
   if (props.providerId === 'kakuyomu') return `★${str}`;
@@ -21,8 +45,10 @@ const withPointDeco = (str: string | undefined) => {
 };
 
 const points = computed(() => withPointDeco(readableNumber(props.points)));
-const totalCharacters = computed(() => readableNumber(props.totalCharacters));
-const visited = computed(() => readableNumber(props.visited) ?? '0');
+const totalCharacters = computed(() =>
+  readableCharacterCount(props.totalCharacters),
+);
+const visited = computed(() => readableCount(props.visited) ?? '0');
 </script>
 
 <template>
@@ -38,7 +64,7 @@ const visited = computed(() => readableNumber(props.visited) ?? '0');
     <div class="metadata-stat-item">
       <n-text depth="3" style="font-size: 12px; line-height: 1.2">字数</n-text>
       <n-text style="font-size: 12px; line-height: 1.25">
-        {{ totalCharacters === undefined ? 'NA' : `${totalCharacters} 字` }}
+        {{ totalCharacters ?? 'NA' }}
       </n-text>
     </div>
     <n-divider vertical class="metadata-stat-divider" />
@@ -51,7 +77,7 @@ const visited = computed(() => readableNumber(props.visited) ?? '0');
         <n-time
           v-if="latestChapterCreateAt"
           :time="latestChapterCreateAt * 1000"
-          type="date"
+          type="relative"
         />
         <template v-else>NA</template>
       </n-text>
