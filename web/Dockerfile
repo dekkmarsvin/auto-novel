@@ -1,8 +1,7 @@
-FROM node:22.12-alpine AS deps
+FROM node:22-alpine AS deps
 ENV PNPM_HOME="/pnpm"
-ENV PNPM_STORE_PATH="/pnpm/store"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN npm install -g pnpm@9
+RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/crawler/package.json ./packages/crawler/
