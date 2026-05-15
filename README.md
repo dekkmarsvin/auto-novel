@@ -14,17 +14,18 @@
 
 ### 🔖 共用主題術語表（ThemeGlossary）
 
-**这是本 Fork 存在的核心理由。** 上游已移除此功能，但本 Fork 持续维护。
+ThemeGlossary 是本 Fork 基于个人使用需求新增并维护的功能；上游项目未包含此功能。
 
-ThemeGlossary 允许用户创建、管理和共享跨小说的术语表主题。翻译时，ThemeGlossary 中的术语会与小说自身术语表合并使用，确保同一世界观下的作品翻译一致。
+它用于建立可跨小说复用的主题术语表。翻译时，所选 ThemeGlossary 会先与小说自身术语表合并，再交给翻译流程使用，以便在同一世界观或同一系列作品中维持译名一致。
 
 涉及文件：
 
-- **后端：** `RouteThemeGlossary.kt`、`ThemeGlossary.kt`、`ThemeGlossaryRepository.kt`、以及 `Application.kt`、`RouteWebNovel.kt`、`RouteWenkuNovel.kt` 中的相关引用
+- **后端：** `RouteThemeGlossary.kt`、`ThemeGlossary.kt`、`ThemeGlossaryRepository.kt`，以及 `Application.kt`、`RouteWebNovel.kt`、`RouteWenkuNovel.kt` 中的相关引用
 - **前端：** `ThemeGlossaryApi.ts`、`ThemeGlossary.ts`（model）、`GlossaryButton.vue`、`ToolboxItemThemeGlossary.vue`、`TranslateOptions.vue`、`WebNovelWide.vue`、`WebNovelNarrow.vue`、`WebTranslate.vue`
 - **数据库：** MongoDB collection `theme-glossary`
 
-> [!CAUTION] > **合并上游更新时，务必保留 ThemeGlossary 相关代码。** 上游已删除此功能，合并时可能会意外移除。
+> [!NOTE]
+> ThemeGlossary 是本 Fork 的新增功能。同步上游更新时，请确认相关代码、模型字段与数据库 collection 仍保留。
 
 ### 🌐 域名配置
 
