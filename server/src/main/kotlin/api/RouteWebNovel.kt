@@ -637,16 +637,30 @@ class WebNovelApi(
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
 
+        val newChapterIds = body.toc.mapNotNullTo(HashSet(body.toc.size)) {
+            it.chapterId
+        }
+
         val noChapterDeleted = novel
             .toc
             .mapNotNull { it.chapterId }
-            .all { oldChapterId ->
-                body.toc.any { newItem ->
-                    newItem.chapterId == oldChapterId
-                }
-            }
+            .all { oldChapterId -> oldChapterId in newChapterIds }
         if (!noChapterDeleted) {
             user.requireAdmin()
+        }
+
+        val oldTitleZhAcc = buildMap<String, String?>(novel.toc.size) {
+            novel.toc.forEach { oldItem ->
+                this[oldItem.titleJp] = oldItem.titleZh
+            }
+        }
+        val mergedToc = body.toc.map { newItem ->
+            WebNovelTocItem(
+                titleJp = newItem.title,
+                titleZh = oldTitleZhAcc[newItem.title],
+                chapterId = newItem.chapterId,
+                createAt = newItem.createAt,
+            )
         }
 
         metadataRepo.update(
@@ -660,7 +674,7 @@ class WebNovelApi(
             points = body.points,
             totalCharacters = body.totalCharacters,
             introductionJp = body.introduction,
-            toc = body.toc.map { WebNovelTocItem(it.title, null, it.chapterId, it.createAt) },
+            toc = mergedToc,
         )
         oplogRepo.create(
             providerId = providerId,
@@ -757,7 +771,6 @@ class WebNovelApi(
         chapterId: String,
         paragraphs: List<String>,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 
@@ -785,7 +798,6 @@ class WebNovelApi(
         chapterId: String,
         paragraphs: List<String>,
     ) {
-        user.requireAdmin() // temp admin only
         user.requireNovelAccess()
         validateId(providerId, novelId)
 

@@ -41,7 +41,7 @@ A recovery path where the browser addon fetches WebNovel metadata after the back
 _Avoid_: Automatic backend sync, normal import
 
 **Novel Access**:
-The permission level for users allowed to create, update, or maintain novel-related data.
+The permission level for users allowed to create, update, or maintain WebNovel metadata and chapter content.
 _Avoid_: Admin-only access, public access
 
 **Introduction Translation Toggle**:
@@ -68,7 +68,7 @@ _Avoid_: Source of truth
 - **Baidu Translation** remains a **Readable Translation Source**
 - **OpenAI Web Worker Translation** is a **Legacy Capability**
 - **Addon-Assisted Recovery** is triggered only after a WebNovel lookup fails
-- **Novel Access** is sufficient for WebNovel metadata updates
+- **Novel Access** is sufficient for WebNovel metadata and chapter-content maintenance
 - **Introduction Translation Toggle** changes presentation, not WebNovel metadata
 - **Provider-Specific Fetching** supports provider constraints such as Hameln browser-tab requests
 
@@ -95,8 +95,8 @@ _Avoid_: Source of truth
 > **Dev:** "If a WebNovel page fails to load, can the browser addon create it?"
 > **Domain expert:** "Yes, through **Addon-Assisted Recovery**. Do not describe it as normal backend sync."
 >
-> **Dev:** "Should only admins be able to update WebNovel metadata?"
-> **Domain expert:** "No. Users with **Novel Access** may maintain novel-related data, including WebNovel metadata updates."
+> **Dev:** "Should only admins be able to update WebNovel metadata or chapter content?"
+> **Domain expert:** "No. Users with **Novel Access** may maintain WebNovel metadata and chapter content."
 >
 > **Dev:** "Does switching the introduction between Japanese and Chinese update the novel?"
 > **Domain expert:** "No. **Introduction Translation Toggle** is only a presentation choice."
@@ -113,6 +113,6 @@ _Avoid_: Source of truth
 - "translation source" was used ambiguously between sources that can run new tasks and sources that can display stored text. Resolved: use **Readable Translation Source** for reader/export choices.
 - "OpenAI web worker" could mean normal GPT translation or a ChatGPT web-backend integration. Resolved: **OpenAI Web Worker Translation** is legacy; OpenAI-compatible API translation remains supported.
 - "補錄小說" could mean normal import, sync, or recovery. Resolved: addon-based creation after a failed lookup is **Addon-Assisted Recovery**.
-- "更新小說權限" could mean admin-only moderation or normal novel maintenance. Resolved: WebNovel metadata updates require **Novel Access**, not admin-only access.
+- "更新小說權限" could mean admin-only moderation or normal novel maintenance. Resolved: WebNovel metadata and chapter-content maintenance require **Novel Access**, not admin-only access.
 - "簡介切換" could mean editing metadata or changing presentation. Resolved: switching original/translated introduction display is **Introduction Translation Toggle**.
 - "crawler client" was ambiguous between one global HTTP client and provider-level request strategies. Resolved: crawler code may use **Provider-Specific Fetching**.
