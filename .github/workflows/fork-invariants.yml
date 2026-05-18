@@ -27,6 +27,8 @@ jobs:
         run: |
           if ('${{ github.event_name }}' -eq 'pull_request') {
             "BASE_REF=origin/${{ github.base_ref }}" >> $env:GITHUB_ENV
+          } elseif ('${{ github.event.before }}' -ne '0000000000000000000000000000000000000000') {
+            "BASE_REF=${{ github.event.before }}" >> $env:GITHUB_ENV
           } else {
             "BASE_REF=HEAD~1" >> $env:GITHUB_ENV
           }
