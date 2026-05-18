@@ -52,19 +52,22 @@ Docker image owner 使用 `dekkmarsvin`（而非上游的 `auto-novel`）。
 # 1. 设置上游远程仓库（若尚未设置）
 git remote add upstream https://github.com/auto-novel/auto-novel.git
 
-# 2. 获取上游更新并查看候选提交
+# 2. 读取最新 Sync Manifest，确认上次评估到的 upstream SHA
+Get-ChildItem docs/sync -Filter *.md | Sort-Object Name -Descending | Select-Object -First 1
+
+# 3. 获取上游更新并查看候选提交
 git fetch upstream
 git log --oneline HEAD..upstream/main
 
-# 3. 在同步分支上手动纳入选定变更
+# 4. 在同步分支上手动纳入选定变更
 git switch -c sync/upstream-YYYYMMDD
 git cherry-pick -n <accepted-upstream-commit>
 
-# 4. 验证 fork invariant 与选择性同步规则
+# 5. 验证 fork invariant 与选择性同步规则
 .\scripts\check-selective-feature-sync.ps1
 npm run build
 
-# 5. 记录 Sync Manifest 并提交为 fork-authored curated sync commit
+# 6. 记录 Sync Manifest 并提交为 fork-authored curated sync commit
 New-Item -ItemType Directory -Force docs/sync
 Copy-Item docs/sync/TEMPLATE.md docs/sync/YYYY-MM-DD.md
 git add docs/sync/YYYY-MM-DD.md
@@ -74,15 +77,18 @@ git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY
 若上游变更较大、逐 commit cherry-pick 难以处理，可以先建立 disposable staging branch 来解冲突与检查最终树，但不可把该 merge commit 合入 `main`：
 
 ```powershell
-# 1. 建立临时 merge staging branch
+# 1. 读取最新 Sync Manifest，确认上次评估到的 upstream SHA
+Get-ChildItem docs/sync -Filter *.md | Sort-Object Name -Descending | Select-Object -First 1
+
+# 2. 建立临时 merge staging branch
 git switch -c sync/staging-upstream-YYYYMMDD main
 git merge --no-commit --no-ff upstream/main
 
-# 2. 解冲突并验证 fork 行为
+# 3. 解冲突并验证 fork 行为
 .\scripts\check-selective-feature-sync.ps1
 npm run build
 
-# 3. 回到 main 建立最终 flat curated commit
+# 4. 回到 main 建立最终 flat curated commit
 git switch -c sync/upstream-YYYYMMDD origin/main
 git cherry-pick -m 1 --no-commit sync/staging-upstream-YYYYMMDD
 .\scripts\check-selective-feature-sync.ps1
@@ -93,7 +99,7 @@ git add docs/sync/YYYY-MM-DD.md
 git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY-MM-DD.md"
 ```
 
-Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream removals、fork adaptations、validation commands。若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Legacy Capability（例如 Baidu Translation）可跟随上游移除主动入口，但应尽量保留历史数据可读性。
+Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream removals、fork adaptations、patch-equivalence notes、next sync starting point、validation commands。若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Legacy Capability（例如 Baidu Translation）可跟随上游移除主动入口，但应尽量保留历史数据可读性。
 
 同步提交在视为 ready 前必须通过 `npm run build`。GitHub Actions 会在 PR 与 `main` push 上执行非发布用途的 build check；`Publish Web` / `Publish Api` 只负责镜像建置与发布。
 

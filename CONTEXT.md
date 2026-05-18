@@ -17,7 +17,7 @@ A temporary branch used to resolve upstream conflicts and inspect the resulting 
 _Avoid_: Final sync branch, merge-to-main branch
 
 **Sync Manifest**:
-A concise record of an upstream sync decision, including the upstream range, accepted changes, rejected removals, fork adaptations, and validation commands.
+A concise record of an upstream sync decision, including the upstream range, accepted changes, rejected removals, fork adaptations, patch-equivalence notes, the next sync starting point, and validation commands.
 _Avoid_: Release note, changelog, diff summary
 
 **Upstream-Compatible Maintenance**:
@@ -95,7 +95,7 @@ _Avoid_: Source of truth
 > **Domain expert:** "Yes. That is a **Disposable Merge Staging Branch**. Use it to inspect and resolve conflicts, then flatten the accepted tree into a **Curated Upstream Sync Commit**."
 >
 > **Dev:** "How do reviewers know which upstream changes were accepted or rejected?"
-> **Domain expert:** "Attach a **Sync Manifest** to the curated commit so the upstream range, accepted groups, rejected removals, fork adaptations, and validation commands are explicit."
+> **Domain expert:** "Attach a **Sync Manifest** to the curated commit so the upstream range, accepted groups, rejected removals, fork adaptations, patch-equivalence notes, next sync starting point, and validation commands are explicit."
 >
 > **Dev:** "Can we take upstream's dependency refresh to reduce diff noise?"
 > **Domain expert:** "Yes, as **Upstream-Compatible Maintenance** if the fork invariants still pass and Docker/CI changes are adapted to this fork."
