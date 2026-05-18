@@ -129,7 +129,7 @@ const setIndentSize = (diff: number) => {
           </c-action-wrapper>
 
           <n-text depth="3" style="font-size: 12px">
-            # 左/右方向键跳转章节，数字键1～4切换翻译
+            # 左/右方向键跳转章节，数字键1～3切换翻译
           </n-text>
         </n-flex>
       </n-tab-pane>

@@ -14,7 +14,6 @@ const { setting } = storeToRefs(settingStore);
 const calculateFinished = (translatorId: TranslatorId) =>
   props.volume.toc.filter((it) => it[translatorId]).length;
 
-const baidu = ref(calculateFinished('baidu'));
 const youdao = ref(calculateFinished('youdao'));
 const gpt = ref(calculateFinished('gpt'));
 const sakura = ref(calculateFinished('sakura'));
@@ -44,8 +43,8 @@ const startTranslateTask = (translatorId: 'youdao') =>
     <n-text v-else>{{ volume.id }}</n-text>
 
     <n-text depth="3">
-      总计 {{ volume.toc.length }} / 百度 {{ baidu }} / 有道 {{ youdao }} / GPT
-      {{ gpt }} / Sakura {{ sakura }}
+      总计 {{ volume.toc.length }} / 有道 {{ youdao }} / GPT {{ gpt }} / Sakura
+      {{ sakura }}
     </n-text>
 
     <n-flex :size="8">

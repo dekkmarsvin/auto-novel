@@ -4,6 +4,7 @@ import ky from 'ky';
 
 import { WebNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
+import type { ActiveTranslatorId } from '@/model/Translator';
 import { TranslateTaskDescriptor } from '@/model/Translator';
 import {
   useLocalVolumeStore,
@@ -19,7 +20,6 @@ const props = defineProps<{
   titleZh?: string;
   total: number;
   jp: number;
-  baidu: number;
   youdao: number;
   gpt: number;
   sakura: number;
@@ -59,6 +59,9 @@ const files = computed(() => {
 
   const { mode, translationsMode, translations, type } =
     setting.value.downloadFormat;
+  const activeTranslations = translations.filter(
+    (t): t is ActiveTranslatorId => t !== 'baidu',
+  );
 
   return {
     jp: WebNovelApi.createFileUrl({
@@ -75,7 +78,7 @@ const files = computed(() => {
       novelId,
       mode: mode,
       translationsMode,
-      translations,
+      translations: activeTranslations,
       type,
       title,
     }),
@@ -171,8 +174,8 @@ const submitJob = (id: 'gpt' | 'sakura') => {
 
   <n-flex vertical style="margin-top: 16px">
     <n-text>
-      总计 {{ total }} / 百度 {{ baidu }} / 有道 {{ youdao }} / GPT {{ gpt }} /
-      Sakura {{ sakura }}
+      总计 {{ total }} / 有道 {{ youdao }} / GPT {{ gpt }} / Sakura
+      {{ sakura }}
     </n-text>
 
     <template v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0">

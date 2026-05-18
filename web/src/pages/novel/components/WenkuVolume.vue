@@ -3,7 +3,11 @@ import { FileDownloadOutlined } from '@vicons/material';
 import { useKeyModifier } from '@vueuse/core';
 
 import { WenkuNovelApi } from '@/api';
-import type { TranslateTaskParams } from '@/model/Translator';
+import type {
+  ActiveTranslatorId,
+  ReadableTranslatorId,
+  TranslateTaskParams,
+} from '@/model/Translator';
 import { TranslateTaskDescriptor } from '@/model/Translator';
 import type { VolumeJpDto } from '@/model/WenkuNovel';
 import { useSettingStore, useWhoamiStore, useWorkspaceStore } from '@/stores';
@@ -37,18 +41,23 @@ const startTranslateTask = (translatorId: 'youdao') => {
 
 const hasTranslation = computed(() => {
   const { translations } = setting.value.downloadFormat;
-  return translations.some((t) => (volume[t] ?? 0) > 0);
+  return translations
+    .filter((t): t is ActiveTranslatorId => t !== 'baidu')
+    .some((t) => (volume[t] ?? 0) > 0);
 });
 
 const file = computed(() => {
   const { mode, translationsMode, translations } = setting.value.downloadFormat;
+  const activeTranslations = translations.filter(
+    (t): t is Exclude<ReadableTranslatorId, 'baidu'> => t !== 'baidu',
+  );
 
   const { url, filename } = WenkuNovelApi.createFileUrl({
     novelId,
     volumeId: volume.volumeId,
     mode,
     translationsMode,
-    translations,
+    translations: activeTranslations,
   });
   return { url, filename };
 });
@@ -84,8 +93,8 @@ const submitJob = (id: 'gpt' | 'sakura') => {
       <n-text>{{ volume.volumeId }}</n-text>
 
       <n-text depth="3">
-        总计 {{ volume.total }} / 百度 {{ volume.baidu }} / 有道
-        {{ volume.youdao }} / GPT {{ volume.gpt }} / Sakura {{ volume.sakura }}
+        总计 {{ volume.total }} / 有道 {{ volume.youdao }} / GPT
+        {{ volume.gpt }} / Sakura {{ volume.sakura }}
       </n-text>
 
       <n-flex :size="8">

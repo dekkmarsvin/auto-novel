@@ -42,7 +42,6 @@ export interface WenkuVolumeDto {
 export interface VolumeJpDto {
   volumeId: string;
   total: number;
-  baidu: number;
   youdao: number;
   gpt: number;
   sakura: number;

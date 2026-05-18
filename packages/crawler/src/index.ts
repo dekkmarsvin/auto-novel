@@ -1,4 +1,11 @@
-export { Amazon } from '@/amazon/amazon';
+export {
+  CrawlerAuthError,
+  CrawlerError,
+  CrawlerInputError,
+  CrawlerParseError,
+} from '@/errors';
+
+export { AmazonCrawler } from '@/amazon/amazon';
 export { extractAsin, prettyCover } from '@/amazon/util';
 
 export { Alphapolis } from '@/web/alphapolis';
