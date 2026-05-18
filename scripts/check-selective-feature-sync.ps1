@@ -84,8 +84,10 @@ if (-not $SkipInvariantCheck) {
 
 Assert-FileContains 'docs/adr/0001-selective-feature-sync.md' 'Selective Feature Sync' 'Selective Feature Sync ADR'
 Assert-FileContains 'CONTEXT.md' 'Curated Upstream Sync Commit' 'Curated Upstream Sync domain language'
+Assert-FileContains 'CONTEXT.md' 'Sync Manifest' 'Sync Manifest domain language'
 Assert-FileContains 'README.md' 'Selective Feature Sync' 'Selective Feature Sync workflow documentation'
 Assert-FileContains 'README.md' 'Curated Upstream Sync Commit' 'Curated Upstream Sync workflow documentation'
+Assert-FileContains 'README.md' 'Sync Manifest' 'Sync Manifest workflow documentation'
 Assert-FileContains 'README.md' 'check-selective-feature-sync\.ps1' 'selective sync check command documentation'
 Assert-FileDoesNotContain 'README.md' 'git\s+merge\s+upstream/main' 'blind upstream merge command'
 
@@ -119,6 +121,32 @@ if (-not (Test-GitRef $HeadRef)) {
                     Add-Failure "Direct upstream merge commit found in ${Range}: $Line"
                     break
                 }
+            }
+        }
+    }
+
+    $SyncCommitLog = Invoke-Git -Arguments @('log', '--format=%H%x09%s', $Range)
+    if ($SyncCommitLog.ExitCode -ne 0) {
+        Add-Warning "Could not inspect sync manifest references for range ${Range}: $($SyncCommitLog.Output -join ' ')"
+    } else {
+        foreach ($Line in $SyncCommitLog.Output) {
+            if ($Line -notmatch '^(?<Sha>[0-9a-f]+)\t(?<Subject>.+)$') {
+                continue
+            }
+            $Sha = $Matches.Sha
+            $Subject = $Matches.Subject
+            if ($Subject -notmatch '(?i)(curated upstream sync|sync upstream|upstream sync)') {
+                continue
+            }
+
+            $Body = Invoke-Git -Arguments @('log', '-1', '--format=%B', $Sha)
+            $ChangedFiles = Invoke-Git -Arguments @('diff-tree', '--no-commit-id', '--name-only', '-r', $Sha)
+            $HasManifestReference =
+                ($Body.ExitCode -eq 0 -and (($Body.Output -join "`n") -match '(?im)^Sync-Manifest:\s+\S+')) -or
+                ($ChangedFiles.ExitCode -eq 0 -and ($ChangedFiles.Output | Where-Object { $_ -match '^docs/sync/.+\.md$' }))
+
+            if (-not $HasManifestReference) {
+                Add-Failure "Upstream sync commit lacks Sync-Manifest reference or docs/sync manifest: $Sha`t$Subject"
             }
         }
     }

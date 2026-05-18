@@ -12,6 +12,14 @@ _Avoid_: Full upstream sync, blind upstream merge
 A fork-authored commit that manually integrates selected upstream changes instead of merging upstream wholesale.
 _Avoid_: Merge commit, upstream parity commit
 
+**Disposable Merge Staging Branch**:
+A temporary branch used to resolve upstream conflicts and inspect the resulting tree before flattening the accepted result into a Curated Upstream Sync Commit.
+_Avoid_: Final sync branch, merge-to-main branch
+
+**Sync Manifest**:
+A concise record of an upstream sync decision, including the upstream range, accepted changes, rejected removals, fork adaptations, and validation commands.
+_Avoid_: Release note, changelog, diff summary
+
 **Upstream-Compatible Maintenance**:
 A fork-adapted engineering maintenance change that follows upstream's direction without adopting patches that would weaken fork invariants.
 _Avoid_: Blind maintenance sync, upstream cleanup
@@ -60,6 +68,9 @@ _Avoid_: Source of truth
 
 - **Selective Feature Sync** evaluates changes from **Upstream**
 - **Curated Upstream Sync Commit** is the preferred implementation form for **Selective Feature Sync**
+- **Curated Upstream Sync Commit** should include a **Sync Manifest**
+- **Disposable Merge Staging Branch** may be used to prepare a **Curated Upstream Sync Commit**
+- **Disposable Merge Staging Branch** must not be merged into main
 - **Upstream-Compatible Maintenance** may be adopted more proactively than product changes
 - **Upstream-Compatible Maintenance** must preserve every **Fork Capability**
 - **Selective Feature Sync** preserves every **Fork Capability**
@@ -79,6 +90,12 @@ _Avoid_: Source of truth
 >
 > **Dev:** "Should the sync be represented by a direct upstream merge commit?"
 > **Domain expert:** "No. Use a **Curated Upstream Sync Commit** so accepted upstream changes and rejected removals are explicit."
+>
+> **Dev:** "Can I use a temporary merge branch to resolve conflicts before producing the curated commit?"
+> **Domain expert:** "Yes. That is a **Disposable Merge Staging Branch**. Use it to inspect and resolve conflicts, then flatten the accepted tree into a **Curated Upstream Sync Commit**."
+>
+> **Dev:** "How do reviewers know which upstream changes were accepted or rejected?"
+> **Domain expert:** "Attach a **Sync Manifest** to the curated commit so the upstream range, accepted groups, rejected removals, fork adaptations, and validation commands are explicit."
 >
 > **Dev:** "Can we take upstream's dependency refresh to reduce diff noise?"
 > **Domain expert:** "Yes, as **Upstream-Compatible Maintenance** if the fork invariants still pass and Docker/CI changes are adapted to this fork."
@@ -108,6 +125,8 @@ _Avoid_: Source of truth
 
 - "upstream sync" was used ambiguously between full upstream parity and selective adoption. Resolved: this fork uses **Selective Feature Sync**.
 - "sync commit" was ambiguous between direct upstream merge and manual integration. Resolved: use a **Curated Upstream Sync Commit**.
+- "merge branch" was ambiguous between a final sync artifact and a temporary conflict-resolution workspace. Resolved: use **Disposable Merge Staging Branch** only as a staging artifact.
+- "sync summary" was ambiguous between release notes and decision evidence. Resolved: use a **Sync Manifest** to record upstream sync decisions.
 - "engineering sync" was ambiguous between reducing maintenance diff and accepting upstream cleanup verbatim. Resolved: use **Upstream-Compatible Maintenance** for fork-adapted engineering maintenance.
 - "百度翻譯" was used ambiguously between an actively supported translator and historical translation compatibility. Resolved: **Baidu Translation** is a **Legacy Capability**.
 - "translation source" was used ambiguously between sources that can run new tasks and sources that can display stored text. Resolved: use **Readable Translation Source** for reader/export choices.
