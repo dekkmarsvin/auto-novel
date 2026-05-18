@@ -1,7 +1,8 @@
 import { isEqual } from 'lodash-es';
 
-import type { WebNovelMetadata } from '@/api';
-import { WebNovelApi, WebNovelCrawlerApi } from '@/api';
+import { WebNovelApi } from '@/api';
+import type { WebNovelMetadata } from '@/external';
+import { WebNovelCrawlerApi } from '@/external';
 import type { WebNovelDto } from '@/model/WebNovel';
 import { WebNovelRepo } from '@/repos';
 
