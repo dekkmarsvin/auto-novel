@@ -44,3 +44,5 @@ commits as missing, explain why.
 4. Preserve every Fork Capability listed in `AGENTS.md`.
 5. Run the normal Upstream Merge Checklist, including Docker build for container
    changes and GitHub Actions checks after push.
+6. For fork-adapted upstream sync commits that are not direct `git cherry-pick -x`
+   commits, include a `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer.

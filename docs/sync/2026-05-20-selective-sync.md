@@ -85,3 +85,5 @@ For pushed head `19e88e2002926735520715258d47f843ebaf7cab`:
 4. Preserve every Fork Capability listed in `AGENTS.md`.
 5. If the push range contains upstream cherry-picks, update `docs/sync/` in the
    same push range before pushing.
+6. For fork-adapted upstream sync commits that are not direct `git cherry-pick -x`
+   commits, include a `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer.

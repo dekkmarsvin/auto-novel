@@ -158,3 +158,5 @@ because `gh` was not installed. That is not current-head CI evidence for
    new decision to drop them.
 6. Run the normal Upstream Merge Checklist, including Docker build for container
    changes and GitHub Actions checks after push.
+7. For fork-adapted upstream sync commits that are not direct `git cherry-pick -x`
+   commits, include a `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer.

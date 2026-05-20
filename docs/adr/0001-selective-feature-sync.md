@@ -10,9 +10,10 @@ Consequences:
 - Changes that remove or alter a **Fork Capability** require explicit review instead of automatic acceptance.
 - Changes that affect a **Legacy Capability** may be accepted when they reduce maintenance burden without unnecessarily breaking historical data compatibility.
 - A **Disposable Merge Staging Branch** may be used to resolve conflicts and inspect a large upstream tree, but it is not an acceptable final artifact for main.
-- The final upstream sync artifact should be a **Curated Upstream Sync Commit** whose first parent is the fork branch and whose diff represents the accepted upstream value plus fork adaptations.
-- Each **Curated Upstream Sync Commit** should include or reference a **Sync Manifest** that records the upstream range, accepted groups, rejected removals, fork adaptations, patch-equivalence notes, the next sync starting point, and validation commands.
-- Upstream sync validation must include the workspace build (`npm run build`) before treating the sync as ready. CI should run this as a non-publishing check before deployment workflows are relied on.
+- The final upstream sync artifact may be either a **Curated Upstream Sync Commit** whose first parent is the fork branch and whose diff represents the accepted upstream value plus fork adaptations, or a **Manifested Upstream Cherry-Pick Series** applied with `git cherry-pick -x`.
+- Each completed upstream sync must include or reference a **Sync Manifest** that records the upstream range, accepted groups, rejected removals, fork adaptations, patch-equivalence notes, the next sync starting point, and validation commands.
+- Fork-adapted upstream sync commits that are not direct `git cherry-pick -x` commits must include a `Sync-Manifest:` commit-message trailer.
+- Upstream sync validation must include the full workspace build (`npm run build`) before treating the sync as ready. Touched-area checks are additional, not a replacement. CI should run this as a non-publishing check before deployment workflows are relied on.
 - Pure engineering maintenance from upstream may be adopted proactively as **Upstream-Compatible Maintenance** when it preserves **Fork Capabilities**, **Legacy Capability** readability, fork domain configuration, and fork image ownership.
 - Docker, CI, dependency, and lockfile updates should follow upstream direction only in fork-adapted form when reproducibility or deployment identity would otherwise change.
 - The **Upstream-Compatible Maintenance** allow-list is `pnpm-lock.yaml`, `web/Dockerfile`, `.github/workflows/*.yml`, `.dockerignore`, and `.gitignore`.

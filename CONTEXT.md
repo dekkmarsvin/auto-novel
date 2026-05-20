@@ -12,8 +12,12 @@ _Avoid_: Full upstream sync, blind upstream merge
 A fork-authored commit that manually integrates selected upstream changes instead of merging upstream wholesale.
 _Avoid_: Merge commit, upstream parity commit
 
+**Manifested Upstream Cherry-Pick Series**:
+A sequence of accepted upstream commits applied with `git cherry-pick -x`, accompanied by a Sync Manifest in the same push range.
+_Avoid_: Unrecorded cherry-pick series, upstream parity branch
+
 **Disposable Merge Staging Branch**:
-A temporary branch used to resolve upstream conflicts and inspect the resulting tree before flattening the accepted result into a Curated Upstream Sync Commit.
+A temporary branch used to resolve upstream conflicts and inspect the resulting tree before producing an accepted final sync artifact.
 _Avoid_: Final sync branch, merge-to-main branch
 
 **Sync Manifest**:
@@ -68,8 +72,11 @@ _Avoid_: Source of truth
 
 - **Selective Feature Sync** evaluates changes from **Upstream**
 - **Curated Upstream Sync Commit** is the preferred implementation form for **Selective Feature Sync**
+- **Manifested Upstream Cherry-Pick Series** is acceptable when upstream commit provenance is useful and a **Sync Manifest** records the evaluated range
 - **Curated Upstream Sync Commit** should include a **Sync Manifest**
-- **Disposable Merge Staging Branch** may be used to prepare a **Curated Upstream Sync Commit**
+- **Manifested Upstream Cherry-Pick Series** must use `git cherry-pick -x`
+- fork-adapted upstream sync commits that are not direct cherry-picks must include a `Sync-Manifest:` trailer
+- **Disposable Merge Staging Branch** may be used to prepare an accepted final sync artifact
 - **Disposable Merge Staging Branch** must not be merged into main
 - **Upstream-Compatible Maintenance** may be adopted more proactively than product changes
 - **Upstream-Compatible Maintenance** must preserve every **Fork Capability**
@@ -89,10 +96,10 @@ _Avoid_: Source of truth
 > **Domain expert:** "No. This fork uses **Selective Feature Sync**: take the crawler fixes only after preserving ThemeGlossary as a **Fork Capability**."
 >
 > **Dev:** "Should the sync be represented by a direct upstream merge commit?"
-> **Domain expert:** "No. Use a **Curated Upstream Sync Commit** so accepted upstream changes and rejected removals are explicit."
+> **Domain expert:** "No. Use a **Curated Upstream Sync Commit** or a **Manifested Upstream Cherry-Pick Series** so accepted upstream changes and rejected removals are explicit."
 >
 > **Dev:** "Can I use a temporary merge branch to resolve conflicts before producing the curated commit?"
-> **Domain expert:** "Yes. That is a **Disposable Merge Staging Branch**. Use it to inspect and resolve conflicts, then flatten the accepted tree into a **Curated Upstream Sync Commit**."
+> **Domain expert:** "Yes. That is a **Disposable Merge Staging Branch**. Use it to inspect and resolve conflicts, then flatten the accepted tree into an accepted final sync artifact."
 >
 > **Dev:** "How do reviewers know which upstream changes were accepted or rejected?"
 > **Domain expert:** "Attach a **Sync Manifest** to the curated commit so the upstream range, accepted groups, rejected removals, fork adaptations, patch-equivalence notes, next sync starting point, and validation commands are explicit."
@@ -124,7 +131,7 @@ _Avoid_: Source of truth
 ## Flagged Ambiguities
 
 - "upstream sync" was used ambiguously between full upstream parity and selective adoption. Resolved: this fork uses **Selective Feature Sync**.
-- "sync commit" was ambiguous between direct upstream merge and manual integration. Resolved: use a **Curated Upstream Sync Commit**.
+- "sync commit" was ambiguous between direct upstream merge and manual integration. Resolved: use a **Curated Upstream Sync Commit** or **Manifested Upstream Cherry-Pick Series**.
 - "merge branch" was ambiguous between a final sync artifact and a temporary conflict-resolution workspace. Resolved: use **Disposable Merge Staging Branch** only as a staging artifact.
 - "sync summary" was ambiguous between release notes and decision evidence. Resolved: use a **Sync Manifest** to record upstream sync decisions.
 - "engineering sync" was ambiguous between reducing maintenance diff and accepting upstream cleanup verbatim. Resolved: use **Upstream-Compatible Maintenance** for fork-adapted engineering maintenance.

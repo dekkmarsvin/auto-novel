@@ -46,7 +46,7 @@ Docker image owner 使用 `dekkmarsvin`（而非上游的 `auto-novel`）。
 
 ## 与上游同步
 
-本 Fork 采用 **Selective Feature Sync**：上游变更是候选变更，不是自动同步来源。同步时应创建 **Curated Upstream Sync Commit**，只纳入明确接受的上游修复与用户价值，并保留 ThemeGlossary、`books.kotoban.top`、`docker-compose.dev.yml` 等 Fork Capability。
+本 Fork 采用 **Selective Feature Sync**：上游变更是候选变更，不是自动同步来源。同步时可使用 **Curated Upstream Sync Commit**，或保留 upstream commit 來源的 **Manifested Upstream Cherry-Pick Series**。无论采用哪一种形式，都必须只纳入明确接受的上游修复与用户价值，并保留 ThemeGlossary、`books.kotoban.top`、`docker-compose.dev.yml` 等 Fork Capability。
 
 ```powershell
 # 1. 设置上游远程仓库（若尚未设置）
@@ -59,19 +59,29 @@ Get-ChildItem docs/sync -Filter *.md | Sort-Object Name -Descending | Select-Obj
 git fetch upstream
 git log --oneline HEAD..upstream/main
 
-# 4. 在同步分支上手动纳入选定变更
+# 4A. Curated Upstream Sync Commit：不保留 upstream commit 边界，手动纳入选定变更
 git switch -c sync/upstream-YYYYMMDD
 git cherry-pick -n <accepted-upstream-commit>
 
-# 5. 验证 fork invariant 与选择性同步规则
+# 5A. 验证 fork invariant 与选择性同步规则
 .\scripts\check-selective-feature-sync.ps1
 npm run build
 
-# 6. 记录 Sync Manifest 并提交为 fork-authored curated sync commit
+# 6A. 记录 Sync Manifest，并提交为 fork-authored curated sync commit
 New-Item -ItemType Directory -Force docs/sync
 Copy-Item docs/sync/TEMPLATE.md docs/sync/YYYY-MM-DD.md
 git add docs/sync/YYYY-MM-DD.md
 git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY-MM-DD.md"
+
+# 4B. Manifested Upstream Cherry-Pick Series：保留 upstream commit 边界与来源
+git switch -c sync/upstream-YYYYMMDD
+git cherry-pick -x <accepted-upstream-commit>
+New-Item -ItemType Directory -Force docs/sync
+Copy-Item docs/sync/TEMPLATE.md docs/sync/YYYY-MM-DD.md
+git add docs/sync/YYYY-MM-DD.md
+git commit -m "Document selective upstream sync" -m "Sync-Manifest: docs/sync/YYYY-MM-DD.md"
+.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD
+npm run build
 ```
 
 若上游变更较大、逐 commit cherry-pick 难以处理，可以先建立 disposable staging branch 来解冲突与检查最终树，但不可把该 merge commit 合入 `main`：
@@ -88,7 +98,7 @@ git merge --no-commit --no-ff upstream/main
 .\scripts\check-selective-feature-sync.ps1
 npm run build
 
-# 4. 回到 main 建立最终 flat curated commit
+# 4. 回到 main 建立最终 accepted artifact
 git switch -c sync/upstream-YYYYMMDD origin/main
 git cherry-pick -m 1 --no-commit sync/staging-upstream-YYYYMMDD
 .\scripts\check-selective-feature-sync.ps1
@@ -100,6 +110,8 @@ git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY
 ```
 
 Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream removals、fork adaptations、patch-equivalence notes、next sync starting point、validation commands。若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Legacy Capability（例如 Baidu Translation）可跟随上游移除主动入口，但应尽量保留历史数据可读性。
+
+任何 fork-adapted upstream sync commit 若不是 `git cherry-pick -x` 产生的直接 upstream commit，commit message 必须包含 `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer。推送前必须运行 `.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD`。
 
 同步提交在视为 ready 前必须通过 `npm run build`。GitHub Actions 会在 PR 与 `main` push 上执行非发布用途的 build check；`Publish Web` / `Publish Api` 只负责镜像建置与发布。
 

@@ -140,6 +140,12 @@ Before pushing any upstream-derived changes, run:
 
 If the push range contains upstream cherry-picks (`git cherry-pick -x`) or fork-adapted upstream sync work, the same push range MUST add or update a `docs/sync/*.md` manifest.
 
+Fork-adapted upstream sync commits that are not direct `git cherry-pick -x` commits MUST include a commit-message trailer:
+
+```text
+Sync-Manifest: docs/sync/YYYY-MM-DD-*.md
+```
+
 The manifest must record:
 
 - the upstream range evaluated
@@ -153,11 +159,11 @@ The manifest must record:
 
 Use this checklist whenever syncing from upstream:
 
-1. Before merging, note whether fork-only files are present:
+1. Before evaluating upstream changes, note whether fork-only files are present:
    - `docker-compose.dev.yml`
    - ThemeGlossary files listed above
    - domain overrides using `books.kotoban.top`
-2. Merge upstream and resolve conflicts without deleting fork-only functionality.
+2. Evaluate upstream on cherry-picks or a disposable staging branch. Do not merge an upstream merge commit into `main`.
 3. If upstream deletes ThemeGlossary code, restore the fork implementation and adapt it to any upstream API/model changes.
 4. Replace upstream `n.novelia.cc` references with `books.kotoban.top`, except `monitor.novelia.cc`.
 5. Do not restore generated frontend declarations:
@@ -166,8 +172,9 @@ Use this checklist whenever syncing from upstream:
 6. Add or update the `docs/sync/*.md` manifest for this upstream sync.
 7. Run `.\scripts\check-fork-invariants.ps1`.
 8. Run `.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD`.
-9. Run the normal verification for the touched area. For container changes, run:
-   `docker compose -f docker-compose.dev.yml build web api`.
+9. Run the full workspace build before treating the sync as ready.
+10. Run the normal verification for the touched area. For container changes, run:
+    `docker compose -f docker-compose.dev.yml build web api`.
 
 ## Architecture Overview
 

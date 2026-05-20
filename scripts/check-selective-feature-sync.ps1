@@ -52,7 +52,7 @@ function Get-ChangedSyncManifests {
 function Assert-SyncManifestContent {
     param(
         [string[]]$ManifestPaths = @(),
-        [Parameter(Mandatory = $true)][string[]]$ExpectedUpstreamShas
+        [string[]]$ExpectedUpstreamShas = @()
     )
 
     if ($null -eq $ManifestPaths) {
@@ -182,9 +182,10 @@ if (-not (Test-GitRef $HeadRef)) {
     }
 
     $CherryPickSources = New-Object System.Collections.Generic.List[string]
+    $SyncManifestRefs = New-Object System.Collections.Generic.List[string]
     $CommitShas = Invoke-Git -Arguments @('log', '--reverse', '--format=%H', $Range)
     if ($CommitShas.ExitCode -ne 0) {
-        Add-Warning "Could not inspect commit bodies for upstream cherry-picks in range ${Range}: $($CommitShas.Output -join ' ')"
+        Add-Warning "Could not inspect commit bodies for upstream sync metadata in range ${Range}: $($CommitShas.Output -join ' ')"
     } else {
         foreach ($Sha in $CommitShas.Output) {
             $Body = Invoke-Git -Arguments @('log', '-1', '--format=%B', $Sha)
@@ -197,10 +198,21 @@ if (-not (Test-GitRef $HeadRef)) {
             foreach ($Match in [regex]::Matches($BodyText, '\(cherry picked from commit ([0-9a-f]{7,40})\)')) {
                 $CherryPickSources.Add($Match.Groups[1].Value) | Out-Null
             }
+            foreach ($Match in [regex]::Matches($BodyText, '(?im)^Sync-Manifest:\s+(\S+)')) {
+                $SyncManifestRefs.Add($Match.Groups[1].Value) | Out-Null
+            }
         }
     }
 
-    if ($CherryPickSources.Count -gt 0) {
+    if ($SyncManifestRefs.Count -gt 0) {
+        foreach ($ManifestRef in @($SyncManifestRefs | Select-Object -Unique)) {
+            if ($ChangedSyncManifests -notcontains $ManifestRef) {
+                Add-Failure "Sync-Manifest trailer references a manifest that was not added or updated in ${Range}: $ManifestRef"
+            }
+        }
+    }
+
+    if ($CherryPickSources.Count -gt 0 -or $SyncManifestRefs.Count -gt 0) {
         Assert-SyncManifestContent `
             -ManifestPaths $ChangedSyncManifests `
             -ExpectedUpstreamShas @($CherryPickSources | Select-Object -Unique)
@@ -222,11 +234,16 @@ if (-not (Test-GitRef $HeadRef)) {
 
             $Body = Invoke-Git -Arguments @('log', '-1', '--format=%B', $Sha)
             $ChangedFiles = Invoke-Git -Arguments @('diff-tree', '--no-commit-id', '--name-only', '-r', $Sha)
+            $HasSyncManifestTrailer =
+                $Body.ExitCode -eq 0 -and (($Body.Output -join "`n") -match '(?im)^Sync-Manifest:\s+\S+')
             $HasManifestReference =
-                ($Body.ExitCode -eq 0 -and (($Body.Output -join "`n") -match '(?im)^Sync-Manifest:\s+\S+')) -or
+                $HasSyncManifestTrailer -or
                 ($ChangedFiles.ExitCode -eq 0 -and ($ChangedFiles.Output | Where-Object { $_ -match '^docs/sync/.+\.md$' })) -or
                 ($ChangedSyncManifests.Count -gt 0)
 
+            if (-not $HasSyncManifestTrailer) {
+                Add-Failure "Fork-adapted upstream sync commit must include a Sync-Manifest trailer: $Sha`t$Subject"
+            }
             if (-not $HasManifestReference) {
                 Add-Failure "Upstream sync commit lacks Sync-Manifest reference or docs/sync manifest: $Sha`t$Subject"
             }
