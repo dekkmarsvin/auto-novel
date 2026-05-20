@@ -1,7 +1,6 @@
 import { HTTPError, TimeoutError } from 'ky';
 
 export * from './auth';
-export * from './addon';
 export * from './novel';
 
 export const formatError = async (error: unknown) => {
