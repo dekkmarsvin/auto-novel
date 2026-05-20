@@ -37,6 +37,61 @@ function Test-GitRef {
     return $Result.ExitCode -eq 0
 }
 
+function Get-ChangedSyncManifests {
+    param([Parameter(Mandatory = $true)][string]$Range)
+
+    $ChangedFiles = Invoke-Git -Arguments @('diff', '--name-only', $Range)
+    if ($ChangedFiles.ExitCode -ne 0) {
+        Add-Warning "Could not inspect changed files for range ${Range}: $($ChangedFiles.Output -join ' ')"
+        return @()
+    }
+
+    return @($ChangedFiles.Output | Where-Object { $_ -match '^docs/sync/.+\.md$' })
+}
+
+function Assert-SyncManifestContent {
+    param(
+        [string[]]$ManifestPaths = @(),
+        [Parameter(Mandatory = $true)][string[]]$ExpectedUpstreamShas
+    )
+
+    if ($null -eq $ManifestPaths) {
+        $ManifestPaths = @()
+    }
+
+    if ($ManifestPaths.Count -eq 0) {
+        Add-Failure 'Upstream-derived changes found, but no docs/sync/*.md manifest was added or updated in the checked range.'
+        return
+    }
+
+    $ManifestContent = ''
+    foreach ($ManifestPath in $ManifestPaths) {
+        $FullPath = Join-Path $RepoRoot $ManifestPath
+        if (-not (Test-Path -LiteralPath $FullPath -PathType Leaf)) {
+            Add-Failure "Changed sync manifest is missing from working tree: $ManifestPath"
+            continue
+        }
+        $ManifestContent += "`n" + (Get-Content -LiteralPath $FullPath -Raw)
+    }
+
+    if ($ManifestContent -notmatch '(?im)^\s*-\s*Candidate upstream range evaluated:') {
+        Add-Failure 'Sync manifest must record "Candidate upstream range evaluated".'
+    }
+    if ($ManifestContent -notmatch '(?im)^For the next upstream sync, start by reviewing new upstream commits after:') {
+        Add-Failure 'Sync manifest must record the next upstream sync starting point.'
+    }
+
+    foreach ($Sha in $ExpectedUpstreamShas) {
+        if ([string]::IsNullOrWhiteSpace($Sha)) {
+            continue
+        }
+        $ShortSha = $Sha.Substring(0, [Math]::Min(8, $Sha.Length))
+        if ($ManifestContent -notmatch [regex]::Escape($Sha) -and $ManifestContent -notmatch [regex]::Escape($ShortSha)) {
+            Add-Failure "Sync manifest does not mention upstream cherry-pick source: $Sha"
+        }
+    }
+}
+
 function Assert-FileContains {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -104,6 +159,7 @@ if (-not (Test-GitRef $HeadRef)) {
     Add-Warning "Base ref does not exist: $BaseRef. Skipping new-commit merge-shape check."
 } else {
     $Range = "$BaseRef..$HeadRef"
+    $ChangedSyncManifests = Get-ChangedSyncManifests -Range $Range
     $MergeLog = Invoke-Git -Arguments @('log', '--merges', '--format=%H%x09%s', $Range)
     if ($MergeLog.ExitCode -ne 0) {
         Add-Warning "Could not inspect merge commits for range ${Range}: $($MergeLog.Output -join ' ')"
@@ -125,6 +181,31 @@ if (-not (Test-GitRef $HeadRef)) {
         }
     }
 
+    $CherryPickSources = New-Object System.Collections.Generic.List[string]
+    $CommitShas = Invoke-Git -Arguments @('log', '--reverse', '--format=%H', $Range)
+    if ($CommitShas.ExitCode -ne 0) {
+        Add-Warning "Could not inspect commit bodies for upstream cherry-picks in range ${Range}: $($CommitShas.Output -join ' ')"
+    } else {
+        foreach ($Sha in $CommitShas.Output) {
+            $Body = Invoke-Git -Arguments @('log', '-1', '--format=%B', $Sha)
+            if ($Body.ExitCode -ne 0) {
+                Add-Warning "Could not inspect commit body for ${Sha}: $($Body.Output -join ' ')"
+                continue
+            }
+
+            $BodyText = $Body.Output -join "`n"
+            foreach ($Match in [regex]::Matches($BodyText, '\(cherry picked from commit ([0-9a-f]{7,40})\)')) {
+                $CherryPickSources.Add($Match.Groups[1].Value) | Out-Null
+            }
+        }
+    }
+
+    if ($CherryPickSources.Count -gt 0) {
+        Assert-SyncManifestContent `
+            -ManifestPaths $ChangedSyncManifests `
+            -ExpectedUpstreamShas @($CherryPickSources | Select-Object -Unique)
+    }
+
     $SyncCommitLog = Invoke-Git -Arguments @('log', '--format=%H%x09%s', $Range)
     if ($SyncCommitLog.ExitCode -ne 0) {
         Add-Warning "Could not inspect sync manifest references for range ${Range}: $($SyncCommitLog.Output -join ' ')"
@@ -143,7 +224,8 @@ if (-not (Test-GitRef $HeadRef)) {
             $ChangedFiles = Invoke-Git -Arguments @('diff-tree', '--no-commit-id', '--name-only', '-r', $Sha)
             $HasManifestReference =
                 ($Body.ExitCode -eq 0 -and (($Body.Output -join "`n") -match '(?im)^Sync-Manifest:\s+\S+')) -or
-                ($ChangedFiles.ExitCode -eq 0 -and ($ChangedFiles.Output | Where-Object { $_ -match '^docs/sync/.+\.md$' }))
+                ($ChangedFiles.ExitCode -eq 0 -and ($ChangedFiles.Output | Where-Object { $_ -match '^docs/sync/.+\.md$' })) -or
+                ($ChangedSyncManifests.Count -gt 0)
 
             if (-not $HasManifestReference) {
                 Add-Failure "Upstream sync commit lacks Sync-Manifest reference or docs/sync manifest: $Sha`t$Subject"

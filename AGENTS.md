@@ -130,6 +130,25 @@ gh pr checks --repo dekkmarsvin/auto-novel --watch
 
 If GitHub Actions cannot be read because `gh` is unavailable, unauthenticated, or the network/API is unavailable, report that explicitly in the final response instead of claiming CI passed.
 
+### 8. Upstream Sync Manifest Before Push
+
+Before pushing any upstream-derived changes, run:
+
+```powershell
+.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD
+```
+
+If the push range contains upstream cherry-picks (`git cherry-pick -x`) or fork-adapted upstream sync work, the same push range MUST add or update a `docs/sync/*.md` manifest.
+
+The manifest must record:
+
+- the upstream range evaluated
+- the upstream SHA evaluated through
+- the next upstream sync starting SHA
+- accepted upstream commits or accepted groups
+- rejected upstream removals and fork adaptations
+- validation results
+
 ## Upstream Merge Checklist
 
 Use this checklist whenever syncing from upstream:
@@ -144,8 +163,10 @@ Use this checklist whenever syncing from upstream:
 5. Do not restore generated frontend declarations:
    - `web/src/auto-imports.d.ts`
    - `web/src/components.d.ts`
-6. Run `.\scripts\check-fork-invariants.ps1`.
-7. Run the normal verification for the touched area. For container changes, run:
+6. Add or update the `docs/sync/*.md` manifest for this upstream sync.
+7. Run `.\scripts\check-fork-invariants.ps1`.
+8. Run `.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD`.
+9. Run the normal verification for the touched area. For container changes, run:
    `docker compose -f docker-compose.dev.yml build web api`.
 
 ## Architecture Overview
