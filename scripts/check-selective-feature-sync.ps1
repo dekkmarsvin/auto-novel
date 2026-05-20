@@ -228,7 +228,7 @@ if (-not (Test-GitRef $HeadRef)) {
             }
             $Sha = $Matches.Sha
             $Subject = $Matches.Subject
-            if ($Subject -notmatch '(?i)(curated upstream sync|sync upstream|upstream sync)') {
+            if ($Subject -notmatch '(?i)^(curated upstream sync|sync upstream|upstream sync)(:|\b)') {
                 continue
             }
 
