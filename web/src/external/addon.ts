@@ -84,3 +84,13 @@ export async function ensureCookie(
 
   throw new Error('Cookie is not available');
 }
+
+export const normalizeHeaders = (
+  headers?: HeadersInit,
+): Record<string, string> => {
+  const headerDict: Record<string, string> = {};
+  new Headers(headers).forEach((value, key) => {
+    headerDict[key] = value;
+  });
+  return headerDict;
+};
