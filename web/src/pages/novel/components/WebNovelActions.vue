@@ -1,9 +1,7 @@
 <script lang="ts" setup>
-import { BookOutlined, EditNoteOutlined, SyncOutlined } from '@vicons/material';
+import { BookOutlined, EditNoteOutlined } from '@vicons/material';
 
-import { CrawlerService } from '@/domain/crawler';
 import type { WebNovelDto } from '@/model/WebNovel';
-import { doAction } from '@/pages/util';
 import { useWhoamiStore } from '@/stores';
 
 const props = defineProps<{
@@ -14,7 +12,6 @@ const props = defineProps<{
 
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
-const message = useMessage();
 
 const startReadChapter = computed(() => {
   const { novel } = props;
@@ -34,14 +31,6 @@ const startReadChapter = computed(() => {
 
   return undefined;
 });
-
-const updateNovel = () => {
-  return doAction(
-    CrawlerService.updateWebNovel(props.providerId, props.novelId),
-    '更新小说',
-    message,
-  );
-};
 </script>
 
 <template>
@@ -62,14 +51,6 @@ const updateNovel = () => {
     <FavoriteButton
       v-model:favored="novel.favored"
       :novel="{ type: 'web', providerId, novelId }"
-    />
-
-    <c-button
-      v-if="whoami.hasNovelAccess"
-      label="更新"
-      :round="false"
-      :icon="SyncOutlined"
-      @action="updateNovel()"
     />
 
     <router-link

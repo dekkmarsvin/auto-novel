@@ -216,10 +216,20 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         <TranslateOptions
           ref="translateOptions"
           :gnid="GenericNovelId.wenku(novelId)"
-          :glossary="novel.glossary"
           v-model:theme-glossary-id="novel.themeGlossaryId"
           style="margin-top: 16px"
         />
+        <n-flex style="margin-top: 16px">
+          <n-button-group>
+            <GlossaryButton
+              :gnid="GenericNovelId.wenku(novelId)"
+              :value="novel.glossary"
+              v-model:theme-glossary-id="novel.themeGlossaryId"
+              :round="false"
+            />
+            <DownloadOptionsButton :round="false" />
+          </n-button-group>
+        </n-flex>
         <n-divider style="margin: 16px 0 0" />
 
         <n-list>

@@ -1,17 +1,13 @@
 <script lang="ts" setup>
 import { useKeyModifier } from '@vueuse/core';
-import ky from 'ky';
 
+import { CrawlerService } from '@/domain/crawler';
 import { WebNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import type { ActiveTranslatorId } from '@/model/Translator';
 import { TranslateTaskDescriptor } from '@/model/Translator';
-import {
-  useLocalVolumeStore,
-  useSettingStore,
-  useWhoamiStore,
-  useWorkspaceStore,
-} from '@/stores';
+import { doAction } from '@/pages/util';
+import { useSettingStore, useWhoamiStore, useWorkspaceStore } from '@/stores';
 
 const props = defineProps<{
   providerId: string;
@@ -52,6 +48,12 @@ const startTranslateTask = (translatorId: 'youdao') =>
     translateOptions.value!.getTranslateTaskParams(),
     { id: translatorId },
   );
+const updateNovel = () =>
+  doAction(
+    CrawlerService.updateWebNovel(providerId, novelId),
+    '更新小说',
+    message,
+  );
 
 const files = computed(() => {
   const title =
@@ -84,18 +86,6 @@ const files = computed(() => {
     }),
   };
 });
-
-const importToWorkspace = async () => {
-  const blob = await ky.get(files.value.jp.url).blob();
-  const file = new File([blob], files.value.jp.filename);
-
-  const repo = await useLocalVolumeStore();
-  await repo
-    .createVolume(file, 'default')
-    .then(() => repo.updateGlossary(file.name, toRaw(props.glossary)))
-    .then(() => message.success('导入成功'))
-    .catch((error) => message.error(`导入失败:${error}`));
-};
 
 const pressControl = useKeyModifier('Control');
 const submitJob = (id: 'gpt' | 'sakura') => {
@@ -159,47 +149,11 @@ const submitJob = (id: 'gpt' | 'sakura') => {
 </script>
 
 <template>
-  <n-text v-if="!whoami.isSignedIn">游客无法使用翻译功能，请先登录。</n-text>
-  <n-text v-else-if="setting.enabledTranslator.length === 0">
-    没有翻译器启用。
-  </n-text>
-  <TranslateOptions
-    v-else
-    ref="translateOptions"
-    :gnid="GenericNovelId.web(providerId, novelId)"
-    :glossary="glossary"
-    :theme-glossary-id="themeGlossaryId"
-    @update:theme-glossary-id="(val) => emit('update:themeGlossaryId', val)"
-  />
-
-  <n-flex vertical style="margin-top: 16px">
+  <n-flex vertical style="margin-top: 8px">
     <n-text>
       总计 {{ total }} / 有道 {{ youdao }} / GPT {{ gpt }} / Sakura
       {{ sakura }}
     </n-text>
-
-    <template v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0">
-      <n-button-group>
-        <c-button
-          v-if="setting.enabledTranslator.includes('youdao')"
-          label="更新有道"
-          :round="false"
-          @action="startTranslateTask('youdao')"
-        />
-        <c-button
-          v-if="setting.enabledTranslator.includes('gpt')"
-          label="排队GPT"
-          :round="false"
-          @action="submitJob('gpt')"
-        />
-        <c-button
-          v-if="setting.enabledTranslator.includes('sakura')"
-          label="排队Sakura"
-          :round="false"
-          @action="submitJob('sakura')"
-        />
-      </n-button-group>
-    </template>
 
     <n-button-group>
       <c-button
@@ -218,12 +172,69 @@ const submitJob = (id: 'gpt' | 'sakura') => {
         :download="files.zh.filename"
         target="_blank"
       />
-      <c-button
-        label="导入日文至工作区"
+      <DownloadOptionsButton
         :round="false"
-        @action="importToWorkspace"
+        :show-file-type="true"
+        :show-filename-type="true"
       />
     </n-button-group>
+  </n-flex>
+
+  <div style="margin: 28px" />
+
+  <n-text v-if="!whoami.isSignedIn">游客无法使用翻译功能，请先登录。</n-text>
+  <n-text v-else-if="setting.enabledTranslator.length === 0">
+    没有翻译器启用。
+  </n-text>
+  <TranslateOptions
+    v-else
+    ref="translateOptions"
+    :gnid="GenericNovelId.web(providerId, novelId)"
+    :theme-glossary-id="themeGlossaryId"
+    @update:theme-glossary-id="(val) => emit('update:themeGlossaryId', val)"
+  />
+
+  <n-flex vertical style="margin-top: 16px">
+    <template v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0">
+      <n-button-group>
+        <c-button
+          v-if="whoami.hasNovelAccess"
+          label="更新原文"
+          :round="false"
+          @action="updateNovel()"
+        />
+        <c-button
+          v-if="setting.enabledTranslator.includes('youdao')"
+          label="更新有道"
+          :round="false"
+          @action="startTranslateTask('youdao')"
+        />
+        <GlossaryButton
+          :gnid="GenericNovelId.web(providerId, novelId)"
+          :value="glossary"
+          :theme-glossary-id="themeGlossaryId"
+          @update:theme-glossary-id="
+            (val) => emit('update:themeGlossaryId', val)
+          "
+          :round="false"
+        />
+      </n-button-group>
+
+      <n-button-group>
+        <c-button
+          v-if="setting.enabledTranslator.includes('gpt')"
+          label="排队GPT"
+          :round="false"
+          @action="submitJob('gpt')"
+        />
+        <c-button
+          v-if="setting.enabledTranslator.includes('sakura')"
+          label="排队Sakura"
+          :round="false"
+          @action="submitJob('sakura')"
+        />
+      </n-button-group>
+    </template>
   </n-flex>
 
   <TranslateTask
