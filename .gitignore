@@ -1,6 +1,7 @@
 .vscode
 .idea/
 .antigravity-images
+.worktrees/
 
 # TS
 node_modules/
