@@ -2,12 +2,10 @@
 import { useKeyModifier } from '@vueuse/core';
 import ky from 'ky';
 
-import { CrawlerService } from '@/domain/crawler';
 import { WebNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import type { ActiveTranslatorId } from '@/model/Translator';
 import { TranslateTaskDescriptor } from '@/model/Translator';
-import { doAction } from '@/pages/util';
 import {
   useLocalVolumeStore,
   useSettingStore,
@@ -53,12 +51,6 @@ const startTranslateTask = (translatorId: 'youdao') =>
     { type: 'web', providerId, novelId },
     translateOptions.value!.getTranslateTaskParams(),
     { id: translatorId },
-  );
-const updateNovel = () =>
-  doAction(
-    CrawlerService.updateWebNovel(providerId, novelId),
-    '更新小说',
-    message,
   );
 
 const importToWorkspace = async () => {
@@ -107,7 +99,7 @@ const files = computed(() => {
 
 const pressControl = useKeyModifier('Control');
 const submitJob = (id: 'gpt' | 'sakura') => {
-  const { startIndex, endIndex, level, forceMetadata } =
+  const { startIndex, endIndex, level, forceMetadata, useBrowserCrawler } =
     translateOptions.value!.getTranslateTaskParams();
   const taskNumber = translateOptions.value!.getTaskNumber();
 
@@ -126,6 +118,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
         const task = TranslateTaskDescriptor.web(providerId, novelId, {
           level,
           forceMetadata,
+          useBrowserCrawler,
           startIndex: start,
           endIndex: end,
         });
@@ -136,6 +129,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     const task = TranslateTaskDescriptor.web(providerId, novelId, {
       level,
       forceMetadata,
+      useBrowserCrawler,
       startIndex,
       endIndex,
     });
@@ -228,12 +222,6 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     </n-button-group>
 
     <n-button-group>
-      <c-button
-        v-if="whoami.hasNovelAccess"
-        label="更新原文"
-        :round="false"
-        @action="updateNovel()"
-      />
       <c-button
         v-if="setting.enabledTranslator.includes('youdao')"
         label="更新有道"
