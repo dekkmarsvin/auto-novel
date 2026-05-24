@@ -18,6 +18,7 @@ const translateLevel = ref<'normal' | 'expire' | 'all' | 'sync'>(
   probs.gnid.type === 'local' ? 'expire' : 'normal',
 );
 const forceMetadata = ref(false);
+const useBrowserCrawler = ref(false);
 const startIndex = ref<number | null>(0);
 const endIndex = ref<number | null>(65536);
 const taskNumber = ref<number | null>(1);
@@ -26,6 +27,7 @@ defineExpose({
   getTranslateTaskParams: (): TranslateTaskParams => ({
     level: translateLevel.value,
     forceMetadata: forceMetadata.value,
+    useBrowserCrawler: probs.gnid.type === 'web' && useBrowserCrawler.value,
     startIndex: startIndex.value ?? 0,
     endIndex: endIndex.value ?? 65536,
   }),
@@ -80,6 +82,11 @@ defineExpose({
           v-if="gnid.type === 'web'"
           label="重翻目录"
           v-model:checked="forceMetadata"
+        />
+        <tag-button
+          v-if="gnid.type === 'web'"
+          label="浏览器爬虫"
+          v-model:checked="useBrowserCrawler"
         />
 
         <n-text
