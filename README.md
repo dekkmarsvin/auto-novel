@@ -63,15 +63,15 @@ git log --oneline HEAD..upstream/main
 git switch -c sync/upstream-YYYYMMDD
 git cherry-pick -n <accepted-upstream-commit>
 
-# 5A. 验证 fork invariant 与选择性同步规则
-.\scripts\check-selective-feature-sync.ps1
-npm run build
-
-# 6A. 记录 Sync Manifest，并提交为 fork-authored curated sync commit
+# 5A. 记录 Sync Manifest，并与接受的代码变更一起提交
 New-Item -ItemType Directory -Force docs/sync
 Copy-Item docs/sync/TEMPLATE.md docs/sync/YYYY-MM-DD.md
-git add docs/sync/YYYY-MM-DD.md
+git add <accepted-files> docs/sync/YYYY-MM-DD.md
 git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY-MM-DD.md"
+
+# 6A. 验证 fork invariant、选择性同步规则与完整 build
+.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD
+npm run build
 
 # 4B. Manifested Upstream Cherry-Pick Series：保留 upstream commit 边界与来源
 git switch -c sync/upstream-YYYYMMDD
@@ -101,17 +101,19 @@ npm run build
 # 4. 回到 main 建立最终 accepted artifact
 git switch -c sync/upstream-YYYYMMDD origin/main
 git cherry-pick -m 1 --no-commit sync/staging-upstream-YYYYMMDD
-.\scripts\check-selective-feature-sync.ps1
-npm run build
 New-Item -ItemType Directory -Force docs/sync
 Copy-Item docs/sync/TEMPLATE.md docs/sync/YYYY-MM-DD.md
-git add docs/sync/YYYY-MM-DD.md
+git add <accepted-files> docs/sync/YYYY-MM-DD.md
 git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY-MM-DD.md"
+.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD
+npm run build
 ```
 
 Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream removals、fork adaptations、patch-equivalence notes、next sync starting point、validation commands。若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Legacy Capability（例如 Baidu Translation）可跟随上游移除主动入口，但应尽量保留历史数据可读性。
 
 任何 fork-adapted upstream sync commit 若不是 `git cherry-pick -x` 产生的直接 upstream commit，commit message 必须包含 `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer。推送前必须运行 `.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD`。
+
+同步 PR 可以使用 GitHub 的普通 fork PR merge commit；这种 merge commit 只合并本 fork 的 sync 分支，不等同于 direct upstream merge。不要把 `upstream/main` 的 merge commit 合入 `main`。若使用 squash merge，squash commit 必须保留 `Sync-Manifest:` trailer 或等价的 manifest 证据，否则会丢失选择性同步的审计线索。
 
 同步提交在视为 ready 前必须通过 `npm run build`。GitHub Actions 会在 PR 与 `main` push 上执行非发布用途的 build check；`Publish Web` / `Publish Api` 只负责镜像建置与发布。
 

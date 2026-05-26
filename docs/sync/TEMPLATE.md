@@ -10,11 +10,15 @@
 
 For the next upstream sync, start by reviewing new upstream commits after:
 
-## Accepted Groups
+## Manual Decisions
 
 -
 
-## Rejected Or Fork-Adapted Changes
+## Accepted Upstream Commits
+
+-
+
+## Rejected Or Deferred Changes
 
 -
 
@@ -46,3 +50,5 @@ commits as missing, explain why.
    changes and GitHub Actions checks after push.
 6. For fork-adapted upstream sync commits that are not direct `git cherry-pick -x`
    commits, include a `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer.
+7. Merge sync PRs with a normal fork PR merge commit or a commit that preserves
+   Sync Manifest evidence; do not merge `upstream/main` directly.

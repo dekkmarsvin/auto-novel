@@ -81,6 +81,19 @@ function Assert-SyncManifestContent {
         Add-Failure 'Sync manifest must record the next upstream sync starting point.'
     }
 
+    $RequiredSections = @(
+        'Manual Decisions',
+        'Accepted Upstream Commits',
+        'Rejected Or Deferred Changes',
+        'Fork Adaptations',
+        'Validation'
+    )
+    foreach ($Section in $RequiredSections) {
+        if ($ManifestContent -notmatch "(?im)^##\s+$([regex]::Escape($Section))\s*$") {
+            Add-Failure "Sync manifest must include a ""$Section"" section."
+        }
+    }
+
     foreach ($Sha in $ExpectedUpstreamShas) {
         if ([string]::IsNullOrWhiteSpace($Sha)) {
             continue
