@@ -168,7 +168,7 @@ if (-not (Test-GitRef $HeadRef)) {
             'Merge remote-tracking branch .upstream/',
             'Merge branch .+ of https://github\.com/auto-novel/auto-novel',
             'Merge upstream/',
-            'Merge .+upstream'
+            'Merge branch .+upstream/'
         )
 
         foreach ($Line in $MergeLog.Output) {
