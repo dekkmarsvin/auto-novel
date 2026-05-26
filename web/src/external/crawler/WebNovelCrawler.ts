@@ -1,6 +1,6 @@
 import ky from 'ky';
 
-import type { WebNovelMetadata } from '@auto-novel/crawler';
+import type { WebNovelChapter, WebNovelMetadata } from '@auto-novel/crawler';
 import {
   Alphapolis,
   Hameln,
@@ -13,6 +13,8 @@ import {
 
 import { getAddon } from '@/external/addon';
 import { lazy } from '@/util';
+
+import { fakeDesktopHeader, toHeaders } from './utils';
 
 let bypassHamelnR18: Promise<void> | undefined;
 const ensureBypassR18 = (addon: ReturnType<typeof getAddon>) => {
@@ -43,7 +45,12 @@ const getCrawler = lazy(async () => {
   const hamelnClient = ky.create({
     fetch: async (input: string | URL | Request, init?: RequestInit) => {
       await ensureBypassR18(addon);
-      return addon.tabFetch({ tabUrl: 'https://syosetu.org' }, input, init);
+      const headers = toHeaders(init?.headers);
+      fakeDesktopHeader(headers);
+      return addon.tabFetch({ tabUrl: 'https://syosetu.org' }, input, {
+        ...init,
+        headers,
+      });
     },
   });
 
@@ -65,8 +72,18 @@ const getMetadata = async (
   return crawler.getMetadata(providerId, novelId);
 };
 
-export const WebNovelCrawlerApi = {
-  getMetadata,
+const getChapter = async (
+  providerId: string,
+  novelId: string,
+  chapterId: string,
+): Promise<WebNovelChapter> => {
+  const crawler = await getCrawler();
+  return crawler.getChapter(providerId, novelId, chapterId);
 };
 
-export type { WebNovelMetadata };
+export const WebNovelCrawlerApi = {
+  getMetadata,
+  getChapter,
+};
+
+export type { WebNovelChapter, WebNovelMetadata };

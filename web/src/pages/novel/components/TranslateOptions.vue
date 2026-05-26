@@ -3,6 +3,7 @@ import { InfoOutlined } from '@vicons/material';
 
 import type { GenericNovelId } from '@/model/Common';
 import type { TranslateTaskParams } from '@/model/Translator';
+import { useWhoamiStore } from '@/stores';
 
 const probs = defineProps<{
   gnid: GenericNovelId;
@@ -12,12 +13,15 @@ const probs = defineProps<{
 defineEmits<{
   'update:themeGlossaryId': [id?: string];
 }>();
+const whoamiStore = useWhoamiStore();
+const { whoami } = storeToRefs(whoamiStore);
 
 // 翻译设置
 const translateLevel = ref<'normal' | 'expire' | 'all' | 'sync'>(
   probs.gnid.type === 'local' ? 'expire' : 'normal',
 );
 const forceMetadata = ref(false);
+const useBrowserCrawler = ref(false);
 const startIndex = ref<number | null>(0);
 const endIndex = ref<number | null>(65536);
 const taskNumber = ref<number | null>(1);
@@ -26,6 +30,7 @@ defineExpose({
   getTranslateTaskParams: (): TranslateTaskParams => ({
     level: translateLevel.value,
     forceMetadata: forceMetadata.value,
+    useBrowserCrawler: probs.gnid.type === 'web' && useBrowserCrawler.value,
     startIndex: startIndex.value ?? 0,
     endIndex: endIndex.value ?? 65536,
   }),
@@ -81,6 +86,12 @@ defineExpose({
           label="重翻目录"
           v-model:checked="forceMetadata"
         />
+        <tag-button
+          v-if="gnid.type === 'web' && whoami.hasNovelAccess"
+          type="warning"
+          label="浏览器爬虫"
+          v-model:checked="useBrowserCrawler"
+        />
 
         <n-text
           v-if="translateLevel === 'all' || translateLevel === 'sync'"
@@ -88,6 +99,14 @@ defineExpose({
           style="font-size: 12px; flex-basis: 100%"
         >
           <b>* 请确保你知道自己在干啥，不要随便使用危险功能</b>
+        </n-text>
+
+        <n-text
+          v-if="gnid.type === 'web' && whoami.hasNovelAccess"
+          type="warning"
+          style="font-size: 12px; flex-basis: 100%"
+        >
+          <b>* 浏览器爬虫还处于测试阶段，翻译后务必检查结果</b>
         </n-text>
       </n-flex>
     </c-action-wrapper>
