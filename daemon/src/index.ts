@@ -1,7 +1,8 @@
 import { Command } from 'commander';
 import { mapValues } from 'lodash-es';
-import { Server } from 'node:http';
+import { createServer, Server } from 'node:http';
 
+import { createAdminAuthMiddleware } from '@/adminAuth';
 import { loadConfig } from '@/config';
 import { createApp } from '@/createApp';
 import manifest from '@/package.json';
@@ -43,29 +44,38 @@ async function main() {
   const router = createCrawlerRouter(crawlerService);
   const proxyRouter = createProxyRouter(proxyManager);
   const app = createApp(config, { router });
-  app.use('/proxies', proxyRouter);
 
-  const server = app.listen(config.port, config.host, () => {
-    console.log(`Server is running on http://${config.host}:${config.port}`);
-  });
-
+  const server = createServer(app);
   const shutdown = createGracefulShutdown(server, [() => proxyStore.close()]);
 
-  app.post('/shutdown', async (req, res) => {
-    console.log('Shutdown requested via API');
+  if (config.adminToken) {
+    const requireAdminAuth = createAdminAuthMiddleware(config.adminToken);
+    app.use('/proxies', requireAdminAuth, proxyRouter);
 
-    res.status(202).json({
-      message: 'Server is shutting down...',
-      uptime: process.uptime(),
-      timestamp: Date.now(),
-    });
+    app.post('/shutdown', requireAdminAuth, async (req, res) => {
+      console.log('Shutdown requested via API');
 
-    setImmediate(() => {
-      shutdown('api-request', 0).catch((err) => {
-        console.error('Error during API shutdown:', err);
-        process.exit(1);
+      res.status(202).json({
+        message: 'Server is shutting down...',
+        uptime: process.uptime(),
+        timestamp: Date.now(),
+      });
+
+      setImmediate(() => {
+        shutdown('api-request', 0).catch((err) => {
+          console.error('Error during API shutdown:', err);
+          process.exit(1);
+        });
       });
     });
+  } else {
+    console.warn(
+      'Administrative endpoints (/proxies and /shutdown) are disabled. Set adminToken or CRAWLER_ADMIN_TOKEN to enable them.',
+    );
+  }
+
+  server.listen(config.port, config.host, () => {
+    console.log(`Server is running on http://${config.host}:${config.port}`);
   });
 
   try {
