@@ -26,7 +26,7 @@ On startup the service:
 
 ### API
 
-The HTTP API is exposed at `/proxies` on the crawler server.
+The HTTP API is exposed at `/proxies` on the crawler server only when an admin token is configured. Set `adminToken` in `config.json` or set `CRAWLER_ADMIN_TOKEN` in the environment to a value with at least 16 characters. Send the token as `Authorization: Bearer <token>` or `X-Admin-Token: <token>`. Without a configured token, the proxy management API and `/shutdown` endpoint are disabled.
 
 - `GET /proxies` — returns the current proxy pool with health stats.
 - `POST /proxies` — accepts JSON body matching:

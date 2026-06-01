@@ -14,6 +14,7 @@ export const ConfigSchema = z
     host: z.string().default('127.0.0.1'),
     port: z.number().default(3000),
     proxyDbPath: z.string().default('crawler-proxies.db'),
+    adminToken: z.string().min(16).optional(),
     defaultProxies: z.array(ProxyConfigSchema).default([]),
     providerConfig: z
       .partialRecord(ProviderIdSchema, ProviderConfigSchema)
@@ -28,7 +29,8 @@ export const DEFAULT_CONFIG: AppConfig = ConfigSchema.parse({});
 export async function loadConfig(configPath: string): Promise<AppConfig> {
   const raw = await fs.readFile(configPath, 'utf-8').catch(() => null);
   const parsed = parseConfig(raw);
-  const config = ConfigSchema.parse(parsed);
+  const configInput = applyEnvOverrides(parsed);
+  const config = ConfigSchema.parse(configInput);
   if (shouldPersistDefaults(raw, parsed)) {
     const merged = { ...DEFAULT_CONFIG, ...parsed };
     await fs
@@ -60,6 +62,14 @@ function parseConfig(raw: string | null): Record<string, unknown> {
     );
   }
   return {};
+}
+
+function applyEnvOverrides(parsed: Record<string, unknown>) {
+  const adminToken = process.env.CRAWLER_ADMIN_TOKEN?.trim();
+  if (adminToken && !('adminToken' in parsed)) {
+    return { ...parsed, adminToken };
+  }
+  return parsed;
 }
 
 function shouldPersistDefaults(
