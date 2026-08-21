@@ -11,7 +11,7 @@ function normalizeVersion(version: string): [number, number, number] | null {
   ];
 }
 
-function compareVersion(version: string, target: string): number | null {
+export function compareVersion(version: string, target: string): number | null {
   const left = normalizeVersion(version);
   const right = normalizeVersion(target);
   if (!left || !right) return null;
@@ -28,8 +28,22 @@ function compareVersion(version: string, target: string): number | null {
 export class AddonNotFoundError extends Error {
   constructor() {
     super(
-      '未检测到机翻站插件，请安装后重试，参见：github.com/auto-novel/addon',
+      '未检测到机翻站插件（或机翻站插件版本太低），请安装后重试，参见：github.com/auto-novel/addon',
     );
+    this.name = new.target.name;
+  }
+}
+
+export class AddonLoadError extends Error {
+  constructor() {
+    super('机翻站插件加载失败，请刷新网页重试或联系开发者');
+    this.name = new.target.name;
+  }
+}
+
+export class AddonLoadTimeoutError extends Error {
+  constructor() {
+    super('机翻站插件加载超时，请在不刷新网页的情况下重试');
     this.name = new.target.name;
   }
 }

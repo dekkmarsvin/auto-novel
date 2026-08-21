@@ -3,11 +3,7 @@ import { FileDownloadOutlined } from '@vicons/material';
 import { useKeyModifier } from '@vueuse/core';
 
 import { WenkuNovelApi } from '@/api';
-import type {
-  ActiveTranslatorId,
-  ReadableTranslatorId,
-  TranslateTaskParams,
-} from '@/model/Translator';
+import type { TranslateTaskParams } from '@/model/Translator';
 import { TranslateTaskDescriptor } from '@/model/Translator';
 import type { VolumeJpDto } from '@/model/WenkuNovel';
 import { useSettingStore, useWhoamiStore, useWorkspaceStore } from '@/stores';
@@ -41,23 +37,18 @@ const startTranslateTask = (translatorId: 'youdao') => {
 
 const hasTranslation = computed(() => {
   const { translations } = setting.value.downloadFormat;
-  return translations
-    .filter((t): t is ActiveTranslatorId => t !== 'baidu')
-    .some((t) => (volume[t] ?? 0) > 0);
+  return translations.some((t) => (volume[t] ?? 0) > 0);
 });
 
 const file = computed(() => {
   const { mode, translationsMode, translations } = setting.value.downloadFormat;
-  const activeTranslations = translations.filter(
-    (t): t is Exclude<ReadableTranslatorId, 'baidu'> => t !== 'baidu',
-  );
 
   const { url, filename } = WenkuNovelApi.createFileUrl({
     novelId,
     volumeId: volume.volumeId,
     mode,
     translationsMode,
-    translations: activeTranslations,
+    translations,
   });
   return { url, filename };
 });

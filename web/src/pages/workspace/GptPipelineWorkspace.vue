@@ -197,8 +197,13 @@ function runProcessLoop(): Promise<void> | null {
         )
         .then(() => {
           const allDone = state.chapters.every((c) => c.status === 'done');
-          if (allDone) {
+          const allProcessed = state.chapters.every(
+            (c) => c.status === 'done' || c.status === 'error',
+          );
+          if (allProcessed) {
             executingTasks.delete(job.task);
+          }
+          if (allDone) {
             (job as TranslateJobRecord).finishAt = Date.now();
           }
         });
@@ -243,6 +248,7 @@ const startWorker = (workerId: string) => {
     endpoint: w.endpoint,
     key: w.key,
     model: w.model,
+    profile: w.profile,
   });
 
   const workerTracker: TranslatorTracker = {

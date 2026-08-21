@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import {
+  AccessTimeOutlined,
   BookOutlined,
   CandlestickChartOutlined,
+  CommitOutlined,
   DarkModeOutlined,
   ForumOutlined,
   HistoryOutlined,
@@ -38,6 +40,18 @@ const { whoami } = storeToRefs(whoamiStore);
 const settingStore = useSettingStore();
 const { setting } = storeToRefs(settingStore);
 
+const commitUrl = computed(() =>
+  __BUILD_INFO__.gitCommit === 'unknown'
+    ? undefined
+    : `https://github.com/${__BUILD_INFO__.gitRepository}/commit/${__BUILD_INFO__.gitCommit}`,
+);
+const shortCommit =
+  __BUILD_INFO__.gitCommit === 'unknown'
+    ? '未知'
+    : __BUILD_INFO__.gitCommit.slice(0, 12);
+const buildTime = new Date(__BUILD_INFO__.buildTime);
+const osTheme = useOsTheme();
+
 const menuCollapsed = computed(() => {
   if (menuShowTrigger.value) {
     return setting.value.menuCollapsed;
@@ -54,7 +68,6 @@ const renderIcon = (icon: Component) => () =>
 const menuOptions = computed<MenuOption[]>(() => {
   const resolveTheme = () => {
     if (setting.value.theme === 'system') {
-      const osTheme = useOsTheme();
       return osTheme.value ?? 'light';
     } else {
       return setting.value.theme;
@@ -336,7 +349,13 @@ watch(
       @expand="setting.menuCollapsed = false"
     >
       <n-scrollbar
-        style="margin-top: 50px; position: fixed; top: 0"
+        content-style="display: flex; flex-direction: column; min-height: 100%"
+        style="
+          height: calc(100vh - 50px);
+          margin-top: 50px;
+          position: fixed;
+          top: 0;
+        "
         :style="{ width: menuCollapsed ? '64px' : '240px' }"
       >
         <n-menu
@@ -346,8 +365,61 @@ watch(
           :collapsed="menuCollapsed"
           :collapsed-width="64"
           :collapsed-icon-size="22"
-          style="margin-bottom: 64px"
+          style="flex-shrink: 0"
         />
+        <div style="flex: 1" />
+        <div
+          class="sidebar-build-info"
+          :class="{ 'sidebar-build-info--collapsed': menuCollapsed }"
+        >
+          <template v-if="!menuCollapsed">
+            <div class="sidebar-build-info-item">
+              <n-icon :component="AccessTimeOutlined" size="15" />
+              <n-text depth="3">构建于</n-text>
+              <n-time :time="buildTime" type="datetime" />
+            </div>
+            <div class="sidebar-build-info-item">
+              <n-icon :component="CommitOutlined" size="16" />
+              <n-text depth="3">Commit</n-text>
+              <n-a
+                v-if="commitUrl"
+                class="commit-link"
+                :href="commitUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <code>{{ shortCommit }}</code>
+              </n-a>
+              <n-text v-else depth="3">
+                <code>{{ shortCommit }}</code>
+              </n-text>
+            </div>
+          </template>
+
+          <n-tooltip v-else placement="right">
+            <template #trigger>
+              <n-a
+                v-if="commitUrl"
+                class="sidebar-build-info-trigger"
+                :href="commitUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="查看构建信息"
+              >
+                <n-icon :component="CommitOutlined" size="20" />
+              </n-a>
+              <n-icon v-else :component="CommitOutlined" size="20" />
+            </template>
+            <div>
+              构建于
+              <n-time :time="buildTime" type="datetime" />
+            </div>
+            <div>
+              Commit
+              <code>{{ shortCommit }}</code>
+            </div>
+          </n-tooltip>
+        </div>
       </n-scrollbar>
     </n-layout-sider>
 
@@ -379,11 +451,80 @@ watch(
   </n-layout>
 
   <c-drawer-left v-if="!hasSider" v-model:show="showMenuModal">
-    <n-menu :value="menuKey" :options="menuOptions" />
+    <n-menu :value="menuKey" :options="menuOptions" style="flex-shrink: 0" />
+    <div style="flex: 1" />
+    <div class="sidebar-build-info sidebar-build-info--mobile">
+      <div class="sidebar-build-info-item">
+        <n-icon :component="AccessTimeOutlined" size="15" />
+        <n-text depth="3">构建于</n-text>
+        <n-time :time="buildTime" type="datetime" />
+      </div>
+      <div class="sidebar-build-info-item">
+        <n-icon :component="CommitOutlined" size="16" />
+        <n-text depth="3">Commit</n-text>
+        <n-a
+          v-if="commitUrl"
+          class="commit-link"
+          :href="commitUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <code>{{ shortCommit }}</code>
+        </n-a>
+        <n-text v-else depth="3">
+          <code>{{ shortCommit }}</code>
+        </n-text>
+      </div>
+    </div>
   </c-drawer-left>
 </template>
 
 <style>
+.sidebar-build-info {
+  box-sizing: border-box;
+  width: 240px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid rgba(128, 128, 128, 0.16);
+  background: var(--n-color);
+  font-size: 12px;
+  transition: width 0.3s var(--n-bezier);
+}
+.sidebar-build-info-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 24px;
+  white-space: nowrap;
+}
+.sidebar-build-info-item > .n-icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+.sidebar-build-info--collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 56px;
+  padding: 0;
+}
+.sidebar-build-info--mobile {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px 12px;
+  border-top: 0;
+}
+.sidebar-build-info-trigger {
+  display: flex;
+  padding: 8px;
+}
+.commit-link code {
+  font-size: 11px;
+  letter-spacing: 0;
+}
 .layout-content {
   max-width: 1000px;
   margin: 0 auto;

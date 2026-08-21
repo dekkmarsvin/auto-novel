@@ -25,3 +25,13 @@ export type {
   TranslatorTracker,
   LineRange,
 } from './types';
+
+export { openAiProfiles } from './translator/profiles/openai';
+
+export type { openAiProfileId } from './translator/profiles/openai';
+
+export type {
+  ProfileField,
+  ProfileValues,
+  TranslatorProfile,
+} from './translator/profiles/types';

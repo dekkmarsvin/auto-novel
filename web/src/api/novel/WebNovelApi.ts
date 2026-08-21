@@ -1,7 +1,6 @@
 import type { Page } from '@/model/Page';
 import type {
-  ActiveTranslatorId,
-  ReadableTranslatorId,
+  TranslatorId,
   WebChapterTranslateTask,
   WebTranslateTask,
 } from '@/model/Translator';
@@ -143,7 +142,7 @@ const updateGlossary = (
 const createTranslationApi = (
   providerId: string,
   novelId: string,
-  translatorId: ActiveTranslatorId,
+  translatorId: TranslatorId,
   syncFromProvider: boolean,
   signal?: AbortSignal,
 ) => {
@@ -207,7 +206,7 @@ const createFileUrl = ({
   novelId: string;
   mode: 'jp' | 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ReadableTranslatorId[];
+  translations: TranslatorId[];
   type: 'epub' | 'txt';
   title: string;
 }) => {

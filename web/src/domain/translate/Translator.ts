@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash-es';
 
 import type { Glossary } from '@/model/Glossary';
-import type { ActiveTranslatorId } from '@/model/Translator';
+import type { TranslatorId } from '@/model/Translator';
 
 import { OpenAiTranslator } from './TranslatorOpenAi';
 import { SakuraTranslator } from './TranslatorSakura';
@@ -16,7 +16,7 @@ export type TranslatorConfig =
   | ({ id: 'sakura' } & SakuraTranslator.Config);
 
 export class Translator {
-  id: ActiveTranslatorId;
+  id: TranslatorId;
   log: (message: string) => void;
   segTranslator: SegmentTranslator;
   segCache?: SegmentCache;

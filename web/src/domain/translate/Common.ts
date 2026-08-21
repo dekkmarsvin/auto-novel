@@ -3,7 +3,7 @@ import { customAlphabet } from 'nanoid';
 
 import { TranslationCacheRepo } from '@/repos';
 import type { Glossary } from '@/model/Glossary';
-import type { ActiveTranslatorId } from '@/model/Translator';
+import type { TranslatorId } from '@/model/Translator';
 
 export type Segmentor = (
   textJp: string[],
@@ -19,7 +19,7 @@ export type SegmentContext = {
 };
 
 export interface SegmentTranslator {
-  id: ActiveTranslatorId;
+  id: TranslatorId;
   segmentor: Segmentor;
   translate: (seg: string[], context: SegmentContext) => Promise<string[]>;
   log: (message: string, detail?: string[]) => void;

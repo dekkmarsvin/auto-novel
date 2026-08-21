@@ -49,7 +49,6 @@ const setIndentSize = (diff: number) => {
               />
               <translator-check
                 v-model:value="readerSetting.translations"
-                include-legacy
                 show-order
                 :two-line="!isWideScreen"
               />

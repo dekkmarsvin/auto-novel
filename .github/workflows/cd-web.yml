@@ -48,6 +48,9 @@ jobs:
           file: web/Dockerfile
           push: true
           provenance: false
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            GIT_REPOSITORY=${{ github.repository }}
           tags: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Delete old package versions

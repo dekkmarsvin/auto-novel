@@ -1,5 +1,7 @@
-// Fix: Resolved unused imports for build
 import vue from '@vitejs/plugin-vue';
+import { execFileSync } from 'node:child_process';
+import path from 'path';
+import { ProxyAgent } from 'proxy-agent';
 import Sonda from 'sonda/vite';
 import AutoImport from 'unplugin-auto-import/vite';
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
@@ -8,7 +10,26 @@ import type { UserConfig } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
 import { createHtmlPlugin } from 'vite-plugin-html';
 
-import path from 'path';
+function resolveGitCommit(env: Record<string, string>) {
+  const injectedCommit =
+    env.VITE_GIT_COMMIT ||
+    process.env.VITE_GIT_COMMIT ||
+    process.env.GIT_COMMIT ||
+    process.env.GITHUB_SHA;
+  if (injectedCommit) return injectedCommit;
+
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    }).trim();
+  } catch (error) {
+    // Some restricted build environments return the command output together
+    // with an execution error. The resolved hash is still safe to use.
+    const stdout = (error as { stdout?: string | Buffer }).stdout;
+    return stdout?.toString().trim() || 'unknown';
+  }
+}
 
 function setupRemoteAuthProxy(config: UserConfig) {
   const AuthUrl = 'https://auth.kotoban.top';
@@ -37,10 +58,10 @@ function setupRemoteAuthProxy(config: UserConfig) {
     changeOrigin: true,
     rewrite: (path: string) => path.replace(/^\/auth-proxy/, ''),
     selfHandleResponse: true,
+    headers: {
+      'accept-encoding': 'identity',
+    },
     configure(proxy) {
-      proxy.on('proxyReq', (proxyReq) => {
-        proxyReq.setHeader('accept-encoding', 'identity');
-      });
       proxy.on('proxyRes', (proxyRes, _req, res) => {
         const chunks: Buffer[] = [];
         proxyRes.on('data', (chunk) => {
@@ -80,8 +101,23 @@ export default defineConfig(({ mode }) => {
     return 'https://books.kotoban.top';
   })();
   const enableSonda = env.VITE_ENABLE_SONDA === 'true';
+  const buildInfo = {
+    gitCommit: resolveGitCommit(env),
+    gitRepository:
+      env.VITE_GIT_REPOSITORY ||
+      process.env.VITE_GIT_REPOSITORY ||
+      process.env.GIT_REPOSITORY ||
+      'dekkmarsvin/auto-novel',
+    buildTime:
+      env.VITE_BUILD_TIME ||
+      process.env.VITE_BUILD_TIME ||
+      new Date().toISOString(),
+  };
 
   const config: UserConfig = {
+    define: {
+      __BUILD_INFO__: JSON.stringify(buildInfo),
+    },
     build: {
       target: ['es2015'],
       cssCodeSplit: false,
@@ -186,6 +222,22 @@ export default defineConfig(({ mode }) => {
   if (apiMode === 'remote') {
     setupRemoteAuthProxy(config);
   }
+
+  // 注入代理能力以解决系统代理时的外网访问问题
+  // ProxyAgent 会自动使用系统代理设置，如果没有系统代理则直接连接目标服务器
+  const upstreamAgent = new ProxyAgent();
+  const proxy = config.server!.proxy!;
+  Object.entries(proxy).forEach(([key, proxyConfig]) => {
+    if (typeof proxyConfig === 'object') {
+      proxyConfig.agent = upstreamAgent;
+    } else {
+      proxy[key] = {
+        target: proxyConfig,
+        changeOrigin: true,
+        agent: upstreamAgent,
+      };
+    }
+  });
 
   return config;
 });

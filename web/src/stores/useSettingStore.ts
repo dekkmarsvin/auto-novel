@@ -1,15 +1,11 @@
-import type {
-  ActiveTranslatorId,
-  ReadableTranslatorId,
-  TranslatorId,
-} from '@/model/Translator';
+import type { TranslatorId } from '@/model/Translator';
 import { defaultConverter, useLocalStorage, useOpenCC } from '@/util';
 import { LSKey } from './key';
 
 export interface Setting {
   version?: number;
   theme: 'light' | 'dark' | 'system';
-  enabledTranslator: ActiveTranslatorId[];
+  enabledTranslator: TranslatorId[];
   tocSortReverse: boolean;
   //
   tocCollapseInNarrowScreen: boolean;
@@ -27,7 +23,7 @@ export interface Setting {
   downloadFormat: {
     mode: 'zh' | 'zh-jp' | 'jp-zh';
     translationsMode: 'parallel' | 'priority';
-    translations: ReadableTranslatorId[];
+    translations: TranslatorId[];
     type: 'epub' | 'txt';
   };
   workspaceSound: boolean;
@@ -45,37 +41,20 @@ const defaultEnabledTranslators = [
   'sakura',
   'gpt',
   'youdao',
-] satisfies ActiveTranslatorId[];
+] satisfies TranslatorId[];
 const defaultTranslationPriority = [
   'sakura',
   'gpt',
   'youdao',
-] satisfies ActiveTranslatorId[];
-type LegacyTranslatorId = TranslatorId;
+] satisfies TranslatorId[];
+type LegacyTranslatorId = TranslatorId | 'baidu';
 
-const allReadableTranslators = new Set<TranslatorId>([
-  'baidu',
-  'youdao',
-  'gpt',
-  'sakura',
-]);
-
-const sanitizeActiveTranslators = (
+const sanitizeTranslators = (
   translators: LegacyTranslatorId[] | undefined,
-  fallback: ActiveTranslatorId[],
+  fallback: TranslatorId[],
 ) => {
   const filtered = (translators ?? []).filter(
-    (id): id is ActiveTranslatorId => id !== 'baidu',
-  );
-  return filtered.length === 0 ? fallback.slice() : filtered;
-};
-
-const sanitizeReadableTranslators = (
-  translators: LegacyTranslatorId[] | undefined,
-  fallback: ReadableTranslatorId[],
-) => {
-  const filtered = (translators ?? []).filter(
-    (id): id is ReadableTranslatorId => allReadableTranslators.has(id),
+    (id): id is TranslatorId => id !== 'baidu',
   );
   return filtered.length === 0 ? fallback.slice() : filtered;
 };
@@ -127,7 +106,7 @@ export namespace Setting {
         }
         delete setting.isDark;
       }
-      setting.enabledTranslator = sanitizeActiveTranslators(
+      setting.enabledTranslator = sanitizeTranslators(
         setting.enabledTranslator,
         defaultEnabledTranslators,
       );
@@ -138,7 +117,7 @@ export namespace Setting {
       } else if ((setting.downloadFormat.mode as string) === 'jp') {
         setting.downloadFormat.mode = 'zh';
       }
-      setting.downloadFormat.translations = sanitizeReadableTranslators(
+      setting.downloadFormat.translations = sanitizeTranslators(
         setting.downloadFormat.translations,
         defaultTranslationPriority,
       );
@@ -193,7 +172,7 @@ export namespace Setting {
 export interface ReaderSetting {
   mode: 'jp' | 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ReadableTranslatorId[];
+  translations: TranslatorId[];
   clickArea: 'default' | 'left-right' | 'up-down' | 'none';
   speakLanguages: string[];
   pageTurnMode: 'page' | 'scroll';
@@ -274,7 +253,7 @@ export namespace ReaderSetting {
       }
       delete setting.trimLeadingSpaces;
     }
-    setting.translations = sanitizeReadableTranslators(
+    setting.translations = sanitizeTranslators(
       setting.translations,
       defaultTranslationPriority,
     );

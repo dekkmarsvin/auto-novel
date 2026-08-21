@@ -3,7 +3,7 @@ import { createReusableTemplate, onKeyDown } from '@vueuse/core';
 
 import { ReadHistoryApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
-import type { ReadableTranslatorId } from '@/model/Translator';
+import type { TranslatorId } from '@/model/Translator';
 import { ReadPositionRepo } from '@/repos';
 import {
   useLocalVolumeStore,
@@ -238,7 +238,7 @@ onKeyDown(['1', '2', '3'], (e) => {
     return;
   }
   const setting = readerSetting.value;
-  const translatorIds = <ReadableTranslatorId[]>['youdao', 'gpt', 'sakura'];
+  const translatorIds = <TranslatorId[]>['youdao', 'gpt', 'sakura'];
   const translatorId = translatorIds[parseInt(e.key, 10) - 1];
   if (setting.translationsMode === 'parallel') {
     if (setting.translations.includes(translatorId)) {

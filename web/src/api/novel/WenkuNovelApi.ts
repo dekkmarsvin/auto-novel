@@ -1,7 +1,6 @@
 import type { Page } from '@/model/Page';
 import type {
-  ActiveTranslatorId,
-  ReadableTranslatorId,
+  TranslatorId,
   WenkuChapterTranslateTask,
   WenkuTranslateTask,
 } from '@/model/Translator';
@@ -74,7 +73,7 @@ const deleteVolume = (novelId: string, volumeId: string) =>
 const createTranslationApi = (
   novelId: string,
   volumeId: string,
-  translatorId: ActiveTranslatorId,
+  translatorId: TranslatorId,
   signal?: AbortSignal,
 ) => {
   const endpointV2 = `wenku/${novelId}/translate-v2/${translatorId}/${encodeURIComponent(
@@ -119,7 +118,7 @@ const createFileUrl = ({
   volumeId: string;
   mode: 'zh' | 'zh-jp' | 'jp-zh';
   translationsMode: 'parallel' | 'priority';
-  translations: ReadableTranslatorId[];
+  translations: TranslatorId[];
 }) => {
   const filename = [
     mode,

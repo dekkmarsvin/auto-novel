@@ -50,7 +50,6 @@ const showDownloadModal = ref(false);
           />
           <translator-check
             v-model:value="setting.downloadFormat.translations"
-            include-legacy
             show-order
             :two-line="!isWideScreen"
           />

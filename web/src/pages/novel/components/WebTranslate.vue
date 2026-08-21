@@ -4,7 +4,6 @@ import ky from 'ky';
 
 import { WebNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
-import type { ActiveTranslatorId } from '@/model/Translator';
 import { TranslateTaskDescriptor } from '@/model/Translator';
 import {
   useLocalVolumeStore,
@@ -71,9 +70,6 @@ const files = computed(() => {
 
   const { mode, translationsMode, translations, type } =
     setting.value.downloadFormat;
-  const activeTranslations = translations.filter(
-    (t): t is ActiveTranslatorId => t !== 'baidu',
-  );
 
   return {
     jp: WebNovelApi.createFileUrl({
@@ -90,7 +86,7 @@ const files = computed(() => {
       novelId,
       mode: mode,
       translationsMode,
-      translations: activeTranslations,
+      translations,
       type,
       title,
     }),

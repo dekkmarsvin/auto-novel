@@ -2,11 +2,7 @@
 import type { TranslatorConfig } from '@/domain/translate';
 import { Translator } from '@/domain/translate';
 import type { Glossary } from '@/model/Glossary';
-import type {
-  ActiveTranslatorId,
-  GptWorker,
-  SakuraWorker,
-} from '@/model/Translator';
+import type { GptWorker, SakuraWorker, TranslatorId } from '@/model/Translator';
 import { useGptWorkspaceStore, useSakuraWorkspaceStore } from '@/stores';
 
 const message = useMessage();
@@ -14,8 +10,8 @@ const message = useMessage();
 const textJp = ref('');
 const textZh = ref('');
 
-const translatorId = ref<ActiveTranslatorId>('sakura');
-const translationOptions: { label: string; value: ActiveTranslatorId }[] = [
+const translatorId = ref<TranslatorId>('sakura');
+const translationOptions: { label: string; value: TranslatorId }[] = [
   { label: '有道', value: 'youdao' },
   { label: 'GPT', value: 'gpt' },
   { label: 'Sakura', value: 'sakura' },
@@ -35,7 +31,7 @@ const sakuraWorkspaceRef = useSakuraWorkspaceStore().ref;
 const selectedSakuraWorkerId = ref(sakuraWorkspaceRef.value.workers[0]?.id);
 
 interface SavedTranslation {
-  id: ActiveTranslatorId;
+  id: TranslatorId;
   workerId?: string;
   endpoint?: string;
   jp: string;

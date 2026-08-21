@@ -1,8 +1,7 @@
 import type { Glossary } from './Glossary';
+import type { openAiProfileId, ProfileValues } from '@auto-novel/translator';
 
-export type TranslatorId = 'sakura' | 'baidu' | 'youdao' | 'gpt';
-export type ActiveTranslatorId = Exclude<TranslatorId, 'baidu'>;
-export type ReadableTranslatorId = TranslatorId;
+export type TranslatorId = 'sakura' | 'youdao' | 'gpt';
 
 export interface GptWorker {
   id: string;
@@ -13,6 +12,7 @@ export interface GptWorker {
 
 export interface GptPipelineWorker extends GptWorker {
   concurrency: number;
+  profile?: { id: openAiProfileId; values?: ProfileValues };
 }
 
 export interface SakuraWorker {

@@ -109,7 +109,7 @@ git commit -m "Curated upstream sync: <scope>" -m "Sync-Manifest: docs/sync/YYYY
 npm run build
 ```
 
-Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream removals、fork adaptations、patch-equivalence notes、next sync starting point、validation commands。若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Legacy Capability（例如 Baidu Translation）可跟随上游移除主动入口，但应尽量保留历史数据可读性。
+Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream removals、fork adaptations、patch-equivalence notes、next sync starting point、validation commands。若上游删除或改动 Fork Capability，先恢复本 Fork 行为再提交。Baidu Translation 不再属于前端必须保留的历史可读来源；旧设置值会在 migration 中移除，既有数据库字段的清理则另行评估。
 
 任何 fork-adapted upstream sync commit 若不是 `git cherry-pick -x` 产生的直接 upstream commit，commit message 必须包含 `Sync-Manifest: docs/sync/YYYY-MM-DD*.md` trailer。推送前必须运行 `.\scripts\check-selective-feature-sync.ps1 -BaseRef origin/main -HeadRef HEAD`。
 

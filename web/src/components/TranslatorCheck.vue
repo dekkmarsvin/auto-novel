@@ -5,26 +5,16 @@ const props = defineProps<{
   value: TranslatorId[];
   showOrder?: boolean;
   twoLine?: boolean;
-  includeLegacy?: boolean;
 }>();
 const emit = defineEmits<{
   'update:value': [TranslatorId[]];
 }>();
 
-const activeTranslationOptions: { label: string; value: TranslatorId }[] = [
+const translationOptions: { label: string; value: TranslatorId }[] = [
   { label: '有道', value: 'youdao' },
   { label: 'GPT', value: 'gpt' },
   { label: 'Sakura', value: 'sakura' },
 ];
-const legacyTranslationOptions: { label: string; value: TranslatorId }[] = [
-  { label: '百度(历史)', value: 'baidu' },
-];
-
-const translationOptions = computed(() =>
-  props.includeLegacy
-    ? [...legacyTranslationOptions, ...activeTranslationOptions]
-    : activeTranslationOptions,
-);
 
 const toggleTranslator = (id: TranslatorId) => {
   if (props.value.includes(id)) {

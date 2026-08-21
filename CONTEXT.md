@@ -36,14 +36,6 @@ _Avoid_: Local patch, temporary customization
 A product capability that may remain readable for compatibility but does not need new UI or active maintenance.
 _Avoid_: Fork capability, supported feature
 
-**Baidu Translation**:
-A legacy machine-translation path whose existing data may remain readable while its active translation entry points can follow upstream removal.
-_Avoid_: Required translator
-
-**Readable Translation Source**:
-A translation source that may be selected for reader display or file export when already present in stored data.
-_Avoid_: Active translator, translation worker
-
 **OpenAI Web Worker Translation**:
 A legacy GPT translation path that calls the ChatGPT web backend instead of a compatible OpenAI-style API endpoint.
 _Avoid_: GPT translation, OpenAI API translation
@@ -82,8 +74,6 @@ _Avoid_: Source of truth
 - **Upstream-Compatible Maintenance** must preserve every **Fork Capability**
 - **Selective Feature Sync** preserves every **Fork Capability**
 - **Selective Feature Sync** may remove active entry points for a **Legacy Capability**
-- **Baidu Translation** is a **Legacy Capability**
-- **Baidu Translation** remains a **Readable Translation Source**
 - **OpenAI Web Worker Translation** is a **Legacy Capability**
 - **Addon-Assisted Recovery** is triggered only after a WebNovel lookup fails
 - **Novel Access** is sufficient for WebNovel metadata and chapter-content maintenance
@@ -107,11 +97,8 @@ _Avoid_: Source of truth
 > **Dev:** "Can we take upstream's dependency refresh to reduce diff noise?"
 > **Domain expert:** "Yes, as **Upstream-Compatible Maintenance** if the fork invariants still pass and Docker/CI changes are adapted to this fork."
 >
-> **Dev:** "Upstream removed the Baidu translation buttons. Is that the same as removing ThemeGlossary?"
-> **Domain expert:** "No. **Baidu Translation** is a **Legacy Capability**: keep old data readable, but active entry points can be removed."
->
-> **Dev:** "Should Baidu disappear from reader and download translation choices too?"
-> **Domain expert:** "No. Keep **Baidu Translation** as a **Readable Translation Source** so stored historical translations remain readable and exportable."
+> **Dev:** "Should Baidu remain selectable for reader display or downloads?"
+> **Domain expert:** "No. Remove Baidu from frontend translator types and selectors. Existing storage fields may remain until a separate data-migration decision is made."
 >
 > **Dev:** "Upstream removed ChatGPT web backend worker support. Is that part of GPT translation?"
 > **Domain expert:** "No. **OpenAI Web Worker Translation** is a **Legacy Capability**; keep normal OpenAI-compatible API translation as the supported GPT path."
@@ -135,8 +122,7 @@ _Avoid_: Source of truth
 - "merge branch" was ambiguous between a final sync artifact and a temporary conflict-resolution workspace. Resolved: use **Disposable Merge Staging Branch** only as a staging artifact.
 - "sync summary" was ambiguous between release notes and decision evidence. Resolved: use a **Sync Manifest** to record upstream sync decisions.
 - "engineering sync" was ambiguous between reducing maintenance diff and accepting upstream cleanup verbatim. Resolved: use **Upstream-Compatible Maintenance** for fork-adapted engineering maintenance.
-- "百度翻譯" was used ambiguously between an actively supported translator and historical translation compatibility. Resolved: **Baidu Translation** is a **Legacy Capability**.
-- "translation source" was used ambiguously between sources that can run new tasks and sources that can display stored text. Resolved: use **Readable Translation Source** for reader/export choices.
+- "百度翻譯" was used ambiguously between an active translator and historical frontend compatibility. Resolved: Baidu is no longer part of frontend translator types, reader choices, or download choices; retained storage fields do not imply supported readability.
 - "OpenAI web worker" could mean normal GPT translation or a ChatGPT web-backend integration. Resolved: **OpenAI Web Worker Translation** is legacy; OpenAI-compatible API translation remains supported.
 - "補錄小說" could mean normal import, sync, or recovery. Resolved: addon-based creation after a failed lookup is **Addon-Assisted Recovery**.
 - "更新小說權限" could mean admin-only moderation or normal novel maintenance. Resolved: WebNovel metadata and chapter-content maintenance require **Novel Access**, not admin-only access.
