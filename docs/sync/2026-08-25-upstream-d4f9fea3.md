@@ -111,7 +111,11 @@ For the next upstream sync, start by reviewing new upstream commits after:
 
 ## Post-Push GitHub Actions
 
-- Not run. The sync branch has not been pushed.
+- `codex/upstream-sync-2026-08-25` was merged into `main` with a non-fast-forward
+  merge commit and pushed as `e8b82f9c..bca7936d`. The sync branch was pushed as
+  well for review history.
+- All four workflow runs for the pushed `HEAD` succeeded: Fork Invariants,
+  Build, Publish Web, and Publish Api.
 
 ## Next Sync Checklist Addendum
 
