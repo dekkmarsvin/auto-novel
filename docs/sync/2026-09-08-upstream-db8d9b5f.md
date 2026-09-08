@@ -101,8 +101,14 @@ For the next upstream sync, start by reviewing new upstream commits after:
 
 ## Post-Push GitHub Actions
 
-- Not pushed yet at the time this manifest was written. Record the run results
-  here after pushing.
+- `codex/upstream-sync-2026-09-08` was merged into `main` with a non-fast-forward
+  merge commit and pushed as `6db29f70..513f78a1`. The sync branch was pushed as
+  well for review history.
+- All four workflow runs for the pushed `HEAD` succeeded: Fork Invariants
+  (34194617788), Build (34194617877), Publish Api (34194617856), and Publish Web
+  (34194617743).
+- The `Build` and `Publish Api` runs cover the Kotlin compile that could not run
+  on the sync workstation.
 
 ## Next Sync Checklist Addendum
 
