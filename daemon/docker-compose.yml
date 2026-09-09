@@ -7,11 +7,12 @@ services:
     image: auto-novel-crawler:latest
     container_name: auto-novel-crawler
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
 
     environment:
       - NODE_ENV=production
       - CONFIG_PATH=/app/config.json
+      - CRAWLER_ADMIN_TOKEN=${CRAWLER_ADMIN_TOKEN:-}
     volumes:
       - './config.json:/app/config.json'
       - './data:/app/data'
