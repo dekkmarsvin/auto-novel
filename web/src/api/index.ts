@@ -1,6 +1,5 @@
 import { HTTPError, TimeoutError } from 'ky';
 
-export * from './auth';
 export * from './novel';
 
 export const formatError = async (error: unknown) => {
@@ -9,11 +8,13 @@ export const formatError = async (error: unknown) => {
     if (error.response.status === 429) {
       messageOverride = '操作额度耗尽，等明天再试吧';
     }
-    const body = error.response.text().catch(() => '未知错误');
-    const msg = await body.then(
-      (message) => `[${error.response.status}]${messageOverride ?? message}`,
-    );
-    return msg;
+    const detail =
+      typeof error.data === 'string'
+        ? error.data
+        : error.data === undefined
+          ? error.message
+          : JSON.stringify(error.data);
+    return `[${error.response.status}]${messageOverride ?? detail}`;
   } else if (error instanceof TimeoutError) {
     return '请求超时';
   } else if (error instanceof Error) {

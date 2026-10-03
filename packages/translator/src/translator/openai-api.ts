@@ -17,7 +17,7 @@ export const createOpenAiApi = (endpoint: string, key: string) => {
   }
 
   const client = ky.create({
-    prefixUrl: endpointUrl.href,
+    prefix: endpointUrl.href,
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${key}`,
@@ -260,10 +260,14 @@ export class OpenAiError extends Error {
 
   static async handle(e: unknown): Promise<never> {
     if (e instanceof HTTPError) {
-      const errText = await e.response.text().catch((err) => {
-        if (err instanceof Error) return err.message;
-        return `${err}`;
-      });
+      // Ky parses HTTP error bodies before throwing, so response.text() may
+      // already be consumed. Preserve the provider's parsed error details.
+      const errText =
+        typeof e.data === 'string'
+          ? e.data
+          : e.data !== undefined
+            ? JSON.stringify(e.data)
+            : e.message;
       const errJson = safeJson<any>(errText);
       throw new OpenAiError(
         e.response.status,

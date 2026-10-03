@@ -256,33 +256,6 @@ const router = createRouter({
           component: () => import('./pages/other/Setting.vue'),
         },
 
-        {
-          path: '/admin',
-          redirect: '/admin/user',
-          component: () => import('./pages/admin/AdminLayout.vue'),
-          children: [
-            {
-              path: 'user',
-              component: () => import('./pages/admin/AdminUser.vue'),
-              props: (route) => ({
-                page: Number(route.query.page) || 1,
-                query: route.query.query || '',
-                selected: parseSelected(route.query),
-              }),
-            },
-            {
-              path: 'operation',
-              component: () =>
-                import('./pages/admin/AdminOperationHistory.vue'),
-            },
-            {
-              path: 'web-toc-merge-history',
-              component: () =>
-                import('./pages/admin/AdminWebTocMergeHistory.vue'),
-            },
-          ],
-        },
-
         // 兼容旧路由
         { path: '/novel-list', redirect: '/novel' }, // 2024-06-25
         { path: '/wenku-list', redirect: '/wenku' }, // 2024-06-25
