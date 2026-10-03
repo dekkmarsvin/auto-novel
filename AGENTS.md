@@ -68,7 +68,7 @@ When merging upstream, replace all hardcoded `n.novelia.cc` references with `boo
 
 - `web/vite.config.ts` — `apiUrl` default and `/files-extra` proxy target
 - `web/src/components/markdown/MarkdownView.vue` — `currentHost` fallback
-- `web/src/util/useUserData/api.ts` — auth domain comment
+- `web/src/api/auth/session.ts` — auth service must remain `auth.kotoban.top`
 
 Exception: `monitor.novelia.cc` is an upstream external service URL — do NOT replace it.
 

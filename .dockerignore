@@ -1,2 +1,17 @@
 **/dist
 **/node_modules
+.git/
+.github/
+.vscode/
+.idea/
+.env
+.env.*
+**/build/
+server/.gradle/
+server/.kotlin/
+server/data/
+daemon/data/
+daemon/config.json
+/data/
+/db/
+*.log*

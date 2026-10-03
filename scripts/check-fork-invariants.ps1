@@ -126,7 +126,7 @@ Assert-FileContains 'web/src/pages/novel/WenkuNovel.vue' 'theme-glossary-id' 'We
 
 Assert-FileContains 'web/vite.config.ts' 'books\.kotoban\.top' 'production domain books.kotoban.top'
 Assert-FileContains 'web/src/components/markdown/MarkdownView.vue' 'books\.kotoban\.top' 'markdown host fallback domain'
-Assert-FileContains 'web/src/util/useUserData/api.ts' 'books\.kotoban\.top' 'auth domain comment'
+Assert-FileContains 'web/src/api/auth/session.ts' 'auth\.kotoban\.top' 'fork authentication domain'
 
 $ForbiddenDomainMatches = Get-FilesForDomainCheck |
     Select-String -Pattern 'n\.novelia\.cc' -List -ErrorAction SilentlyContinue |
