@@ -11,5 +11,5 @@ RUN gradle --no-daemon installDist
 FROM eclipse-temurin:17-jre
 COPY --from=builder /server/build/install/auto-novel-server /server
 ENV LANG=C.UTF-8
-EXPOSE 8080
+EXPOSE 8081
 CMD ["/server/bin/auto-novel-server"]
