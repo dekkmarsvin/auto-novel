@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type { Favored } from '@/api';
 import { FavoredApi } from '@/api';
-import { useLocalStorage } from '@/util';
+import { useLocalStorage } from '@/util/useStorage';
 import { LSKey } from './key';
 import { useWhoamiStore } from './useWhoamiStore';
 
@@ -24,10 +24,21 @@ export const useFavoredStore = defineStore(LSKey.Favored, () => {
   const { whoami } = storeToRefs(whoamiStore);
 
   const { data: remoteFavoredList } = useQuery({
-    enabled: whoami.value.isSignedIn,
-    key: ['favored-list'],
+    enabled: () => whoami.value.isSignedIn,
+    key: () => ['favored-list', whoami.value.user?.id ?? 'anonymous'],
     query: () => FavoredApi.listFavored(),
   });
+
+  watch(
+    () => whoami.value.user?.id,
+    (_userId, previousUserId) => {
+      if (previousUserId !== undefined) {
+        favoreds.value.web = [{ id: 'default', title: '默认收藏夹' }];
+        favoreds.value.wenku = [{ id: 'default', title: '默认收藏夹' }];
+      }
+    },
+    { flush: 'sync' },
+  );
 
   watch(remoteFavoredList, (remoteFavoredList) => {
     if (remoteFavoredList) {
