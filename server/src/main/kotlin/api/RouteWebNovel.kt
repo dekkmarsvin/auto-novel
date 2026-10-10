@@ -20,8 +20,11 @@ import infra.wenku.repository.WenkuNovelMetadataRepository
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.resources.*
+import io.ktor.server.application.*
 import io.ktor.server.plugins.*
 import io.ktor.server.plugins.cachingheaders.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.resources.*
@@ -31,6 +34,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import kotlinx.datetime.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import org.bson.types.ObjectId
 import org.koin.ktor.ext.inject
@@ -405,19 +409,43 @@ fun Route.routeWebNovel() {
     }
 
     // Admin
-    get<WebNovelRes.Admin.SyncAll> {
-        val es by inject<WebNovelEsDataSource>()
-        val metadataRepo by inject<WebNovelMetadataRepository>()
-        try {
-            var count = 0
-            metadataRepo.findAll().forEach {
-                es.syncNovel(it)
-                count++
+    routeWebNovelAdminSyncAll(
+        findAll = {
+            val metadataRepo by inject<WebNovelMetadataRepository>()
+            metadataRepo.findAll()
+        },
+        syncNovel = { novel ->
+            val es by inject<WebNovelEsDataSource>()
+            es.syncNovel(novel)
+        },
+    )
+}
+
+internal fun Route.routeWebNovelAdminSyncAll(
+    findAll: suspend () -> List<WebNovel>,
+    syncNovel: suspend (WebNovel) -> Unit,
+) {
+    // This maintenance route needs a verified admin role, not a Mongo user ID.
+    authenticate {
+        get<WebNovelRes.Admin.SyncAll> {
+            if (call.principal<JWTPrincipal>()?.get("role") != "admin") {
+                call.respond(HttpStatusCode.Unauthorized, "当前账户没有权限执行此操作")
+                return@get
             }
-            call.respondText("Synced $count novels")
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            call.respondText("Error syncing novels: ${e.message}\n${e.stackTraceToString()}", status = HttpStatusCode.InternalServerError)
+
+            try {
+                var count = 0
+                findAll().forEach { novel ->
+                    syncNovel(novel)
+                    count++
+                }
+                call.respondText("Synced $count novels")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                call.application.environment.log.error("Error syncing novels", e)
+                call.respondText("Error syncing novels", status = HttpStatusCode.InternalServerError)
+            }
         }
     }
 }

@@ -32,3 +32,29 @@ jobs:
 
       - name: Build workspace
         run: npm run build
+
+      - name: Verify web regressions
+        run: pnpm --filter @auto-novel/web test
+
+      - name: Verify translation pipeline
+        run: pnpm --filter @auto-novel/translator test
+
+  admin-sync-authorization:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify index sync authorization
+        run: ./gradlew --no-daemon test --tests api.WebNovelAdminSyncAllRouteTest
+        working-directory: server
