@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { useEventListener } from '@vueuse/core';
-import { onBeforeRouteLeave } from 'vue-router';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { useQueryCache } from '@pinia/colada';
@@ -12,6 +11,7 @@ import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
 import { saveGlossaryDraft, useGlossaryDraft } from './glossaryDraft';
+import { useGlossaryNavigationGuard } from './glossaryNavigation';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -64,9 +64,7 @@ const confirmLeave = () => {
   return true;
 };
 
-onBeforeRouteLeave(() => {
-  return confirmLeave();
-});
+useGlossaryNavigationGuard(confirmLeave);
 
 useEventListener(window, 'beforeunload', (e) => {
   if (isGlossaryChanged()) {
