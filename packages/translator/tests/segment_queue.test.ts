@@ -16,7 +16,7 @@ describe('DefaultSegmentQueue', () => {
 
   // --- 场景 1：基础功能 ---
   it('应该能正常入队和出队 (FIFO)', async () => {
-    queue.enqueueAll([createSegment('1'), createSegment('2')]);
+    await queue.enqueueAll([createSegment('1'), createSegment('2')]);
 
     const s1 = await queue.dequeue();
     const s2 = await queue.dequeue();
@@ -41,7 +41,7 @@ describe('DefaultSegmentQueue', () => {
   // --- 场景 3：高水位线背压测试 ---
   it('当达到高水位线时，waitUntilBelowHighWaterMark 应该阻塞', async () => {
     // 1. 填满到水位线 (3个)
-    queue.enqueueAll([
+    await queue.enqueueAll([
       createSegment('1'),
       createSegment('2'),
       createSegment('3'),
@@ -57,8 +57,11 @@ describe('DefaultSegmentQueue', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(isResolved).toBe(false);
 
-    // 2. 消费者取走一个，水位降至 2
+    // 出队仍算在途，只有完成并 ack 后才释放高水位槽位。
     await queue.dequeue();
+    await Promise.resolve();
+    expect(isResolved).toBe(false);
+    queue.ack();
 
     // 3. 此时等待的 Promise 应该被唤醒了
     await waitPromise;
@@ -81,5 +84,39 @@ describe('DefaultSegmentQueue', () => {
     expect(r1.id).toBe('a');
     expect(r2.id).toBe('b');
     expect(queue.length).toBe(1); // 剩下一个 c 在队列里
+  });
+
+  it('章节后续分片占用同一个在途槽位，末片完成后才解除背压', async () => {
+    queue = new DefaultSegmentQueue(1);
+    await queue.enqueueAll([createSegment('first')]);
+    await queue.dequeue();
+    let released = false;
+    const waiting = queue.waitUntilBelowHighWaterMark().then(() => {
+      released = true;
+    });
+    queue.ack(createSegment('next'));
+    expect((await queue.dequeue()).id).toBe('next');
+    await Promise.resolve();
+    expect(released).toBe(false);
+    queue.ack();
+    await waiting;
+    expect(released).toBe(true);
+  });
+
+  it('clear 丢弃排队分片后保留在途计数，完成后可以重新入队', async () => {
+    await queue.enqueueAll([
+      createSegment('in-flight'),
+      createSegment('queued-1'),
+      createSegment('queued-2'),
+    ]);
+    await queue.dequeue();
+    const waiting = queue.waitUntilBelowHighWaterMark();
+    queue.clear();
+    await waiting;
+    expect(queue.length).toBe(0);
+    queue.ack();
+    await queue.enqueueAll([createSegment('retry')]);
+    expect((await queue.dequeue()).id).toBe('retry');
+    queue.ack();
   });
 });

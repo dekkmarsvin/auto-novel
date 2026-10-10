@@ -2,15 +2,20 @@
 import { useEventListener } from '@vueuse/core';
 
 import NovelGlossaryEditor from '@/components/NovelGlossaryEditor.vue';
-import type { GenericNovelId } from '@/model/Common';
+import { GenericNovelId } from '@/model/Common';
 import type { Glossary } from '@/model/Glossary';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
   glossary: Glossary;
+  themeGlossaryId?: string;
   site: string;
   hideComment: boolean;
   locked?: boolean;
+}>();
+
+const emit = defineEmits<{
+  'update:themeGlossaryId': [id?: string];
 }>();
 
 const slots = useSlots();
@@ -112,7 +117,14 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
         :tab="`术语表${glossaryCount > 0 ? ` [${glossaryCount}]` : ''}`"
         style="min-height: 400px"
       >
-        <NovelGlossaryEditor ref="editorRef" :gnid="gnid" :value="glossary" />
+        <NovelGlossaryEditor
+          :key="gnid ? GenericNovelId.toString(gnid) : 'glossary'"
+          ref="editorRef"
+          :gnid="gnid"
+          :value="glossary"
+          :theme-glossary-id="themeGlossaryId"
+          @update:theme-glossary-id="(id) => emit('update:themeGlossaryId', id)"
+        />
       </n-tab-pane>
     </n-tabs>
   </div>

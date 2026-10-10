@@ -245,9 +245,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
 
   <c-modal title="使用说明" v-model:show="showHowToUseModal">
     <n-p>
-      将小说链接复制到网站首页的输入框里，点击搜索，如果链接正确，将会跳转到小说页面。更高级的用法，例如生成机翻、高级搜索等，参见
-      <c-a to="/forum/64f3d63f794cbb1321145c07">使用教程</c-a>
-      。有什么问题和建议请在
+      将小说链接复制到网站首页的输入框里，点击搜索，如果链接正确，将会跳转到小说页面。有什么问题和建议请在
       <c-a to="/forum">论坛</c-a>
       中发帖讨论。
     </n-p>

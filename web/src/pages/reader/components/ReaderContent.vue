@@ -6,7 +6,6 @@ import type { ReaderChapter } from '../ReaderStore';
 import { useReaderSettingStore } from '@/stores';
 import { buildParagraphs } from './BuildParagraphs';
 import { WebUtil } from '@/util/web';
-import { forumPostUrls } from '@/config';
 
 const props = defineProps<{
   gnid: GenericNovelId;
@@ -80,15 +79,7 @@ const chapterHref = computed(() => {
     <n-divider />
 
     <n-alert v-if="emptyHint" type="info" :show-icon="false">
-      {{ emptyHint }}详见
-      <n-a
-        :href="forumPostUrls.usageGuide"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        使用教程
-      </n-a>
-      。
+      {{ emptyHint }}
     </n-alert>
 
     <div class="chapter-content">

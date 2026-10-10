@@ -264,12 +264,6 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
               style="width: 200px"
             />
           </n-flex>
-
-          <n-text>
-            使用前务必先阅读
-            <c-a to="/forum/660ab4da55001f583649a621">术语表使用指南</c-a>
-            ，不要滥用术语表。
-          </n-text>
         </template>
 
         <n-input-group>

@@ -84,8 +84,6 @@ const clearCache = async () =>
 
     <bulletin>
       <n-flex>
-        <c-a to="/forum/64f3d63f794cbb1321145c07" target="_blank">使用教程</c-a>
-        /
         <n-a href="https://chat.deepseek.com" target="_blank">
           DeepSeek Chat
         </n-a>

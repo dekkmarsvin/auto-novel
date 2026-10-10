@@ -3,16 +3,24 @@ import { useEventListener } from '@vueuse/core';
 import { onBeforeRouteLeave } from 'vue-router';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
-import { WebNovelApi, WenkuNovelApi } from '@/api';
+import { useQueryCache } from '@pinia/colada';
+import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
+import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
+import { saveGlossaryDraft, useGlossaryDraft } from './glossaryDraft';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
   value: Glossary;
+  themeGlossaryId?: string;
+}>();
+
+const emit = defineEmits<{
+  'update:themeGlossaryId': [id?: string];
 }>();
 
 const showConfirmModal = ref(false);
@@ -72,33 +80,30 @@ const message = useMessage();
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
-const glossary = ref<Glossary>({});
-const originalGlossary = ref<Glossary>({});
-
-const resetState = () => {
-  glossary.value = { ...props.value };
-  originalGlossary.value = { ...props.value };
-};
-
-onMounted(() => {
-  resetState();
-});
-
-watch(
-  () => props.value,
-  () => {
-    resetState();
-  },
-  { deep: true },
+const queryCache = useQueryCache();
+const themeGlossaries = ref<ThemeGlossaryDto[]>([]);
+const {
+  glossary,
+  themeGlossaryId: localThemeGlossaryId,
+  resetState,
+  isGlossaryChanged,
+  submit,
+} = useGlossaryDraft(
+  () => ({
+    glossary: props.value,
+    themeGlossaryId: props.themeGlossaryId,
+  }),
+  () => props.gnid && GenericNovelId.toString(props.gnid),
 );
 
-const isGlossaryChanged = () => {
-  const cur = glossary.value;
-  const orig = originalGlossary.value;
-  const curKeys = Object.keys(cur);
-  if (curKeys.length !== Object.keys(orig).length) return true;
-  return curKeys.some((key) => cur[key] !== orig[key]);
-};
+onMounted(async () => {
+  if (!props.gnid || props.gnid.type === 'local') return;
+  try {
+    themeGlossaries.value = await ThemeGlossaryApi.list();
+  } catch (error) {
+    message.error(`载入主题术语表失败: ${error}`);
+  }
+});
 
 const gnidHint = computed(() => {
   const gnid = props.gnid;
@@ -109,37 +114,36 @@ const gnidHint = computed(() => {
   }
 });
 
-const updateGlossary = async (glossaryValue: Glossary) => {
-  const gnid = props.gnid;
-  if (gnid === undefined) {
-    return;
-  }
-  if (gnid.type === 'web') {
-    await WebNovelApi.updateGlossary(
-      gnid.providerId,
-      gnid.novelId,
-      glossaryValue,
-    );
-  } else if (gnid.type === 'wenku') {
-    await WenkuNovelApi.updateGlossary(gnid.novelId, glossaryValue);
-  } else {
-    const repo = await useLocalVolumeStore();
-    await repo.updateGlossary(gnid.volumeId, glossaryValue);
-  }
-};
-
 const submitGlossary = () => {
-  const submittedGlossary = { ...toRaw(glossary.value) };
+  const gnid = props.gnid;
+  if (!gnid) return;
+  const targetGlossary = props.value;
   return doAction(
-    updateGlossary(submittedGlossary).then(() => {
-      for (const key in props.value) {
-        delete props.value[key];
-      }
-      for (const key in submittedGlossary) {
-        props.value[key] = submittedGlossary[key];
-      }
-      originalGlossary.value = { ...submittedGlossary };
-    }),
+    submit(
+      (submitted) =>
+        saveGlossaryDraft(gnid, submitted, async (volumeId, value) => {
+          const repo = await useLocalVolumeStore();
+          await repo.updateGlossary(volumeId, value);
+        }),
+      (submitted) => {
+        for (const key in targetGlossary) {
+          delete targetGlossary[key];
+        }
+        Object.assign(targetGlossary, submitted.glossary);
+        emit('update:themeGlossaryId', submitted.themeGlossaryId);
+        if (gnid.type === 'web') {
+          queryCache.invalidateQueries({
+            key: ['web-novel', gnid.providerId, gnid.novelId],
+            exact: true,
+          });
+        } else if (gnid.type === 'wenku') {
+          queryCache.invalidateQueries({
+            key: ['wenku-novel', gnid.novelId],
+            exact: true,
+          });
+        }
+      },
+    ),
     '术语表提交',
     message,
   );
@@ -229,11 +233,23 @@ defineExpose({
       <template v-if="gnidHint">
         <n-text style="font-size: 12px">{{ gnidHint }}</n-text>
 
-        <n-text>
-          使用前务必先阅读
-          <c-a to="/forum/660ab4da55001f583649a621">术语表使用指南</c-a>
-          ，不要滥用术语表。
-        </n-text>
+        <n-flex v-if="gnid?.type !== 'local'" align="center">
+          <n-text>绑定的共用术语表：</n-text>
+          <n-select
+            v-model:value="localThemeGlossaryId"
+            :options="[
+              { label: '无', value: '' },
+              ...themeGlossaries.map((g) => ({
+                label: whoami.isMe(g.authorUsername)
+                  ? g.name
+                  : `${g.name}（${g.authorUsername}）`,
+                value: g.id,
+              })),
+            ]"
+            size="small"
+            style="width: 200px"
+          />
+        </n-flex>
       </template>
 
       <n-input-group>
