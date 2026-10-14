@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { isCurrentAuthor } from '@/identity';
 import { useEventListener } from '@vueuse/core';
-import { DeleteOutlineOutlined } from '@vicons/material';
+import { DeleteOutlineOutlined, EditOutlined } from '@vicons/material';
 
 import { useQueryCache } from '@pinia/colada';
 import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
@@ -11,7 +11,12 @@ import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
 import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
-import { saveGlossaryDraft, useGlossaryDraft } from './glossaryDraft';
+import {
+  type GlossaryTermKind,
+  mergeGlossaryTerms,
+  saveGlossaryDraft,
+  useGlossaryDraft,
+} from './glossaryDraft';
 import { useGlossaryNavigationGuard } from './glossaryNavigation';
 
 const props = defineProps<{
@@ -95,13 +100,27 @@ const {
   () => props.gnid && GenericNovelId.toString(props.gnid),
 );
 
-onMounted(async () => {
-  if (!props.gnid || props.gnid.type === 'local') return;
+const themeGlossariesLoading = ref(false);
+const themeGlossariesLoaded = ref(false);
+const themeGlossariesError = ref(false);
+
+const loadThemeGlossaries = async () => {
+  themeGlossariesLoading.value = true;
+  themeGlossariesError.value = false;
   try {
     themeGlossaries.value = await ThemeGlossaryApi.list();
+    themeGlossariesLoaded.value = true;
   } catch (error) {
+    themeGlossariesError.value = true;
     message.error(`载入主题术语表失败: ${error}`);
+  } finally {
+    themeGlossariesLoading.value = false;
   }
+};
+
+onMounted(() => {
+  if (!props.gnid || props.gnid.type === 'local') return;
+  void loadThemeGlossaries();
 });
 
 const gnidHint = computed(() => {
@@ -167,6 +186,65 @@ const undoDeleteTerm = () => {
   if (deletedTerms.value.length === 0) return;
   const [jp, zh] = deletedTerms.value.pop()!;
   glossary.value[jp] = zh;
+};
+
+type TermFilter = 'all' | 'own' | 'shared' | 'override';
+
+const termKindTag = {
+  own: { label: '专属', type: 'success' },
+  override: { label: '覆盖', type: 'warning' },
+  shared: { label: '共用', type: 'info' },
+} as const;
+
+// 跟随下拉框中尚未提交的选择，即时预览覆盖关系
+const selectedThemeGlossary = computed<Glossary>(
+  () =>
+    themeGlossaries.value.find((g) => g.id === localThemeGlossaryId.value)
+      ?.glossary ?? {},
+);
+const hasSharedTerms = computed(
+  () => Object.keys(selectedThemeGlossary.value).length !== 0,
+);
+const selectedThemeMissing = computed(
+  () =>
+    themeGlossariesLoaded.value &&
+    !!localThemeGlossaryId.value &&
+    !themeGlossaries.value.some((g) => g.id === localThemeGlossaryId.value),
+);
+
+const termRows = computed(() =>
+  mergeGlossaryTerms(glossary.value, selectedThemeGlossary.value),
+);
+
+const termFilter = ref<TermFilter>('all');
+
+const termFilterOptions = computed(() => {
+  const rows = termRows.value;
+  const count = (kind: GlossaryTermKind) =>
+    rows.filter((r) => r.kind === kind).length;
+  const own = count('own');
+  const override = count('override');
+  const shared = count('shared');
+  return [
+    { label: `全部 ${rows.length}`, value: 'all' },
+    { label: `专属 ${own + override}`, value: 'own' },
+    { label: `共用 ${shared + override}`, value: 'shared' },
+    { label: `覆盖 ${override}`, value: 'override' },
+  ];
+});
+
+const visibleTermRows = computed(() => {
+  const filter = hasSharedTerms.value ? termFilter.value : 'all';
+  if (filter === 'all') return termRows.value;
+  return termRows.value.filter(
+    (r) =>
+      r.kind === filter ||
+      (r.kind === 'override' && (filter === 'own' || filter === 'shared')),
+  );
+});
+
+const overrideTerm = (jp: string) => {
+  glossary.value[jp] = selectedThemeGlossary.value[jp];
 };
 
 const deleteTerm = (jp: string) => {
@@ -236,6 +314,8 @@ defineExpose({
           <n-text>绑定的共用术语表：</n-text>
           <n-select
             v-model:value="localThemeGlossaryId"
+            :loading="themeGlossariesLoading"
+            :disabled="themeGlossariesLoading"
             :options="[
               { label: '无', value: '' },
               ...themeGlossaries.map((g) => ({
@@ -249,6 +329,16 @@ defineExpose({
             style="width: 200px"
           />
         </n-flex>
+        <n-text v-if="themeGlossariesLoading" depth="3">
+          载入共用术语表中…
+        </n-text>
+        <n-flex v-else-if="themeGlossariesError" align="center">
+          <n-text type="error">共用术语表载入失败</n-text>
+          <c-button label="重试" size="small" @action="loadThemeGlossaries" />
+        </n-flex>
+        <n-text v-else-if="selectedThemeMissing" type="warning">
+          绑定的共用术语表不存在，请重新选择。
+        </n-text>
       </template>
 
       <n-input-group>
@@ -320,33 +410,72 @@ defineExpose({
       </n-flex>
     </n-flex>
 
+    <c-radio-group
+      v-if="hasSharedTerms"
+      v-model:value="termFilter"
+      :options="termFilterOptions"
+      size="small"
+      style="margin-bottom: 8px"
+    />
+
     <n-scrollbar
-      v-if="Object.keys(glossary).length !== 0"
+      v-if="termRows.length !== 0"
       style="max-height: 400px; max-width: 500px; margin-bottom: 16px"
     >
       <n-table striped size="small" style="font-size: 12px; width: 100%">
-        <tr v-for="wordJp in Object.keys(glossary).reverse()" :key="wordJp">
+        <tr v-for="row in visibleTermRows" :key="row.jp">
           <td>
             <c-button
+              v-if="row.kind === 'shared'"
+              :icon="EditOutlined"
+              text
+              size="small"
+              title="在本书中覆盖此术语"
+              @action="overrideTerm(row.jp)"
+            />
+            <c-button
+              v-else
               :icon="DeleteOutlineOutlined"
               text
               type="error"
               size="small"
-              @action="deleteTerm(wordJp)"
+              @action="deleteTerm(row.jp)"
             />
           </td>
-          <td>{{ wordJp }}</td>
+          <td v-if="hasSharedTerms">
+            <n-tag
+              :type="termKindTag[row.kind].type"
+              size="small"
+              :bordered="false"
+            >
+              {{ termKindTag[row.kind].label }}
+            </n-tag>
+          </td>
+          <td>{{ row.jp }}</td>
           <td nowrap="nowrap">=></td>
           <td style="padding-right: 16px">
-            <n-input
-              v-model:value="glossary[wordJp]"
-              size="tiny"
-              placeholder="请输入中文翻译"
-              :theme-overrides="{
-                border: '0',
-                color: 'transparent',
-              }"
-            />
+            <n-text v-if="row.kind === 'shared'" depth="2">
+              {{ selectedThemeGlossary[row.jp] }}
+            </n-text>
+            <template v-else>
+              <n-input
+                v-model:value="glossary[row.jp]"
+                size="tiny"
+                placeholder="请输入中文翻译"
+                :theme-overrides="{
+                  border: '0',
+                  color: 'transparent',
+                }"
+              />
+              <n-text
+                v-if="row.kind === 'override'"
+                depth="3"
+                delete
+                style="font-size: 11px"
+              >
+                共用：{{ selectedThemeGlossary[row.jp] }}
+              </n-text>
+            </template>
           </td>
         </tr>
       </n-table>
