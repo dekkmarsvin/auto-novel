@@ -100,13 +100,27 @@ const {
   () => props.gnid && GenericNovelId.toString(props.gnid),
 );
 
-onMounted(async () => {
-  if (!props.gnid || props.gnid.type === 'local') return;
+const themeGlossariesLoading = ref(false);
+const themeGlossariesLoaded = ref(false);
+const themeGlossariesError = ref(false);
+
+const loadThemeGlossaries = async () => {
+  themeGlossariesLoading.value = true;
+  themeGlossariesError.value = false;
   try {
     themeGlossaries.value = await ThemeGlossaryApi.list();
+    themeGlossariesLoaded.value = true;
   } catch (error) {
+    themeGlossariesError.value = true;
     message.error(`载入主题术语表失败: ${error}`);
+  } finally {
+    themeGlossariesLoading.value = false;
   }
+};
+
+onMounted(() => {
+  if (!props.gnid || props.gnid.type === 'local') return;
+  void loadThemeGlossaries();
 });
 
 const gnidHint = computed(() => {
@@ -188,6 +202,15 @@ const selectedThemeGlossary = computed<Glossary>(
     themeGlossaries.value.find((g) => g.id === localThemeGlossaryId.value)
       ?.glossary ?? {},
 );
+const hasSharedTerms = computed(
+  () => Object.keys(selectedThemeGlossary.value).length !== 0,
+);
+const selectedThemeMissing = computed(
+  () =>
+    themeGlossariesLoaded.value &&
+    !!localThemeGlossaryId.value &&
+    !themeGlossaries.value.some((g) => g.id === localThemeGlossaryId.value),
+);
 
 const termRows = computed(() =>
   mergeGlossaryTerms(glossary.value, selectedThemeGlossary.value),
@@ -211,7 +234,7 @@ const termFilterOptions = computed(() => {
 });
 
 const visibleTermRows = computed(() => {
-  const filter = termFilter.value;
+  const filter = hasSharedTerms.value ? termFilter.value : 'all';
   if (filter === 'all') return termRows.value;
   return termRows.value.filter(
     (r) =>
@@ -291,6 +314,8 @@ defineExpose({
           <n-text>绑定的共用术语表：</n-text>
           <n-select
             v-model:value="localThemeGlossaryId"
+            :loading="themeGlossariesLoading"
+            :disabled="themeGlossariesLoading"
             :options="[
               { label: '无', value: '' },
               ...themeGlossaries.map((g) => ({
@@ -304,6 +329,16 @@ defineExpose({
             style="width: 200px"
           />
         </n-flex>
+        <n-text v-if="themeGlossariesLoading" depth="3">
+          载入共用术语表中…
+        </n-text>
+        <n-flex v-else-if="themeGlossariesError" align="center">
+          <n-text type="error">共用术语表载入失败</n-text>
+          <c-button label="重试" size="small" @action="loadThemeGlossaries" />
+        </n-flex>
+        <n-text v-else-if="selectedThemeMissing" type="warning">
+          绑定的共用术语表不存在，请重新选择。
+        </n-text>
       </template>
 
       <n-input-group>
@@ -376,7 +411,7 @@ defineExpose({
     </n-flex>
 
     <c-radio-group
-      v-if="Object.keys(selectedThemeGlossary).length !== 0"
+      v-if="hasSharedTerms"
       v-model:value="termFilter"
       :options="termFilterOptions"
       size="small"
@@ -407,7 +442,7 @@ defineExpose({
               @action="deleteTerm(row.jp)"
             />
           </td>
-          <td v-if="Object.keys(selectedThemeGlossary).length !== 0">
+          <td v-if="hasSharedTerms">
             <n-tag
               :type="termKindTag[row.kind].type"
               size="small"
