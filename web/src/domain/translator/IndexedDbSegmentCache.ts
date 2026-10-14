@@ -7,7 +7,20 @@ export class IndexedDbSegmentCache implements SegmentCache {
 
   async get(segment: Segment): Promise<string[] | undefined> {
     const key = this.computeKey(segment);
-    return TranslationCacheRepo.get(this.storeName, key);
+    const cached = await TranslationCacheRepo.get(this.storeName, key);
+    // 旧版逐行翻译可能缓存了行内换行或空行生成的内容，视为未命中
+    if (
+      cached?.length !== segment.lines.length ||
+      cached.some(
+        (line, index) =>
+          line.includes('\n') ||
+          (segment.lines[index].trim().length === 0 &&
+            line.trim().length !== 0),
+      )
+    ) {
+      return undefined;
+    }
+    return cached;
   }
 
   async set(segment: Segment, translatedLines: string[]): Promise<void> {
