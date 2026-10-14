@@ -26,8 +26,9 @@ type ProcessedJob = TranslateJob & {
 const processedJobs = ref<Map<string, ProcessedJob>>(new Map());
 
 const getNextJob = () => {
+  // 队列与 beta 工作区共享，beta 完成的任务会带着 finishAt 留在队列里
   const job = workspace.ref.value.jobs.find(
-    (it) => !processedJobs.value.has(it.task),
+    (it) => it.finishAt === undefined && !processedJobs.value.has(it.task),
   );
   if (job !== undefined) {
     processedJobs.value.set(job.task, job);

@@ -116,6 +116,7 @@ interface Execution {
   signal: AbortSignal;
   finished: boolean;
   finish(status?: 'done' | 'error' | 'pending'): void;
+  progress(finished: number, error: number, total: number): void;
 }
 interface MetadataCall {
   id: string;
@@ -171,8 +172,16 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
     }
   >();
   boundary.task.mockImplementation(
-    ({ volumeId, novelId }: { volumeId?: string; novelId?: string }) =>
-      tasks.get(volumeId ?? novelId!),
+    ({ volumeId, novelId }: { volumeId?: string; novelId?: string }) => {
+      const task = tasks.get(volumeId ?? novelId!);
+      // Like the production factory, every creation owns a fresh chapter list.
+      return (
+        task && {
+          ...task,
+          chapters: task.chapters.map((chapter) => ({ ...chapter })),
+        }
+      );
+    },
   );
   const calls: Execution[] = [];
   boundary.execute.mockImplementation(
@@ -181,6 +190,7 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
       chapter: string,
       tracker: {
         onChapterStatus(id: string, status: string): void;
+        onProgress(finished: number, error: number, total: number): void;
       },
       signal: AbortSignal,
     ) =>
@@ -195,6 +205,9 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
             call.finished = true;
             tracker.onChapterStatus(chapter, status);
             resolve();
+          },
+          progress(finished, error, total) {
+            tracker.onProgress(finished, error, total);
           },
         };
         calls.push(call);
@@ -249,7 +262,7 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
       })),
       async initMeta() {
         await meta;
-        task.initialized = true;
+        this.initialized = true;
       },
       translateMetadata: needsMetadata
         ? (
@@ -275,6 +288,7 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
       description: id,
       createAt: ++version,
     });
+    return task;
   };
   return {
     add,
@@ -375,12 +389,21 @@ describe('pipeline workspace scheduling', () => {
     expect(ws.metadataCalls).toHaveLength(2);
     const second = ws.metadataCalls[1];
     expect(second.signal.aborted).toBe(false);
+    const lateMeta = deferred();
+    ws.add('unmounted-initialization', 0, lateMeta.promise, true);
+    await flush();
     ws.unmount();
     expect(second.signal.aborted).toBe(true);
     expect(second.canUpload()).toBe(false);
+    lateMeta.resolve();
     second.resolve();
     await flush();
     expect(ws.jobs.value[0].finishAt).toBeUndefined();
+    expect(ws.jobs.value[1].finishAt).toBeUndefined();
+    expect(
+      ws.controls.taskStates.value.has('web/offline/unmounted-initialization'),
+    ).toBe(false);
+    expect(ws.metadataCalls).toHaveLength(2);
   });
 
   it('keeps a replacement job metadata attempt when an older promise rejects', async () => {
@@ -433,6 +456,94 @@ describe('pipeline workspace scheduling', () => {
     meta.resolve();
     await flush();
     expect(ws.active().map((call) => call.id)).toEqual(['first', 'late']);
+  });
+
+  it('marks the current job finished after another tab replaces the job objects', async () => {
+    const ws = await workspace();
+    ws.add('synced', 2);
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(ws.active()).toHaveLength(2);
+
+    // localStorage 的 storage 事件会用反序列化的新对象整体替换 jobs
+    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
+    await flush();
+
+    ws.calls[0].progress(1, 0, 2);
+    expect(ws.jobs.value[0]).toMatchObject({
+      progress: { finished: 1, error: 0, total: 2 },
+    });
+    ws.active().forEach((call) => call.finish());
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+  });
+
+  it('keeps one initialization when another tab replaces or extends a pending queue', async () => {
+    const ws = await workspace();
+    const meta = deferred();
+    const repeatedMeta = deferred();
+    const task = ws.add('initializing', 2, meta.promise);
+    const originalInit = task.initMeta;
+    const initMeta = vi
+      .spyOn(task, 'initMeta')
+      .mockImplementationOnce(originalInit)
+      .mockImplementation(async function (this: typeof task) {
+        await repeatedMeta.promise;
+        this.initialized = true;
+      });
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
+    await flush();
+    ws.add('other');
+    await flush();
+
+    // A duplicate fetch can finish first; its older sibling must not reset the
+    // chapter list after execution starts and submit the same chapters again.
+    repeatedMeta.resolve();
+    await flush();
+    meta.resolve();
+    await flush();
+    expect(
+      ws.active().filter((call) => call.id === 'initializing'),
+    ).toHaveLength(2);
+    expect(
+      new Set(ws.active().map((call) => `${call.id}/${call.chapter}`)).size,
+    ).toBe(3);
+    expect(initMeta).toHaveBeenCalledTimes(1);
+    ws.active().forEach((call) => call.finish());
+    await flush();
+    expect(ws.jobs.value.every((job) => job.finishAt !== undefined)).toBe(true);
+  });
+
+  it('ignores a removed job initialization without clearing its replacement attempt', async () => {
+    const ws = await workspace();
+    const oldMeta = deferred();
+    ws.add('same-initialization', 1, oldMeta.promise);
+    await flush();
+    ws.jobs.value = [];
+    const currentMeta = deferred();
+    const currentTask = ws.add('same-initialization', 1, currentMeta.promise);
+    const currentInit = vi.spyOn(currentTask, 'initMeta');
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    oldMeta.resolve();
+    await flush();
+    expect(ws.calls).toHaveLength(0);
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+
+    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
+    await flush();
+    expect(currentInit).toHaveBeenCalledTimes(1);
+    currentMeta.resolve();
+    await flush();
+    expect(ws.active()).toHaveLength(1);
+    ws.calls[0].finish();
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
   });
 
   it('keeps the 66-chapter limit when retrying failures and appending more work', async () => {
