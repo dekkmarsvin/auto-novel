@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { isCurrentAuthor } from '@/identity';
 import { useEventListener } from '@vueuse/core';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
@@ -238,7 +239,7 @@ defineExpose({
             :options="[
               { label: '无', value: '' },
               ...themeGlossaries.map((g) => ({
-                label: whoami.isMe(g.authorUsername)
+                label: isCurrentAuthor(whoami, g.authorUsername)
                   ? g.name
                   : `${g.name}（${g.authorUsername}）`,
                 value: g.id,

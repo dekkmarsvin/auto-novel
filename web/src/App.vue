@@ -2,18 +2,11 @@
 import { darkTheme, dateZhCN, zhCN } from 'naive-ui';
 import { WebKitApp, useWebKit } from '@novelia/web-kit';
 
-import {
-  useReaderSettingStore,
-  useSettingStore,
-  useWhoamiStore,
-} from '@/stores';
+import { useReaderSettingStore, useWhoamiStore } from '@/stores';
 import { RegexUtil } from '@/util';
 
 // 激活权限
 useWhoamiStore();
-
-const settingStore = useSettingStore();
-const { setting } = storeToRefs(settingStore);
 
 const readerSettingStore = useReaderSettingStore();
 const { readerSetting } = storeToRefs(readerSettingStore);
@@ -21,14 +14,6 @@ const { readerSetting } = storeToRefs(readerSettingStore);
 // 主题
 const route = useRoute();
 const { theme: webTheme } = useWebKit();
-
-try {
-  if (localStorage.getItem('web-kit:theme:v1') === null) {
-    webTheme.setPreference(setting.value.theme);
-  }
-} catch {
-  // 存储不可用时沿用 web-kit 的内存偏好。
-}
 
 const isDarkColor = (color: string) => {
   const r = parseInt(color.substring(1, 3), 16);

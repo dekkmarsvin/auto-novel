@@ -173,15 +173,6 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
           </n-flex>
         </n-button>
       </router-link>
-
-      <router-link to="/forum" style="flex: 1">
-        <n-button quaternary style="width: 100%; height: 64px">
-          <n-flex align="center" vertical style="font-size: 12px">
-            <n-icon size="24" :component="ForumOutlined" />
-            论坛
-          </n-flex>
-        </n-button>
-      </router-link>
     </n-flex>
     <div v-else style="height: 16px" />
 
@@ -245,9 +236,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
 
   <c-modal title="使用说明" v-model:show="showHowToUseModal">
     <n-p>
-      将小说链接复制到网站首页的输入框里，点击搜索，如果链接正确，将会跳转到小说页面。有什么问题和建议请在
-      <c-a to="/forum">论坛</c-a>
-      中发帖讨论。
+      将小说链接复制到网站首页的输入框里，点击搜索，如果链接正确，将会跳转到小说页面。
     </n-p>
     <n-p>支持的小说站如下:</n-p>
     <n-p v-for="[name, link] of linkExample" :key="name">

@@ -28,9 +28,10 @@ const listFavoredWebNovel = (
     translate?: number;
     sort: string;
   },
+  signal?: AbortSignal,
 ) =>
   client
-    .get(`user/favored-web/${favoredId}`, { searchParams })
+    .get(`user/favored-web/${favoredId}`, { searchParams, signal })
     .json<Page<WebNovelOutlineDto>>();
 
 const createFavoredWeb = (json: { title: string }) =>
@@ -63,9 +64,10 @@ const listFavoredWenkuNovel = (
     pageSize: number;
     sort: string;
   },
+  signal?: AbortSignal,
 ) =>
   client
-    .get(`user/favored-wenku/${favoredId}`, { searchParams })
+    .get(`user/favored-wenku/${favoredId}`, { searchParams, signal })
     .json<Page<WenkuNovelOutlineDto>>();
 
 const createFavoredWenku = (json: { title: string }) =>

@@ -19,10 +19,14 @@ import { useGlossaryNavigationGuard } from '../src/components/glossaryNavigation
 
 interface HostNode {
   children: HostNode[];
+  getRootNode?: () => object;
   parent?: HostNode;
   text?: string;
 }
-const node = (): HostNode => ({ children: [] });
+const node = (): HostNode => ({
+  children: [],
+  getRootNode: () => ({ activeElement: null }),
+});
 const renderer = createRenderer<HostNode, HostNode>({
   createElement: node,
   createText: (text) => ({ children: [], text }),

@@ -2,6 +2,7 @@ import ky from 'ky';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/webKit', () => ({
+  isLocalAuth: false,
   webKit: {
     createClient: (prefix: string) =>
       ky.create({ prefix: `http://localhost${prefix}` }),

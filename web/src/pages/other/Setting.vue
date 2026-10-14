@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useWebKit } from '@novelia/web-kit';
+import { community } from '@/config';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
 import {
   Setting,
@@ -83,11 +84,17 @@ const { theme } = useWebKit();
               不影响无分章的网络小说
             </n-tooltip>
           </n-checkbox>
-          <b>评论</b>
-          <n-checkbox v-model:checked="setting.hideCommmentWebNovel">
+          <b v-if="community.enabled">评论</b>
+          <n-checkbox
+            v-if="community.enabled"
+            v-model:checked="setting.hideCommmentWebNovel"
+          >
             隐藏网络小说评论
           </n-checkbox>
-          <n-checkbox v-model:checked="setting.hideCommmentWenkuNovel">
+          <n-checkbox
+            v-if="community.enabled"
+            v-model:checked="setting.hideCommmentWenkuNovel"
+          >
             隐藏文库小说评论
           </n-checkbox>
           <b>收藏夹</b>

@@ -1,6 +1,11 @@
-import { webKit } from '@/main';
+import { webKit, isLocalAuth } from '@/webKit';
+import { createNovelClient } from '@/runtimeClients';
 
-export const client = webKit.createClient('/api/', { timeout: 60_000 });
+export const client = createNovelClient(
+  isLocalAuth,
+  webKit,
+  isLocalAuth ? window.location.origin : '',
+);
 
 export type UploadTask<T> = {
   promise: Promise<T>;

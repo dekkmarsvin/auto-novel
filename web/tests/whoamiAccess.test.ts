@@ -1,4 +1,4 @@
-import type { AuthUser } from '@novelia/auth-api';
+import type { WhoamiUser as AuthUser } from '@novelia/web-kit';
 import { createPinia, disposePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,15 +6,18 @@ const session = vi.hoisted(() => ({
   listeners: new Set<(user?: AuthUser) => void>(),
 }));
 
-vi.mock('../src/api/auth/session', () => ({
-  authApi: {
-    watchUser(listener: (user?: AuthUser) => void) {
-      session.listeners.add(listener);
-      listener(undefined);
-      return () => session.listeners.delete(listener);
-    },
-  },
-}));
+vi.mock('../src/webKit', async () => {
+  const { computed, shallowRef } = await import('vue');
+  const { mockWhoami } = await import('./mockWhoami');
+  const user = shallowRef<AuthUser>();
+  session.listeners.add((value) => {
+    user.value = value;
+  });
+  return {
+    isLocalAuth: false,
+    webKit: { whoami: computed(() => mockWhoami(user.value)) },
+  };
+});
 
 import { useWhoamiStore } from '../src/stores/useWhoamiStore';
 
@@ -29,7 +32,7 @@ function recoverSession(role?: AuthUser['role'], ageSeconds = ThirtyDays) {
           id: 1,
           username: 'test-user',
           role,
-          createdAt: Now / 1000 - ageSeconds,
+          createdAt: Now - ageSeconds * 1000,
           adminMode: false,
         };
   for (const listener of session.listeners) listener(user);
@@ -42,7 +45,7 @@ describe('account access after session recovery', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(Now);
-    session.listeners.clear();
+    for (const listener of session.listeners) listener(undefined);
     pinia = createPinia();
     store = useWhoamiStore(pinia);
   });
@@ -57,7 +60,6 @@ describe('account access after session recovery', () => {
     role?: AuthUser['role'];
     ageSeconds: number;
     nsfw: boolean;
-    forum: boolean;
     novel: boolean;
   }[] = [
     {
@@ -65,7 +67,6 @@ describe('account access after session recovery', () => {
       role: 'restricted',
       ageSeconds: ThirtyDays,
       nsfw: true,
-      forum: false,
       novel: false,
     },
     {
@@ -73,7 +74,6 @@ describe('account access after session recovery', () => {
       role: 'restricted',
       ageSeconds: ThirtyDays - 1,
       nsfw: false,
-      forum: false,
       novel: false,
     },
     {
@@ -81,7 +81,6 @@ describe('account access after session recovery', () => {
       role: 'banned',
       ageSeconds: ThirtyDays + 1,
       nsfw: false,
-      forum: false,
       novel: false,
     },
     {
@@ -89,15 +88,13 @@ describe('account access after session recovery', () => {
       role: 'member',
       ageSeconds: ThirtyDays,
       nsfw: true,
-      forum: true,
       novel: true,
     },
     {
-      label: 'young member retains forum access without NSFW or novel writes',
+      label: 'young member has no NSFW or novel write access',
       role: 'member',
       ageSeconds: ThirtyDays - 1,
       nsfw: false,
-      forum: true,
       novel: false,
     },
     {
@@ -105,23 +102,20 @@ describe('account access after session recovery', () => {
       role: 'trusted',
       ageSeconds: ThirtyDays,
       nsfw: true,
-      forum: true,
       novel: true,
     },
     {
       label: 'anonymous visitor has no protected access',
       ageSeconds: ThirtyDays,
       nsfw: false,
-      forum: false,
       novel: false,
     },
   ];
 
-  it.each(cases)('$label', ({ role, ageSeconds, nsfw, forum, novel }) => {
+  it.each(cases)('$label', ({ role, ageSeconds, nsfw, novel }) => {
     recoverSession(role, ageSeconds);
 
     expect(store.whoami.hasNsfwAccess).toBe(nsfw);
-    expect(store.whoami.hasForumAccess).toBe(forum);
     expect(store.whoami.hasNovelAccess).toBe(novel);
     expect(store.whoami.isAdmin).toBe(false);
     expect(store.whoami.asAdmin).toBe(false);
@@ -135,7 +129,6 @@ describe('account access after session recovery', () => {
 
     expect(store.whoami.isSignedIn).toBe(false);
     expect(store.whoami.hasNsfwAccess).toBe(false);
-    expect(store.whoami.hasForumAccess).toBe(false);
     expect(store.whoami.hasNovelAccess).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { isCurrentAuthor } from '@/identity';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
@@ -254,7 +255,7 @@ const downloadGlossaryAsJsonFile = async (ev: MouseEvent) => {
               :options="[
                 { label: '无', value: '' },
                 ...themeGlossaries.map((g) => ({
-                  label: whoami.isMe(g.authorUsername)
+                  label: isCurrentAuthor(whoami, g.authorUsername)
                     ? g.name
                     : `${g.name}（${g.authorUsername}）`,
                   value: g.id,

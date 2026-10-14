@@ -11,7 +11,9 @@ import {
   StarBorderOutlined,
   WorkspacesOutlined,
 } from '@vicons/material';
-import { forumCommunityUrl } from '@/config';
+import { community } from '@/config';
+import { isLocalAuth } from '@/webKit';
+import LocalLayout from '@/components/LocalLayout.vue';
 import { useWhoamiStore } from '@/stores';
 
 const route = useRoute();
@@ -102,13 +104,17 @@ const navigationOptions = computed<WebKitMenuOption[]>(() => [
       },
     ],
   },
-  {
-    type: 'external',
-    key: 'forum',
-    label: '论坛',
-    icon: ForumOutlined,
-    href: forumCommunityUrl,
-  },
+  ...(community.enabled
+    ? [
+        {
+          type: 'external',
+          key: 'forum',
+          label: '论坛',
+          icon: ForumOutlined,
+          href: community.url,
+        } as WebKitMenuOption,
+      ]
+    : []),
   { key: '/setting', label: '设置', icon: SettingsOutlined, to: '/setting' },
 ]);
 const menuKey = computed(() => {
@@ -120,7 +126,8 @@ const menuKey = computed(() => {
 </script>
 
 <template>
-  <WebKitLayout
+  <component
+    :is="isLocalAuth ? LocalLayout : WebKitLayout"
     :navigation-options="navigationOptions"
     :account-options="[]"
     :selected-navigation-key="menuKey"
@@ -136,7 +143,6 @@ const menuKey = computed(() => {
       <router-view v-slot="{ Component }">
         <keep-alive
           :include="[
-            'Forum',
             'Index',
             'BookshelfWeb',
             'BookshelfWenku',
@@ -150,7 +156,7 @@ const menuKey = computed(() => {
         </keep-alive>
       </router-view>
     </div>
-  </WebKitLayout>
+  </component>
 </template>
 
 <style scoped>

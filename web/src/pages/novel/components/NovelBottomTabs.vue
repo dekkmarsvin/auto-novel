@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import { useEventListener } from '@vueuse/core';
+import { commentsAvailable } from '@/config';
 
 import NovelGlossaryEditor from '@/components/NovelGlossaryEditor.vue';
+import CommunityComments from '@/components/CommunityComments.vue';
 import { GenericNovelId } from '@/model/Common';
 import type { Glossary } from '@/model/Glossary';
 
@@ -19,19 +21,17 @@ const emit = defineEmits<{
 }>();
 
 const slots = useSlots();
+const showComments = computed(() => commentsAvailable(props.hideComment));
 
 const activeTab = ref(
-  slots.wenkuToc ? 'wenkuToc' : props.hideComment ? 'glossary' : 'comment',
+  slots.wenkuToc ? 'wenkuToc' : showComments.value ? 'comment' : 'glossary',
 );
 
-watch(
-  () => props.hideComment,
-  (hide) => {
-    if (hide && activeTab.value === 'comment') {
-      activeTab.value = 'glossary';
-    }
-  },
-);
+watch(showComments, (show) => {
+  if (!show && activeTab.value === 'comment') {
+    activeTab.value = 'glossary';
+  }
+});
 
 const glossaryCount = computed(() => Object.keys(props.glossary).length);
 
@@ -48,7 +48,7 @@ const handleBeforeLeave = (name: string, oldName: string) => {
 const availableTabs = computed(() => {
   const tabs: string[] = [];
   if (slots.wenkuToc) tabs.push('wenkuToc');
-  if (!props.hideComment) tabs.push('comment');
+  if (showComments.value) tabs.push('comment');
   tabs.push('glossary');
   return tabs;
 });
@@ -104,12 +104,16 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       </n-tab-pane>
 
       <n-tab-pane
-        v-if="!hideComment"
+        v-if="showComments"
         name="comment"
         tab="评论区"
         style="min-height: 400px"
       >
-        <comment-list :site="site" :locked="locked ?? false" />
+        <CommunityComments
+          :site="site"
+          :locked="locked ?? false"
+          :hide-comment="hideComment"
+        />
       </n-tab-pane>
 
       <n-tab-pane

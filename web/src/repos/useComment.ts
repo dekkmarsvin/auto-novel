@@ -7,7 +7,8 @@ import type {
 } from '@novelia/forum-api';
 
 import { CommentApi } from '@/api';
-import { webKit } from '@/main';
+import { webKit } from '@/webKit';
+import { community } from '@/config';
 import { cache } from './cache';
 
 const ListKey = 'comment-list';
@@ -45,6 +46,7 @@ const useCommentList = (
   site: MaybeRefOrGetter<string>,
 ) =>
   useQuery({
+    enabled: () => community.enabled,
     key: () => commentListKey(toValue(site), toValue(page)),
     query: async ({ signal }) => {
       const requestedSite = toValue(site);
@@ -78,7 +80,7 @@ const useReplyList = (
 ) =>
   useQuery({
     key: () => replyListKey(toValue(site), toValue(rootId), toValue(page)),
-    enabled: () => toValue(enabled),
+    enabled: () => community.enabled && toValue(enabled),
     staleTime: 60_000,
     gcTime: 5 * 60_000,
     query: ({ signal }) =>

@@ -2,6 +2,7 @@ import { useQuery } from '@pinia/colada';
 
 import { FavoredApi, WenkuNovelApi } from '@/api';
 import { cache, withOnSuccess } from './cache';
+import { usePrivateFavoredQuery } from './usePrivateFavoredQuery';
 
 const ItemKey = 'wenku-novel';
 const ListKey = 'wenku-novel-list';
@@ -38,20 +39,20 @@ const useWenkuNovelFavoredList = (
     sort: string;
   }>,
 ) =>
-  useQuery({
-    key: () => [
-      ListFavoredKey,
-      toValue(favoredId),
-      toValue(option),
-      toValue(page),
-    ],
-    query: () =>
-      FavoredApi.listFavoredWenkuNovel(toValue(favoredId), {
-        page: toValue(page) - 1,
-        pageSize: 24,
-        ...toValue(option),
-      }),
-  });
+  usePrivateFavoredQuery(
+    ListFavoredKey,
+    () => [toValue(favoredId), toValue(option), toValue(page)],
+    (signal) =>
+      FavoredApi.listFavoredWenkuNovel(
+        toValue(favoredId),
+        {
+          page: toValue(page) - 1,
+          pageSize: 24,
+          ...toValue(option),
+        },
+        signal,
+      ),
+  );
 
 export const WenkuNovelRepo = {
   useWenkuNovel,
