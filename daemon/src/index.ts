@@ -2,14 +2,13 @@ import { Command } from 'commander';
 import { mapValues } from 'lodash-es';
 import { createServer, Server } from 'node:http';
 
-import { createAdminAuthMiddleware } from '@/adminAuth';
+import { mountAdminRoutes } from '@/adminRoutes';
 import { loadConfig } from '@/config';
 import { createApp } from '@/createApp';
 import manifest from '@/package.json';
 import {
   CrawlerService,
   createCrawlerRouter,
-  createProxyRouter,
   ProxyManager,
   ProxyStore,
 } from '@/services';
@@ -42,37 +41,12 @@ async function main() {
   });
 
   const router = createCrawlerRouter(crawlerService);
-  const proxyRouter = createProxyRouter(proxyManager);
   const app = createApp(config, { router });
 
   const server = createServer(app);
   const shutdown = createGracefulShutdown(server, [() => proxyStore.close()]);
 
-  if (config.adminToken) {
-    const requireAdminAuth = createAdminAuthMiddleware(config.adminToken);
-    app.use('/proxies', requireAdminAuth, proxyRouter);
-
-    app.post('/shutdown', requireAdminAuth, async (req, res) => {
-      console.log('Shutdown requested via API');
-
-      res.status(202).json({
-        message: 'Server is shutting down...',
-        uptime: process.uptime(),
-        timestamp: Date.now(),
-      });
-
-      setImmediate(() => {
-        shutdown('api-request', 0).catch((err) => {
-          console.error('Error during API shutdown:', err);
-          process.exit(1);
-        });
-      });
-    });
-  } else {
-    console.warn(
-      'Administrative endpoints (/proxies and /shutdown) are disabled. Set adminToken or CRAWLER_ADMIN_TOKEN to enable them.',
-    );
-  }
+  mountAdminRoutes(app, config.adminToken, proxyManager, shutdown);
 
   server.listen(config.port, config.host, () => {
     console.log(`Server is running on http://${config.host}:${config.port}`);

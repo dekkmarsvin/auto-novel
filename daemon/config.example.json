@@ -5,12 +5,12 @@
   "defaultProxies": [
     {
       "protocol": "http",
-      "host": "::",
+      "host": "127.0.0.1",
       "port": 8899
     },
     {
       "protocol": "http",
-      "host": "::",
+      "host": "127.0.0.1",
       "port": 7890
     },
     {

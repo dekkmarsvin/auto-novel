@@ -1,12 +1,11 @@
 import type {
   Page,
-  ProviderId,
-  RemoteChapter,
-  RemoteNovelListItem,
-  RemoteNovelMetadata,
+  WebNovelChapter as RemoteChapter,
+  WebNovelListItem as RemoteNovelListItem,
+  WebNovelMetadata as RemoteNovelMetadata,
   WebNovelProvider,
 } from '@auto-novel/crawler';
-import { Providers, PROVIDER_IDS } from '@auto-novel/crawler';
+import { Providers, ProviderIdSchema, type ProviderId } from './providers';
 import {
   Impit,
   type HttpMethod,
@@ -27,7 +26,7 @@ export const HeaderSchema = z.record(z.string(), z.string());
 export type HeaderArray = z.infer<typeof HeaderSchema>;
 
 export const HeadersByProviderConfigSchema = z.partialRecord(
-  z.enum(PROVIDER_IDS),
+  z.enum([...ProviderIdSchema.options, 'default']),
   HeaderSchema,
 );
 export type HeadersByProviderConfig = z.infer<

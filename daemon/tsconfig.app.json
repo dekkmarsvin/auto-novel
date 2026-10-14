@@ -12,8 +12,7 @@
     "useDefineForClassFields": true,
     "rootDir": "./src",
     "paths": {
-      "@/*": ["./src/*", "./package.json"],
-      "@auto-novel/crawler": ["../packages/crawler/dist/index.d.ts"]
+      "@/*": ["./src/*", "./package.json"]
     }
   },
   "include": [
@@ -22,9 +21,9 @@
     "src/proxy",
     "src/services",
     "src/adminAuth.ts",
+    "src/adminRoutes.ts",
     "src/config.ts",
     "src/createApp.ts",
-    "src/index.ts",
-    "src/routes.ts"
+    "src/index.ts"
   ]
 }
