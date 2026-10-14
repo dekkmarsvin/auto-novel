@@ -17,6 +17,7 @@ vi.mock('../src/webKit', async () => {
 });
 
 import {
+  mergeGlossaryTerms,
   saveGlossaryDraft,
   useGlossaryDraft,
 } from '../src/components/glossaryDraft';
@@ -205,5 +206,18 @@ describe('novel glossary editor shared-theme binding', () => {
     );
     expect(updateLocal).toHaveBeenCalledWith('book.epub', { 猫: '貓' });
     expect(requests).toEqual([]);
+  });
+});
+
+describe('mergeGlossaryTerms', () => {
+  it('lists novel terms newest first, then shared-only terms', () => {
+    const own = { A: 'a', B: 'b2', constructor: 'c' };
+    const theme = { B: 'b1', D: 'd' };
+    expect(mergeGlossaryTerms(own, theme)).toEqual([
+      { jp: 'constructor', kind: 'own' },
+      { jp: 'B', kind: 'override' },
+      { jp: 'A', kind: 'own' },
+      { jp: 'D', kind: 'shared' },
+    ]);
   });
 });

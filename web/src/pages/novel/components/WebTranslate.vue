@@ -206,16 +206,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     v-if="whoami.isSignedIn && setting.enabledTranslator.length > 0"
     style="margin-top: 16px"
   >
-    <n-button-group>
-      <GlossaryButton
-        :gnid="GenericNovelId.web(providerId, novelId)"
-        :value="glossary"
-        :theme-glossary-id="themeGlossaryId"
-        @update:theme-glossary-id="(val) => emit('update:themeGlossaryId', val)"
-        :round="false"
-      />
-      <c-button label="导入工作区" :round="false" @action="importToWorkspace" />
-    </n-button-group>
+    <c-button label="导入工作区" :round="false" @action="importToWorkspace" />
 
     <n-button-group>
       <c-button

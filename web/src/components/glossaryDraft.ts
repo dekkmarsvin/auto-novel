@@ -111,3 +111,22 @@ export async function saveGlossaryDraft(
     await updateLocal(gnid.volumeId, draft.glossary);
   }
 }
+
+export type GlossaryTermKind = 'own' | 'override' | 'shared';
+
+/** Mirror the backend merge (theme + novel): novel terms override shared ones. */
+export function mergeGlossaryTerms(own: Glossary, theme: Glossary) {
+  const has = (glossary: Glossary, jp: string) =>
+    Object.prototype.hasOwnProperty.call(glossary, jp);
+  return [
+    ...Object.keys(own)
+      .reverse()
+      .map((jp) => ({
+        jp,
+        kind: (has(theme, jp) ? 'override' : 'own') as GlossaryTermKind,
+      })),
+    ...Object.keys(theme)
+      .filter((jp) => !has(own, jp))
+      .map((jp) => ({ jp, kind: 'shared' as GlossaryTermKind })),
+  ];
+}
