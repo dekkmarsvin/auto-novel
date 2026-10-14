@@ -49,6 +49,20 @@ describe('IndexedDbSegmentCache', () => {
     expect(await cache.get(segment())).toBeUndefined();
   });
 
+  it('retranslates corrupted Sakura image markers while retaining intact entries', async () => {
+    const cache = new IndexedDbSegmentCache('sakura-seg-cache');
+    const source = segment(['あ', '<图片>image-url', 'い']);
+    vi.mocked(TranslationCacheRepo.get).mockResolvedValueOnce([
+      '甲',
+      '图片描述',
+      '乙',
+    ]);
+    expect(await cache.get(source)).toBeUndefined();
+    const valid = ['甲', '<图片>image-url', '乙'];
+    vi.mocked(TranslationCacheRepo.get).mockResolvedValueOnce(valid);
+    expect(await cache.get(source)).toBe(valid);
+  });
+
   it.each<[string, string[]]>([
     ['different line count', ['甲', '乙']],
     ['LF inside a line', ['甲\n补充', '', '乙']],

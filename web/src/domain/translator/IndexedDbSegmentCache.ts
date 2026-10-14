@@ -15,7 +15,10 @@ export class IndexedDbSegmentCache implements SegmentCache {
         (line, index) =>
           line.includes('\n') ||
           (segment.lines[index].trim().length === 0 &&
-            line.trim().length !== 0),
+            line.trim().length !== 0) ||
+          (this.storeName === 'sakura-seg-cache' &&
+            segment.lines[index].startsWith('<图片>') &&
+            line !== segment.lines[index]),
       )
     ) {
       return undefined;
