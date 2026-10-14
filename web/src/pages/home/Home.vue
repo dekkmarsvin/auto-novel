@@ -1,15 +1,15 @@
 <script lang="ts" setup>
 import {
   BookOutlined,
-  ForumOutlined,
   LanguageOutlined,
   ReadMoreOutlined,
   StarBorderOutlined,
 } from '@vicons/material';
 
 import { FavoredApi } from '@/api';
+import { community } from '@/config';
+import { usePrivateFavoredQuery } from '@/repos/usePrivateFavoredQuery';
 import { WebNovelRepo, WenkuNovelRepo } from '@/repos';
-import type { WebNovelOutlineDto } from '@/model/WebNovel';
 import { useBreakPoints } from '@/pages/util';
 import { useWhoamiStore } from '@/stores';
 import { WebUtil } from '@/util/web';
@@ -35,35 +35,24 @@ const query = (url: string) => {
   }
 };
 
-const favoriteList = ref<{
-  data?: WebNovelOutlineDto[];
-  error: Error | null;
-}>({ error: null });
-const loadFavorite = async () => {
-  try {
-    const data = await FavoredApi.listFavoredWebNovel('default', {
-      page: 0,
-      pageSize: 8,
-      query: '',
-      provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
-      type: 0,
-      level: 0,
-      translate: 0,
-      sort: 'update',
-    }).then((it) => it.items);
-    favoriteList.value = { data, error: null };
-  } catch (e) {
-    favoriteList.value = { error: e as Error };
-  }
-};
-watch(
-  () => whoami.value.isSignedIn,
-  (isSignedIn) => {
-    if (isSignedIn) {
-      loadFavorite();
-    }
-  },
-  { immediate: true },
+const { data: favoriteList, error: favoriteError } = usePrivateFavoredQuery(
+  'home-favorite-list',
+  () => ['default'],
+  (signal) =>
+    FavoredApi.listFavoredWebNovel(
+      'default',
+      {
+        page: 0,
+        pageSize: 8,
+        query: '',
+        provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
+        type: 0,
+        level: 0,
+        translate: 0,
+        sort: 'update',
+      },
+      signal,
+    ).then((it) => it.items),
 );
 
 const { data: mostVisitedWeb, error: mostVisitedWebError } =
@@ -182,18 +171,25 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
           使用说明
         </n-button>
         /
-        <n-button text type="primary" @click="showQQModal = true">
+        <n-button
+          v-if="community.enabled"
+          text
+          type="primary"
+          @click="showQQModal = true"
+        >
           QQ群
         </n-button>
-        /
-        <n-a :href="telegramLink" target="_blank">Telegram</n-a>
-        /
+        <template v-if="community.enabled">
+          /
+          <n-a :href="telegramLink" target="_blank">Telegram</n-a>
+          /
+        </template>
         <n-a :href="githubLink" target="_blank">GitHub</n-a>
       </n-flex>
       <n-p>
         禁止使用脚本绕过翻译器提交翻译文本，哪怕你觉得自己提交的是正经翻译。
       </n-p>
-      <n-p>
+      <n-p v-if="community.enabled">
         FishHawk长期996，网站开发速度大幅下降已成常态，论坛反馈目前没有精力维护，有问题加群@吧
       </n-p>
     </bulletin>
@@ -205,8 +201,8 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
         </router-link>
       </section-header>
       <PanelWebNovel
-        :novels="favoriteList?.data?.slice(0, 8)"
-        :error="favoriteList?.error"
+        :novels="favoriteList?.slice(0, 8)"
+        :error="favoriteError"
       />
       <n-divider />
     </template>
@@ -247,7 +243,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
     </n-p>
   </c-modal>
 
-  <c-modal title="QQ群" v-model:show="showQQModal">
+  <c-modal v-if="community.enabled" title="QQ群" v-model:show="showQQModal">
     <n-p>
       交流群：
       <n-a :href="qqLink" target="_blank">819513328</n-a>
