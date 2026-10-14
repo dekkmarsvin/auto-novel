@@ -146,5 +146,3 @@ docker compose up -d
 ```
 
 启动后，访问 http://localhost 即可。
-
-NAILAIN 的公开读取、管理员合言葉设置、生效时机及备份边界见 [NAILAIN contract](docs/nailain.md)。
