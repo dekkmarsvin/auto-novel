@@ -19,7 +19,12 @@ describe('SakuraTranslator line-by-line fallback', () => {
         if (url.endsWith('/models')) return json({ data: [] });
         chatCalls++;
         // 前 3 次整段翻译行数不匹配，触发逐行翻译；逐行时模型输出带换行
-        const content = chatCalls <= 3 ? '只有一行' : '甲\n乙';
+        const content =
+          chatCalls <= 3
+            ? '只有一行'
+            : chatCalls === 4
+              ? '甲\n乙<|im_end|>'
+              : '丙\r\n丁<|im_end|>';
         return json({
           choices: [{ message: { content } }],
           usage: { completion_tokens: 1 },
@@ -30,9 +35,9 @@ describe('SakuraTranslator line-by-line fallback', () => {
     const translator = await SakuraTranslator.create({
       endpoint: 'https://sakura.test',
     });
-    const result = await translator.translate(['あ', '', 'い']);
+    const result = await translator.translate(['あ', '', ' \t\r', 'い']);
 
-    expect(result).toEqual(['甲乙', '', '甲乙']);
+    expect(result).toEqual(['甲乙', '', ' \t\r', '丙丁']);
     expect(chatCalls).toBe(3 + 2); // 空行不请求模型
   });
 });
