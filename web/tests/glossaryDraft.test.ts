@@ -2,10 +2,11 @@ import { effectScope, nextTick, reactive } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const transport = vi.hoisted(() => ({ fetch: vi.fn() }));
-vi.mock('../src/api/auth/session', async () => {
+vi.mock('../src/webKit', async () => {
   const { default: ky } = await import('ky');
   return {
-    authApi: {
+    isLocalAuth: false,
+    webKit: {
       createClient: (prefix: string) =>
         ky.create({
           prefix: `https://books.test${prefix}`,

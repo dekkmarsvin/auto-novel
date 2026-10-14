@@ -1,5 +1,5 @@
 import { PiniaColada } from '@pinia/colada';
-import type { AuthUser } from '@novelia/auth-api';
+import type { WhoamiUser as AuthUser } from '@novelia/web-kit';
 import { createPinia, disposePinia } from 'pinia';
 import { createApp, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,15 +9,18 @@ const session = vi.hoisted(() => ({
 }));
 const listFavored = vi.hoisted(() => vi.fn());
 
-vi.mock('../src/api/auth/session', () => ({
-  authApi: {
-    watchUser(listener: (user?: AuthUser) => void) {
-      session.listeners.add(listener);
-      listener(undefined);
-      return () => session.listeners.delete(listener);
-    },
-  },
-}));
+vi.mock('../src/webKit', async () => {
+  const { computed, shallowRef } = await import('vue');
+  const { mockWhoami } = await import('./mockWhoami');
+  const user = shallowRef<AuthUser>();
+  session.listeners.add((value) => {
+    user.value = value;
+  });
+  return {
+    isLocalAuth: false,
+    webKit: { whoami: computed(() => mockWhoami(user.value)) },
+  };
+});
 vi.mock('../src/api', () => ({ FavoredApi: { listFavored } }));
 
 import { useFavoredStore } from '../src/stores/useFavored';
@@ -78,7 +81,7 @@ describe('favorite folders after asynchronous authentication', () => {
       removeEventListener: vi.fn(),
     });
     listFavored.mockReset();
-    session.listeners.clear();
+    for (const listener of session.listeners) listener(undefined);
     const app = createApp({});
     pinia = createPinia();
     app.use(pinia);

@@ -2,6 +2,8 @@ import { PiniaColada } from '@pinia/colada';
 
 import App from './App.vue';
 import router from './router';
+import './style.css';
+import { webKit } from './webKit';
 
 const app = createApp(App);
 
@@ -16,5 +18,6 @@ app.use(PiniaColada, {
   },
 });
 
+app.use(webKit);
 app.use(router);
 app.mount('#app');

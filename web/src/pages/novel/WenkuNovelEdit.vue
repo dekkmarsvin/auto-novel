@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useDuplicateSearch } from './duplicateSearch';
 import {
   DeleteOutlineOutlined,
   KeyboardDoubleArrowDownOutlined,
@@ -252,30 +253,47 @@ const populateNovelFromAmazon = async (
 
 const submitCurrentStep = ref(1);
 const title = computed(() => formValue.value.title);
-const similarNovels = ref<WenkuNovelOutlineDto[] | null>(null);
+const {
+  items: similarNovels,
+  failed: similarSearchFailed,
+  canConfirm: canConfirmSimilar,
+  run: searchDuplicates,
+} = useDuplicateSearch<WenkuNovelOutlineDto>(
+  () => title.value,
+  async () => {
+    const levels = whoami.value.hasNsfwAccess ? [0, 4, 5, 6] : [0, 4];
+    const result = await Promise.all(
+      levels.map((level) =>
+        WenkuNovelApi.listNovel({
+          page: 0,
+          pageSize: 6,
+          query: similarQuery.value,
+          level,
+        }),
+      ),
+    );
+    return result.flatMap((page) => page.items);
+  },
+);
 
 watch(title, () => {
-  similarNovels.value = null;
   submitCurrentStep.value = 1;
 });
+// 取第一段连续的日文/汉字作为关键词，没有则使用整个标题
+const similarQuery = computed(
+  () =>
+    title.value
+      .split(/[^\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\u3400-\u4dbf]+/)
+      .find((it) => it) ?? title.value.trim(),
+);
 const findSimilarNovels = async () => {
-  const query = title.value.split(
-    /[^\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\u3400-\u4dbf]/,
-    2,
-  )[0];
-  const result = await runCatching(
-    WenkuNovelApi.listNovel({
-      page: 0,
-      pageSize: 6,
-      query,
-      level: 0,
-    }),
-  );
-  if (result.ok) {
-    similarNovels.value = result.value.items;
-  } else {
-    message.error('搜索相似小说失败:' + result.error.message);
+  const query = similarQuery.value;
+  if (!query) {
+    message.warning('请先填写标题');
+    return;
   }
+  const error = await searchDuplicates();
+  if (error) message.error('搜索相似小说失败:' + String(error));
 };
 const moveToPrevStep = () => {
   if (submitCurrentStep.value > 1) {
@@ -645,15 +663,11 @@ const levelOptions = [
         </p>
         <p>
           自动搜索关键词：
-          <b>
-            {{
-              title.split(
-                /[^\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\u3400-\u4dbf]/,
-                2,
-              )[0]
-            }}
-          </b>
+          <b>{{ similarQuery }}</b>
         </p>
+        <n-alert v-if="similarSearchFailed" type="warning">
+          自动查重失败。请先手动搜索确认小说不存在，再继续创建。
+        </n-alert>
         <p v-if="similarNovels !== null">
           <template v-if="similarNovels.length === 0">没有相似的小说</template>
           <n-grid v-else :x-gap="12" :y-gap="12" cols="3 600:6">
@@ -671,6 +685,7 @@ const levelOptions = [
           <c-button
             label="我确定小说不存在"
             type="warning"
+            :disabled="!canConfirmSimilar"
             @click="moveToNextStep"
           />
           <c-button label="自动搜索相似小说" @click="findSimilarNovels" />

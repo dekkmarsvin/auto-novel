@@ -5,6 +5,7 @@ import { FavoredApi, ReadHistoryApi, WebNovelApi } from '@/api';
 import type { WebNovelMetadata } from '@/external';
 import { WebNovelCrawlerApi } from '@/external';
 import { withOnSuccess } from './cache';
+import { usePrivateFavoredQuery } from './usePrivateFavoredQuery';
 
 const ItemKey = 'web-novel';
 const ListKey = 'web-novel-list';
@@ -112,20 +113,20 @@ const useWebNovelFavoredList = (
     sort: string;
   }>,
 ) =>
-  useQuery({
-    key: () => [
-      ListFavoredKey,
-      toValue(favoredId),
-      toValue(option),
-      toValue(page),
-    ],
-    query: () =>
-      FavoredApi.listFavoredWebNovel(toValue(favoredId), {
-        page: toValue(page) - 1,
-        pageSize: 30,
-        ...toValue(option),
-      }),
-  });
+  usePrivateFavoredQuery(
+    ListFavoredKey,
+    () => [toValue(favoredId), toValue(option), toValue(page)],
+    (signal) =>
+      FavoredApi.listFavoredWebNovel(
+        toValue(favoredId),
+        {
+          page: toValue(page) - 1,
+          pageSize: 30,
+          ...toValue(option),
+        },
+        signal,
+      ),
+  );
 
 export const WebNovelRepo = {
   useWebNovel,

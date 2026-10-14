@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { isCurrentAuthor } from '@/identity';
 import { onMounted, ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import { DeleteOutlineOutlined } from '@vicons/material';
@@ -16,7 +17,7 @@ const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
 const canEdit = (item: ThemeGlossaryDto) =>
-  whoami.value.isAdmin || whoami.value.isMe(item.authorUsername);
+  whoami.value.isAdmin || isCurrentAuthor(whoami.value, item.authorUsername);
 
 const loadList = async () => {
   try {
@@ -205,9 +206,15 @@ const submitGlossary = async () => {
           <td>
             <n-tag
               size="small"
-              :type="whoami.isMe(item.authorUsername) ? 'info' : 'default'"
+              :type="
+                isCurrentAuthor(whoami, item.authorUsername)
+                  ? 'info'
+                  : 'default'
+              "
             >
-              {{ whoami.isMe(item.authorUsername) ? '我的' : '他人' }}
+              {{
+                isCurrentAuthor(whoami, item.authorUsername) ? '我的' : '他人'
+              }}
             </n-tag>
           </td>
           <td><n-time :time="item.updateAt" type="datetime" /></td>

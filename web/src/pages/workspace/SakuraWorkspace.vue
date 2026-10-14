@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { community } from '@/config';
 import {
   BookOutlined,
   DeleteOutlineOutlined,
@@ -93,15 +94,27 @@ const clearCache = async () =>
 
     <bulletin>
       <n-flex>
-        <c-a to="/forum/656d60530286f15e3384fcf8" target="_blank">
+        <n-a
+          v-if="community.enabled && community.guides.sakuraDeploy"
+          :href="community.guides.sakuraDeploy"
+          target="_blank"
+        >
           本地部署教程
-        </c-a>
-        /
+        </n-a>
+        <template v-if="community.enabled && community.guides.sakuraDeploy">
+          /
+        </template>
         <span>
-          <c-a to="/forum/65719bf16843e12bd3a4dc98" target="_blank">
+          <n-a
+            v-if="community.enabled && community.guides.sakuraDownload"
+            :href="community.guides.sakuraDownload"
+            target="_blank"
+          >
             AutoDL教程
-          </c-a>
-          :
+          </n-a>
+          <template v-if="community.enabled && community.guides.sakuraDownload">
+            :
+          </template>
           <n-a
             href="https://www.autodl.com/console/instance/list"
             target="_blank"

@@ -1,5 +1,7 @@
+import { MyStrikeListView } from '@novelia/web-kit';
 import type { LocationQuery } from 'vue-router';
 import { createRouter, createWebHistory } from 'vue-router';
+import { authReturnPath } from './authReturnPath';
 
 const parseSelected = (q: LocationQuery) => {
   const selected = <number[]>[];
@@ -16,19 +18,7 @@ const parseSelected = (q: LocationQuery) => {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    {
-      path: '/*',
-      children: [
-        {
-          path: '/auth',
-          name: 'auth',
-          meta: { title: '统一身份认证' },
-          component: () => import('./pages/Auth.vue'),
-          props: (route) => ({ from: route.query.from }),
-        },
-      ],
-    },
-
+    { path: '/auth', redirect: (to) => authReturnPath(to.query.from) },
     {
       path: '/*',
       meta: { isReader: true },
@@ -53,6 +43,12 @@ const router = createRouter({
       path: '/*',
       component: () => import('./pages/MainLayout.vue'),
       children: [
+        {
+          path: '/strikes',
+          name: 'strikes',
+          meta: { title: '处罚记录' },
+          component: MyStrikeListView,
+        },
         {
           path: '/',
           meta: { title: '首页' },
@@ -221,41 +217,6 @@ const router = createRouter({
               component: () => import('./pages/workspace/Toolbox.vue'),
             },
           ],
-        },
-
-        {
-          path: '/forum',
-          meta: { title: '论坛' },
-          component: () => import('./pages/forum/Forum.vue'),
-          props: (route) => ({
-            page: Number(route.query.page) || 1,
-            category: route.query.category || 'General',
-          }),
-        },
-        {
-          path: '/forum/:articleId',
-          component: () => import('./pages/forum/ForumArticle.vue'),
-          props: (route) => ({
-            articleId: route.params.articleId,
-            key: route.path,
-          }),
-        },
-        {
-          path: '/forum-edit',
-          meta: { title: '发布文章' },
-          component: () => import('./pages/forum/ForumArticleEdit.vue'),
-          props: (route) => ({
-            key: route.path,
-          }),
-        },
-        {
-          path: '/forum-edit/:articleId',
-          meta: { title: '编辑文章' },
-          component: () => import('./pages/forum/ForumArticleEdit.vue'),
-          props: (route) => ({
-            articleId: route.params.articleId,
-            key: route.path,
-          }),
         },
 
         {

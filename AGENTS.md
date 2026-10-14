@@ -40,8 +40,10 @@ The upstream has removed this feature entirely. When merging upstream updates, y
 - `web/src/pages/novel/components/WebNovelNarrow.vue` — binds themeGlossaryId
 - `web/src/pages/novel/components/WebTranslate.vue` — passes themeGlossaryId prop
 - `web/src/pages/novel/WenkuNovel.vue` — binds themeGlossaryId into TranslateOptions
-- `web/src/api/novel/WebNovelApi.ts` — `themeGlossaryId` in updateGlossary
-- `web/src/api/novel/WenkuNovelApi.ts` — `themeGlossaryId` in updateGlossary
+- `web/src/api/WebNovelApi.ts` — canonical `themeGlossaryId` in updateGlossary
+- `web/src/api/WenkuNovelApi.ts` — canonical `themeGlossaryId` in updateGlossary
+- `web/src/api/novel/WebNovelApi.ts` — compatibility re-export; keep this file
+- `web/src/api/novel/WenkuNovelApi.ts` — compatibility re-export; keep this file
 - `web/src/model/WebNovel.ts` — `themeGlossaryId` field
 - `web/src/model/WenkuNovel.ts` — `themeGlossaryId` field
 
@@ -68,7 +70,7 @@ When merging upstream, replace all hardcoded `n.novelia.cc` references with `boo
 
 - `web/vite.config.ts` — `apiUrl` default and `/files-extra` proxy target
 - `web/src/components/markdown/MarkdownView.vue` — `currentHost` fallback
-- `web/src/api/auth/session.ts` — auth service must remain `auth.kotoban.top`
+- `web/src/config.ts` and `web/src/webKit.ts` — auth service must remain `auth.kotoban.top`; the old auth-api wrapper is retired
 
 Exception: `monitor.novelia.cc` is an upstream external service URL — do NOT replace it.
 
@@ -154,6 +156,30 @@ The manifest must record:
 - accepted upstream commits or accepted groups
 - rejected upstream removals and fork adaptations
 - validation results
+
+### 9. Approved Community Retirement and Web-Kit Integration
+
+The maintainer approved retiring the unused built-in forum/comments on 2026-10-14.
+
+- Follow upstream removal of legacy Article/Comment routes, repositories, DTOs,
+  forum pages, and the local username blacklist. Do not recreate those APIs.
+- Preserve existing MongoDB collections and backups. Removing code does not
+  authorize dropping collections or migrating data to an external forum.
+- Keep upstream community components behind one deployment setting, disabled
+  by default. Disabled community must not mount comment queries, create external
+  clients, or expose forum links/settings. User `hideComment` is only a preference.
+- There is no default external forum URL. Never direct this installation to
+  `forum.novelia.cc` or send its auth token there.
+- Use upstream web-kit for login/layout/theme; pin the SDK revision selected by
+  Auto-Novel upstream. Record the Auto-Novel, SDK, and Auth revisions separately.
+- Preserve local/native API mode and remote auth proxy behavior. Development
+  credentials must never reach production auth or external services.
+- Keep the web-kit instance outside the application entry module to avoid
+  API/store/App initialization cycles. Retain one-time storage compatibility,
+  new-key precedence, and logout protection against restoring old sessions.
+- ThemeGlossary remains mandatory. Adapt its identity checks to web-kit while
+  preserving binding, merge order, dirty drafts, and route-navigation guards.
+- Retain administrator-only full-index synchronization and its JWT route tests.
 
 ## Upstream Merge Checklist
 

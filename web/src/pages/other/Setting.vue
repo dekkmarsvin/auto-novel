@@ -1,5 +1,7 @@
 <script lang="ts" setup>
+import { useWebKit } from '@novelia/web-kit';
 import { SiteSettingApi, formatError } from '@/api';
+import { community } from '@/config';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
 import {
   Setting,
@@ -28,6 +30,7 @@ const clearWenkuSearchHistory = () => {
 const playSound = (source: string) => {
   return new Audio(source).play();
 };
+const { theme } = useWebKit();
 
 const { whoami } = storeToRefs(useWhoamiStore());
 
@@ -63,7 +66,8 @@ const saveNailainPassword = async () => {
         <n-flex vertical>
           <b>主题</b>
           <c-radio-group
-            v-model:value="setting.theme"
+            :value="theme.preference.value"
+            @update:value="theme.setPreference($event)"
             :options="Setting.themeOptions"
             size="small"
           />
@@ -106,11 +110,17 @@ const saveNailainPassword = async () => {
               不影响无分章的网络小说
             </n-tooltip>
           </n-checkbox>
-          <b>评论</b>
-          <n-checkbox v-model:checked="setting.hideCommmentWebNovel">
+          <b v-if="community.enabled">评论</b>
+          <n-checkbox
+            v-if="community.enabled"
+            v-model:checked="setting.hideCommmentWebNovel"
+          >
             隐藏网络小说评论
           </n-checkbox>
-          <n-checkbox v-model:checked="setting.hideCommmentWenkuNovel">
+          <n-checkbox
+            v-if="community.enabled"
+            v-model:checked="setting.hideCommmentWenkuNovel"
+          >
             隐藏文库小说评论
           </n-checkbox>
           <b>收藏夹</b>
@@ -187,15 +197,6 @@ const saveNailainPassword = async () => {
               size="small"
               @action="clearWenkuSearchHistory"
             />
-          </n-flex>
-        </n-flex>
-      </n-list-item>
-
-      <n-list-item>
-        <n-flex vertical>
-          <b>黑名单</b>
-          <n-flex>
-            <user-block-button />
           </n-flex>
         </n-flex>
       </n-list-item>

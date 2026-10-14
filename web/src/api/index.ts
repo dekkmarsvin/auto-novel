@@ -1,6 +1,12 @@
 import { HTTPError, TimeoutError } from 'ky';
 
-export * from './novel';
+export * from './CommentApi';
+export * from './FavoredApi';
+export * from './ReadHistoryApi';
+export * from './WebNovelApi';
+export * from './WenkuNovelApi';
+export * from './ThemeGlossaryApi';
+export * from './SiteSettingApi';
 
 export const formatError = async (error: unknown) => {
   if (error instanceof HTTPError) {

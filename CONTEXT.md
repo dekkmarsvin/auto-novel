@@ -2,6 +2,11 @@
 
 This context describes how this fork relates to upstream while preserving fork-specific product capabilities.
 
+The 2026-10-14 integration retires the unused built-in forum/comments and follows
+upstream web-kit architecture. ThemeGlossary, site/deployment configuration and
+security fixes remain maintained fork capabilities. Community UI is disabled by
+default at a single installation boundary; existing database records are retained.
+
 ## Language
 
 **Selective Feature Sync**:
