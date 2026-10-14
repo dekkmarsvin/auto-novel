@@ -19,12 +19,11 @@ export namespace ThemeGlossaryApi {
     name: string,
     glossary: Glossary,
   ): Promise<void> => {
-    return client
-      .put(`theme-glossary/${id}`, { json: { name, glossary } })
-      .json<void>();
+    // Ktor returns an empty success response for Unit; there is no JSON to parse.
+    await client.put(`theme-glossary/${id}`, { json: { name, glossary } });
   };
 
   export const deleteGlossary = async (id: string): Promise<void> => {
-    return client.delete(`theme-glossary/${id}`).json<void>();
+    await client.delete(`theme-glossary/${id}`);
   };
 }
