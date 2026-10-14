@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useWebKit } from '@novelia/web-kit';
-import { SiteSettingApi, formatError } from '@/api';
+import { SiteSettingApi } from '@/api';
 import { community } from '@/config';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
 import {
@@ -10,6 +10,7 @@ import {
   useWenkuSearchHistoryStore,
   useWhoamiStore,
 } from '@/stores';
+import { useNailainPasswordDraft } from './nailainPasswordDraft';
 import { InfoOutlined } from '@vicons/material';
 
 const message = useMessage();
@@ -34,27 +35,21 @@ const { theme } = useWebKit();
 
 const { whoami } = storeToRefs(useWhoamiStore());
 
-const nailainPassword = ref('');
-watch(
-  () => whoami.value.isAdmin,
-  async (isAdmin) => {
-    if (!isAdmin) return;
-    try {
-      nailainPassword.value = await SiteSettingApi.getNailainPassword();
-    } catch (e) {
-      message.error('读取合言葉失败：' + (await formatError(e)));
-    }
-  },
-  { immediate: true },
+const nailainDraft = useNailainPasswordDraft(
+  () =>
+    whoami.value.isAdmin
+      ? `${whoami.value.user?.id}:${whoami.value.user?.username}`
+      : null,
+  SiteSettingApi,
+  (kind, text) => message[kind](text),
 );
-const saveNailainPassword = async () => {
-  try {
-    await SiteSettingApi.setNailainPassword(nailainPassword.value);
-    message.success('合言葉已保存');
-  } catch (e) {
-    message.error('保存失败：' + (await formatError(e)));
-  }
-};
+const {
+  password: nailainPassword,
+  loading: nailainLoading,
+  saving: nailainSaving,
+  canSave: nailainCanSave,
+} = nailainDraft;
+const saveNailainPassword = nailainDraft.save;
 </script>
 
 <template>
@@ -219,15 +214,22 @@ const saveNailainPassword = async () => {
       <n-list-item v-if="whoami.isAdmin">
         <n-flex vertical>
           <b>NAILAIN ARCHIVE 合言葉（管理员）</b>
-          源站合言葉每月轮换，更新后服务器爬虫立即使用新值。
+          源站合言葉每月轮换。保存后仅在下次源站登录时读取新值，已有登录会话不会立即撤销。清空保存会回退到服务器
+          NAILAIN_PASSWORD；两者均为空时无法重新登录。
           <n-input-group>
             <n-input
-              v-model:value="nailainPassword"
+              :value="nailainPassword"
+              @update:value="nailainDraft.edit"
+              type="password"
+              show-password-on="click"
+              :disabled="nailainSaving"
               placeholder="本月合言葉"
               :input-props="{ autocomplete: 'off' }"
             />
             <c-button
               label="保存"
+              :disabled="!nailainCanSave"
+              :loading="nailainLoading || nailainSaving"
               type="primary"
               @action="saveNailainPassword"
             />

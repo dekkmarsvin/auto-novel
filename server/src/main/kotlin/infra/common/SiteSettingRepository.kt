@@ -38,3 +38,7 @@ class SiteSettingRepository(
         const val NAILAIN_PASSWORD = "nailain-password"
     }
 }
+
+// Empty Mongo value restores the environment fallback; DB failure must not silently change credentials.
+suspend fun resolveNailainPassword(readSetting: suspend () -> String?, environment: () -> String?): String? =
+    readSetting()?.takeIf { it.isNotEmpty() } ?: environment()

@@ -101,6 +101,7 @@ export class Nailain implements WebNovelProvider {
   private get(url: string) {
     return this.client.get(url, {
       throwHttpErrors: false,
+      retry: 0,
       headers: this.cookie ? { cookie: this.cookie } : {},
     });
   }
@@ -113,12 +114,16 @@ export class Nailain implements WebNovelProvider {
     }
     const resp = await this.client.post(`${BASE_URL}/login`, {
       throwHttpErrors: false,
+      retry: 0,
       redirect: 'manual',
       body: new URLSearchParams({ password: this.password, next: '/' }),
     });
     // 成功时返回 303（浏览器中 manual 重定向表现为 opaqueredirect / status 0），失败为 401
     if (resp.status === 401) {
       throw new CrawlerAuthError('NAILAIN ARCHIVE 合言葉错误，可能已到月更换');
+    }
+    if (resp.status !== 303 && resp.status !== 0 && !resp.ok) {
+      throw new CrawlerAuthError('NAILAIN ARCHIVE 登录失败');
     }
     const setCookie = resp.headers.get('set-cookie');
     const session = setCookie && /na_session=[^;]+/.exec(setCookie)?.[0];

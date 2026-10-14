@@ -1,0 +1,33 @@
+name: NAILAIN offline regressions
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nailain-offline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  crawler-and-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @auto-novel/crawler test tests/web/nailain.offline.test.ts
+      - run: pnpm --filter @auto-novel/web test tests/nailainPasswordDraft.test.ts
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6.4.0
+      - run: ./gradlew --no-daemon test --tests api.SiteSettingRouteTest --tests infra.provider.providers.NailainOfflineTest --tests infra.common.SiteSettingRepositoryTest
+        working-directory: server

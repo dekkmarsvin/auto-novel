@@ -128,10 +128,10 @@ val appModule = module {
             pixivPhpsessid = env("PIXIV_COOKIE_PHPSESSID"),
             // 界面设置优先，环境变量作为后备
             nailainPassword = {
-                runCatching { siteSetting.get(SiteSettingRepository.NAILAIN_PASSWORD) }
-                    .getOrNull()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?: env("NAILAIN_PASSWORD")
+                infra.common.resolveNailainPassword(
+                    { siteSetting.get(SiteSettingRepository.NAILAIN_PASSWORD) },
+                    { env("NAILAIN_PASSWORD") },
+                )
             },
         )
     }

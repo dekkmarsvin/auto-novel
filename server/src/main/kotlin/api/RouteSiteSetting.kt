@@ -2,6 +2,9 @@ package api
 
 import api.plugins.*
 import infra.common.SiteSettingRepository
+import io.ktor.server.application.*
+import io.ktor.http.*
+import io.ktor.server.response.*
 import io.ktor.resources.*
 import io.ktor.server.request.*
 import io.ktor.server.resources.*
@@ -21,19 +24,34 @@ fun Route.routeSiteSetting() {
 
     authenticateDb {
         get<NailainPasswordRes> {
+            call.response.header(HttpHeaders.CacheControl, "no-store")
             val user = call.user()
-            call.tryRespond {
+            call.respondSetting {
                 user.requireAdmin()
                 NailainPasswordBody(repo.get(SiteSettingRepository.NAILAIN_PASSWORD) ?: "")
             }
         }
         put<NailainPasswordRes> {
+            call.response.header(HttpHeaders.CacheControl, "no-store")
             val user = call.user()
-            val body = call.receive<NailainPasswordBody>()
-            call.tryRespond {
+
+            call.respondSetting {
                 user.requireAdmin()
+                val body = call.receive<NailainPasswordBody>()
                 repo.set(SiteSettingRepository.NAILAIN_PASSWORD, body.password.trim())
             }
         }
+    }
+}
+
+// Database exceptions can contain command documents. Do not log/return their messages here.
+private suspend inline fun <reified T : Any> ApplicationCall.respondSetting(block: () -> T) {
+    try {
+        val result = block()
+        if (result is Unit) response.status(HttpStatusCode.OK) else respond(result)
+    } catch (e: HttpException) {
+        respond(e.status, e.message)
+    } catch (_: Exception) {
+        respond(HttpStatusCode.InternalServerError, "站点设置操作失败")
     }
 }
