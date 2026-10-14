@@ -1,16 +1,16 @@
 {
-  "host": "127.0.0.1",
+  "host": "::",
   "port": 3000,
   "proxyDbPath": "data/crawler-proxies.db",
   "defaultProxies": [
     {
       "protocol": "http",
-      "host": "127.0.0.1",
+      "host": "::",
       "port": 8899
     },
     {
       "protocol": "http",
-      "host": "127.0.0.1",
+      "host": "::",
       "port": 7890
     },
     {

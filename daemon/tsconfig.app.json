@@ -21,6 +21,7 @@
     "./src/app/**/*",
     "src/proxy",
     "src/services",
+    "src/adminAuth.ts",
     "src/config.ts",
     "src/createApp.ts",
     "src/index.ts",
