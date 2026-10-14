@@ -31,7 +31,7 @@ describe('ProxyManager', () => {
     expect(renewed?.config.host).toBe('proxy.test');
   });
 
-  test('cycles through multiple proxies by weight', () => {
+  test('selects both proxy candidates at the draw boundaries', () => {
     // Exercise both ends of the weighted draw without a random CI failure.
     vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValue(0.99);
     const manager = createManager({ failThreshold: 3 });

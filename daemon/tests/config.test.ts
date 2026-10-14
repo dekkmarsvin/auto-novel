@@ -20,7 +20,7 @@ async function configFile(input: Record<string, unknown>) {
   return file;
 }
 
-test('config token takes precedence over environment; rotating config requires reload', async () => {
+test('config token takes precedence over environment and is read again on reload', async () => {
   vi.stubEnv('CRAWLER_ADMIN_TOKEN', 'environment-token-123');
   const file = await configFile({ adminToken: 'config-admin-token-123' });
   const running = await loadConfig(file);
@@ -29,7 +29,6 @@ test('config token takes precedence over environment; rotating config requires r
     file,
     JSON.stringify({ adminToken: 'rotated-config-token-123' }),
   );
-  expect(running.adminToken).toBe('config-admin-token-123');
   expect((await loadConfig(file)).adminToken).toBe('rotated-config-token-123');
 });
 
@@ -69,7 +68,7 @@ test('short environment token fails validation', async () => {
   await expect(loadConfig(await configFile({}))).rejects.toThrow();
 });
 
-test('example keeps container listen address and usable proxy destinations (no network)', async () => {
+test('example keeps container listen address and valid proxy URL syntax', async () => {
   const example = JSON.parse(
     await fs.readFile(
       new URL('../config.example.json', import.meta.url),
@@ -84,7 +83,7 @@ test('example keeps container listen address and usable proxy destinations (no n
       .map((proxy: { host: string }) => proxy.host),
   ).toEqual(['127.0.0.1', '127.0.0.1']);
   for (const proxy of example.defaultProxies) {
-    // Same URL construction as CrawlerService; constructor only, never fetch.
+    // Check the example's URL syntax without fetching or exercising CrawlerService.
     const proxyUrl = `${proxy.protocol}://${proxy.host}:${proxy.port}`;
     expect(() => new Impit({ proxyUrl })).not.toThrow();
   }

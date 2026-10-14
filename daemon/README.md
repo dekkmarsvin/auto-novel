@@ -36,7 +36,7 @@ The example Compose publishes `127.0.0.1:3000:3000`: callers on the Docker host 
 
 For remote administration, use an authenticated SSH tunnel to the host's loopback port, or deliberately configure appropriate network access. A valid admin token does not make a loopback-only published port reachable from the LAN. Keep tokens out of URLs and use encrypted transport for remote calls.
 
-The daemon is deployed separately using `daemon/docker-compose.yml`. Updating the root Compose API/Web services does not deploy or restart it. The deployer must rebuild the daemon image, configure its token/proxy destinations, and recreate its container. No deployment is performed by the offline test workflow.
+The daemon is deployed separately using `daemon/docker-compose.yml`. Updating the root Compose API/Web services does not deploy or restart it. The deployer must rebuild the daemon image, configure its token/proxy destinations, and recreate its container. The Build workflow runs offline tests and does not deploy the daemon.
 
 `POST /shutdown` requires the same admin authentication and responds with `202 Accepted` before scheduling graceful shutdown. A Bearer token takes precedence over `X-Admin-Token` when both are provided.
 
