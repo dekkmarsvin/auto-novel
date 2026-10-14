@@ -33,6 +33,12 @@ jobs:
       - name: Build workspace
         run: npm run build
 
+      - name: Typecheck the active daemon entry and routes
+        run: pnpm --filter @auto-novel/daemon exec tsc -p tsconfig.app.json --noEmit
+
+      - name: Verify daemon offline regressions
+        run: pnpm --filter @auto-novel/daemon test
+
       - name: Verify web regressions
         run: pnpm --filter @auto-novel/web test
 

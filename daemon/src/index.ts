@@ -1,14 +1,14 @@
 import { Command } from 'commander';
 import { mapValues } from 'lodash-es';
-import { Server } from 'node:http';
+import { createServer, Server } from 'node:http';
 
+import { mountAdminRoutes } from '@/adminRoutes';
 import { loadConfig } from '@/config';
 import { createApp } from '@/createApp';
 import manifest from '@/package.json';
 import {
   CrawlerService,
   createCrawlerRouter,
-  createProxyRouter,
   ProxyManager,
   ProxyStore,
 } from '@/services';
@@ -41,31 +41,15 @@ async function main() {
   });
 
   const router = createCrawlerRouter(crawlerService);
-  const proxyRouter = createProxyRouter(proxyManager);
   const app = createApp(config, { router });
-  app.use('/proxies', proxyRouter);
 
-  const server = app.listen(config.port, config.host, () => {
-    console.log(`Server is running on http://${config.host}:${config.port}`);
-  });
-
+  const server = createServer(app);
   const shutdown = createGracefulShutdown(server, [() => proxyStore.close()]);
 
-  app.post('/shutdown', async (req, res) => {
-    console.log('Shutdown requested via API');
+  mountAdminRoutes(app, config.adminToken, proxyManager, shutdown);
 
-    res.status(202).json({
-      message: 'Server is shutting down...',
-      uptime: process.uptime(),
-      timestamp: Date.now(),
-    });
-
-    setImmediate(() => {
-      shutdown('api-request', 0).catch((err) => {
-        console.error('Error during API shutdown:', err);
-        process.exit(1);
-      });
-    });
+  server.listen(config.port, config.host, () => {
+    console.log(`Server is running on http://${config.host}:${config.port}`);
   });
 
   try {
