@@ -208,14 +208,24 @@ function clearTaskRuntimeState(task: string): void {
 
 // ========== 全局处理循环 ==========
 
+/**
+ * 其他标签页修改工作区时，localStorage 同步会整体替换 jobs 里的对象，
+ * 执行中持有的 job 引用随之失效。写回状态前必须重新取当前对象。
+ */
+function findCurrentJob(job: TranslateJob): TranslateJobRecord | undefined {
+  return jobs.value.find(
+    (it) => it.task === job.task && it.createAt === job.createAt,
+  );
+}
+
 function updateJobCompletion(
   job: TranslateJob,
   task: TranslationTask,
   state: TaskState,
 ): void {
-  const currentJob = jobs.value.find((it) => it.task === job.task);
+  const currentJob = findCurrentJob(job);
   if (
-    currentJob?.createAt !== job.createAt ||
+    !currentJob ||
     taskCache.get(job.task) !== task ||
     taskStates.value.get(job.task) !== state
   ) {
@@ -226,7 +236,7 @@ function updateJobCompletion(
     state.chapters.every((chapter) => chapter.status === 'done') &&
     (!isSakura.value || !task.needsMetadata || metadata?.settled)
   ) {
-    job.finishAt = Date.now();
+    currentJob.finishAt = Date.now();
   }
 }
 
@@ -342,7 +352,10 @@ function runProcessLoop(): void {
               state.updateStatus(cid, st);
             },
             onProgress: (finished: number, error: number, total: number) => {
-              (job as TranslateJobRecord).progress = { finished, error, total };
+              const currentJob = findCurrentJob(job);
+              if (currentJob) {
+                currentJob.progress = { finished, error, total };
+              }
             },
             onLog: (msg: string) => console.log(`[${job.task}] ${msg}`),
             segmentTracker,
@@ -520,15 +533,15 @@ watch(
         try {
           const task = await getOrCreateTask(job.task);
           if (!task.initialized) await task.initMeta();
-          const currentJob = jobs.value.find((it) => it.task === job.task);
-          if (!currentJob || currentJob.createAt !== job.createAt) return;
+          const currentJob = findCurrentJob(job);
+          if (!currentJob) return;
           const chapters = task.chapters;
           const state = reactive(new TaskState(job.task)) as TaskState;
           state.initChapters(chapters);
           taskStates.value.set(job.task, state);
           taskVersions.value.set(job.task, job.createAt);
           const doneCount = chapters.filter((c) => c.status === 'done').length;
-          (job as TranslateJobRecord).progress = {
+          currentJob.progress = {
             finished: doneCount,
             error: 0,
             total: chapters.length,

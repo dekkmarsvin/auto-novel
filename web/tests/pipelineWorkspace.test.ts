@@ -116,6 +116,7 @@ interface Execution {
   signal: AbortSignal;
   finished: boolean;
   finish(status?: 'done' | 'error' | 'pending'): void;
+  progress(finished: number, error: number, total: number): void;
 }
 interface MetadataCall {
   id: string;
@@ -181,6 +182,7 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
       chapter: string,
       tracker: {
         onChapterStatus(id: string, status: string): void;
+        onProgress(finished: number, error: number, total: number): void;
       },
       signal: AbortSignal,
     ) =>
@@ -195,6 +197,9 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
             call.finished = true;
             tracker.onChapterStatus(chapter, status);
             resolve();
+          },
+          progress(finished, error, total) {
+            tracker.onProgress(finished, error, total);
           },
         };
         calls.push(call);
@@ -433,6 +438,27 @@ describe('pipeline workspace scheduling', () => {
     meta.resolve();
     await flush();
     expect(ws.active().map((call) => call.id)).toEqual(['first', 'late']);
+  });
+
+  it('marks the current job finished after another tab replaces the job objects', async () => {
+    const ws = await workspace();
+    ws.add('synced', 2);
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(ws.active()).toHaveLength(2);
+
+    // localStorage 的 storage 事件会用反序列化的新对象整体替换 jobs
+    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
+    await flush();
+
+    ws.calls[0].progress(1, 0, 2);
+    expect(ws.jobs.value[0]).toMatchObject({
+      progress: { finished: 1, error: 0, total: 2 },
+    });
+    ws.active().forEach((call) => call.finish());
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
   });
 
   it('keeps the 66-chapter limit when retrying failures and appending more work', async () => {
