@@ -55,7 +55,7 @@ class WebNovelHttpDataSource(
     httpsProxy: String?,
     hamelnToken: String?,
     pixivPhpsessid: String?,
-    nailainPassword: String? = null,
+    nailainPassword: suspend () -> String? = { null },
 ) {
     private val client = HttpClient(Java) {
         install(HttpCookies) {

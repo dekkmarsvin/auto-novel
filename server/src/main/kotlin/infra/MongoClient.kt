@@ -102,6 +102,7 @@ object MongoCollectionNames {
     const val WEB_OPLOG = "web-oplog"
 
     const val THEME_GLOSSARY = "theme-glossary"
+    const val SITE_SETTING = "site-setting"
 
     const val WENKU_NOVEL = "wenku-metadata"
     const val WENKU_FAVORITE = "wenku-favorite"

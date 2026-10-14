@@ -1,10 +1,12 @@
 <script lang="ts" setup>
+import { SiteSettingApi, formatError } from '@/api';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
 import {
   Setting,
   useSettingStore,
   useWebSearchHistoryStore,
   useWenkuSearchHistoryStore,
+  useWhoamiStore,
 } from '@/stores';
 import { InfoOutlined } from '@vicons/material';
 
@@ -25,6 +27,30 @@ const clearWenkuSearchHistory = () => {
 
 const playSound = (source: string) => {
   return new Audio(source).play();
+};
+
+const { whoami } = storeToRefs(useWhoamiStore());
+
+const nailainPassword = ref('');
+watch(
+  () => whoami.value.isAdmin,
+  async (isAdmin) => {
+    if (!isAdmin) return;
+    try {
+      nailainPassword.value = await SiteSettingApi.getNailainPassword();
+    } catch (e) {
+      message.error('读取合言葉失败：' + (await formatError(e)));
+    }
+  },
+  { immediate: true },
+);
+const saveNailainPassword = async () => {
+  try {
+    await SiteSettingApi.setNailainPassword(nailainPassword.value);
+    message.success('合言葉已保存');
+  } catch (e) {
+    message.error('保存失败：' + (await formatError(e)));
+  }
 };
 </script>
 
@@ -186,6 +212,25 @@ const playSound = (source: string) => {
           <n-checkbox v-model:checked="setting.searchLocaleAware">
             支持繁体搜索（不稳定）
           </n-checkbox>
+        </n-flex>
+      </n-list-item>
+
+      <n-list-item v-if="whoami.isAdmin">
+        <n-flex vertical>
+          <b>NAILAIN ARCHIVE 合言葉（管理员）</b>
+          源站合言葉每月轮换，更新后服务器爬虫立即使用新值。
+          <n-input-group>
+            <n-input
+              v-model:value="nailainPassword"
+              placeholder="本月合言葉"
+              :input-props="{ autocomplete: 'off' }"
+            />
+            <c-button
+              label="保存"
+              type="primary"
+              @action="saveNailainPassword"
+            />
+          </n-input-group>
         </n-flex>
       </n-list-item>
     </n-list>

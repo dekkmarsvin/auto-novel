@@ -131,7 +131,7 @@ cd auto-novel
 cat > .env << EOF
 HTTPS_PROXY=              # web 小说代理，可以为空
 PIXIV_COOKIE_PHPSESSID=   # Pixiv Cookie，用于爬取P站小说，可以为空
-NAILAIN_PASSWORD=         # NAILAIN ARCHIVE 本月合言葉（每月轮换），可以为空
+NAILAIN_PASSWORD=         # NAILAIN ARCHIVE 合言葉后备值；优先使用管理员在设置页面填写的值，可以为空
 
 # 以下字段个人部署不需要填写
 ACCESS_TOKEN_SECRET=

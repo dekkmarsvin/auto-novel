@@ -4,3 +4,4 @@ export * from './FavoredApi';
 export * from './ReadHistoryApi';
 export * from './WebNovelApi';
 export * from './WenkuNovelApi';
+export * from './SiteSettingApi';

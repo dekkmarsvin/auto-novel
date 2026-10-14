@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 // 站点以每月轮换的合言葉保护，登录后的 na_session cookie 由 client 的 HttpCookies 保存。
 class Nailain(
     private val client: HttpClient,
-    private val password: String?,
+    private val password: suspend () -> String?,
 ) : WebNovelProvider {
     companion object {
         const val id = "nailain"
@@ -66,6 +66,7 @@ class Nailain(
     }
 
     private suspend fun login() {
+        val password = password()
         if (password.isNullOrEmpty()) {
             throw NovelAccessDeniedException()
         }
@@ -78,7 +79,7 @@ class Nailain(
             },
         ) { expectSuccess = false }.status
         if (status == HttpStatusCode.Unauthorized) {
-            throw WebNovelProviderException("NAILAIN 合言葉错误，请更新 NAILAIN_PASSWORD")
+            throw WebNovelProviderException("NAILAIN 合言葉错误，请在设置页面更新本月合言葉")
         }
         if (status != HttpStatusCode.SeeOther && !status.isSuccess()) {
             throw WebNovelProviderException("NAILAIN 登录失败：$status")
