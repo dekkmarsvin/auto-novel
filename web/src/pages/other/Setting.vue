@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useWebKit } from '@novelia/web-kit';
+import { SiteSettingApi } from '@/api';
 import { community } from '@/config';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
 import {
@@ -7,7 +8,9 @@ import {
   useSettingStore,
   useWebSearchHistoryStore,
   useWenkuSearchHistoryStore,
+  useWhoamiStore,
 } from '@/stores';
+import { useNailainPasswordDraft } from './nailainPasswordDraft';
 import { InfoOutlined } from '@vicons/material';
 
 const message = useMessage();
@@ -29,6 +32,24 @@ const playSound = (source: string) => {
   return new Audio(source).play();
 };
 const { theme } = useWebKit();
+
+const { whoami } = storeToRefs(useWhoamiStore());
+
+const nailainDraft = useNailainPasswordDraft(
+  () =>
+    whoami.value.isAdmin
+      ? `${whoami.value.user?.id}:${whoami.value.user?.username}`
+      : null,
+  SiteSettingApi,
+  (kind, text) => message[kind](text),
+);
+const {
+  password: nailainPassword,
+  loading: nailainLoading,
+  saving: nailainSaving,
+  canSave: nailainCanSave,
+} = nailainDraft;
+const saveNailainPassword = nailainDraft.save;
 </script>
 
 <template>
@@ -187,6 +208,32 @@ const { theme } = useWebKit();
           <n-checkbox v-model:checked="setting.searchLocaleAware">
             支持繁体搜索（不稳定）
           </n-checkbox>
+        </n-flex>
+      </n-list-item>
+
+      <n-list-item v-if="whoami.isAdmin">
+        <n-flex vertical>
+          <b>NAILAIN ARCHIVE 合言葉（管理员）</b>
+          源站合言葉每月轮换。保存后仅在下次源站登录时读取新值，已有登录会话不会立即撤销。清空保存会回退到服务器
+          NAILAIN_PASSWORD；两者均为空时无法重新登录。
+          <n-input-group>
+            <n-input
+              :value="nailainPassword"
+              @update:value="nailainDraft.edit"
+              type="password"
+              show-password-on="click"
+              :disabled="nailainSaving"
+              placeholder="本月合言葉"
+              :input-props="{ autocomplete: 'off' }"
+            />
+            <c-button
+              label="保存"
+              :disabled="!nailainCanSave"
+              :loading="nailainLoading || nailainSaving"
+              type="primary"
+              @action="saveNailainPassword"
+            />
+          </n-input-group>
         </n-flex>
       </n-list-item>
     </n-list>

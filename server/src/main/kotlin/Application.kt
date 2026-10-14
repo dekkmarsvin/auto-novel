@@ -19,6 +19,7 @@ import infra.wenku.datasource.WenkuNovelEsDataSource
 import infra.wenku.datasource.WenkuNovelVolumeDiskDataSource
 import infra.wenku.repository.WenkuNovelMetadataRepository
 import infra.wenku.repository.WenkuNovelVolumeRepository
+import infra.common.SiteSettingRepository
 import infra.common.ThemeGlossaryRepository
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -92,6 +93,7 @@ fun Route.routeApplicationApi() {
     routeWebNovel()
     routeWenkuNovel()
     routeThemeGlossary()
+    routeSiteSetting()
 }
 
 val appModule = module {
@@ -119,10 +121,18 @@ val appModule = module {
     // Data layer: Data Source
     singleOf(::WebNovelEsDataSource)
     single {
+        val siteSetting = get<SiteSettingRepository>()
         WebNovelHttpDataSource(
             httpsProxy = env("HTTPS_PROXY"),
             hamelnToken = env("HAMELN_TOKEN"),
             pixivPhpsessid = env("PIXIV_COOKIE_PHPSESSID"),
+            // 界面设置优先，环境变量作为后备
+            nailainPassword = {
+                infra.common.resolveNailainPassword(
+                    { siteSetting.get(SiteSettingRepository.NAILAIN_PASSWORD) },
+                    { env("NAILAIN_PASSWORD") },
+                )
+            },
         )
     }
 
@@ -146,6 +156,7 @@ val appModule = module {
     singleOf(::WenkuNovelFavoredRepository)
 
     singleOf(::ThemeGlossaryRepository)
+    singleOf(::SiteSettingRepository)
 
     // App Layer
     singleOf(::OperationHistoryApi)

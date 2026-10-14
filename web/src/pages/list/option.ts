@@ -57,6 +57,7 @@ export function getWebListOptions(allowNsfw: boolean): WebListOptions {
         'Hameln',
         'Pixiv',
         'Alphapolis',
+        'NAILAIN',
       ],
       multiple: true,
     },
@@ -88,6 +89,7 @@ export function parseWebListValueProvider(v: number): string {
     'hameln',
     'pixiv',
     'alphapolis',
+    'nailain',
   ];
 
   return tags.filter((_, index) => (v & (1 << index)) !== 0).join();

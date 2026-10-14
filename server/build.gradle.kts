@@ -64,6 +64,8 @@ dependencies {
     implementation("io.github.crackthecodeabhi:kreds:0.9.1")
 
     val kotestVersion = "5.9.1"
+    testImplementation("io.mockk:mockk:1.13.17")
+    testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest.extensions:kotest-extensions-koin:1.1.0")

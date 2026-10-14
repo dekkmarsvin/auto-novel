@@ -131,6 +131,7 @@ cd auto-novel
 cat > .env << EOF
 HTTPS_PROXY=              # web 小说代理，可以为空
 PIXIV_COOKIE_PHPSESSID=   # Pixiv Cookie，用于爬取P站小说，可以为空
+NAILAIN_PASSWORD=         # NAILAIN ARCHIVE 合言葉后备值；优先使用管理员在设置页面填写的值，可以为空
 
 # 以下字段个人部署不需要填写
 ACCESS_TOKEN_SECRET=
@@ -145,3 +146,5 @@ docker compose up -d
 ```
 
 启动后，访问 http://localhost 即可。
+
+NAILAIN 的公开读取、管理员合言葉设置、生效时机及备份边界见 [NAILAIN contract](docs/nailain.md)。

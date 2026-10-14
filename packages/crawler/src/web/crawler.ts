@@ -12,6 +12,7 @@ import { CrawlerInputError } from '@/errors';
 import { Alphapolis } from './alphapolis';
 import { Hameln } from './hameln';
 import { Kakuyomu } from './kakuyomu';
+import { Nailain } from './nailain';
 import { Novelup } from './novelup';
 import { Pixiv } from './pixiv';
 import { Syosetu } from './syosetu';
@@ -22,6 +23,7 @@ type ProviderId =
   | 'alphapolis'
   | 'hameln'
   | 'kakuyomu'
+  | 'nailain'
   | 'novelup'
   | 'pixiv'
   | 'syosetu';
@@ -39,6 +41,7 @@ export class WebNovelCrawler {
       pixiv: () => new Pixiv(ky),
       novelup: () => new Novelup(ky),
       kakuyomu: () => new Kakuyomu(ky),
+      nailain: () => new Nailain(ky),
       syosetu: () => new Syosetu(ky, { concurrency: 2 }),
     };
 
