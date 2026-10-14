@@ -31,6 +31,12 @@ describe('provider', () => {
     ]);
   });
 
+  it('nailain', () => {
+    test_parse_url('nailain', [
+      ['https://nailain.alwaysdata.net/posts/12612524', '12612524'],
+    ]);
+  });
+
   it('novelup', () => {
     test_parse_url('novelup', [
       ['https://novelup.plus/story/206612087', '206612087'],

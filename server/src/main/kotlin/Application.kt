@@ -125,6 +125,7 @@ val appModule = module {
             httpsProxy = env("HTTPS_PROXY"),
             hamelnToken = env("HAMELN_TOKEN"),
             pixivPhpsessid = env("PIXIV_COOKIE_PHPSESSID"),
+            nailainPassword = env("NAILAIN_PASSWORD"),
         )
     }
 

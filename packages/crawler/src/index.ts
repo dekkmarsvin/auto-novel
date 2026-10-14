@@ -22,6 +22,7 @@ export { Alphapolis } from '@/web/alphapolis';
 export { WebNovelCrawler } from '@/web/crawler';
 export { Hameln } from '@/web/hameln';
 export { Kakuyomu } from '@/web/kakuyomu';
+export { Nailain } from '@/web/nailain';
 export { Novelup } from '@/web/novelup';
 export { Pixiv } from '@/web/pixiv';
 export { Syosetu } from '@/web/syosetu';

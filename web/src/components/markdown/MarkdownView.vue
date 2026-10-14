@@ -129,6 +129,7 @@ onMounted(() => {
     'alphapolis',
     'hameln',
     'kakuyomu',
+    'nailain',
     'novelup',
     'pixiv',
     'syosetu',

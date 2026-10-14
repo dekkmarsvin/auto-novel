@@ -28,6 +28,7 @@ services:
       - ACCESS_TOKEN_SECRET
       - HAMELN_TOKEN
       - PIXIV_COOKIE_PHPSESSID
+      - NAILAIN_PASSWORD
       - DB_HOST_MONGO=mongo
       - DB_HOST_ES=elasticsearch
       - DB_HOST_REDIS=redis
@@ -57,7 +58,7 @@ services:
     environment:
       - xpack.security.enabled=false
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - 'ES_JAVA_OPTS=-Xms2g -Xmx2g'
     ulimits:
       memlock:
         soft: -1

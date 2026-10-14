@@ -104,6 +104,18 @@ const alphapolis: Provider = {
   },
 };
 
+const nailain: Provider = {
+  parseUrl(url: string): string | undefined {
+    return /nailain\.alwaysdata\.net\/posts\/([0-9]+)/.exec(url)?.[1];
+  },
+  buildNovelUrl(novelId: string): string {
+    return `https://nailain.alwaysdata.net/posts/${novelId}`;
+  },
+  buildChapterUrl(novelId: string): string {
+    return `https://nailain.alwaysdata.net/posts/${novelId}`;
+  },
+};
+
 // 弃用，为了兼容以前的小说暂时保留
 const novelism: Provider = {
   parseUrl(url: string): string | undefined {
@@ -124,6 +136,7 @@ const providers: { [id: string]: Provider } = {
   hameln,
   pixiv,
   alphapolis,
+  nailain,
   novelism,
 };
 

@@ -37,6 +37,7 @@ export function getWebFavoredListOptions(
         'Hameln',
         'Pixiv',
         'Alphapolis',
+        'NAILAIN',
       ],
       multiple: true,
     },

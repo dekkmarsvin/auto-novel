@@ -55,6 +55,7 @@ class WebNovelHttpDataSource(
     httpsProxy: String?,
     hamelnToken: String?,
     pixivPhpsessid: String?,
+    nailainPassword: String? = null,
 ) {
     private val client = HttpClient(Java) {
         install(HttpCookies) {
@@ -91,6 +92,7 @@ class WebNovelHttpDataSource(
         Alphapolis.id to Alphapolis(client),
         Hameln.id to Hameln(client, useProxy = hamelnToken != null),
         Kakuyomu.id to Kakuyomu(client),
+        Nailain.id to Nailain(client, nailainPassword),
         Novelup.id to Novelup(client),
         Pixiv.id to Pixiv(client),
         Syosetu.id to Syosetu(client),
