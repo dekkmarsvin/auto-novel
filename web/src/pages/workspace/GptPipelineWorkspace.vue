@@ -90,13 +90,20 @@ const workerErrors = computed(() => {
   return errors;
 });
 const executingTasks = reactive(new Set<string>());
-/** 已开始翻译元数据的任务，每个任务只翻译一次 */
-const metadataStartedTasks = new Set<string>();
+interface MetadataState {
+  task: TranslationTask;
+  createAt: number;
+  controller: AbortController;
+  settled: boolean;
+}
+/** 元数据独立于章节窗口；已结束的尝试保留到任务清除，避免重复上传。 */
+const metadataTasks = new Map<string, MetadataState>();
 
 let processLoopAbortController: AbortController | null = null;
 let activeProcessors = 0;
 
 onUnmounted(() => {
+  abortMetadataTasks();
   pipeline.clearLoops();
   pipeline.queue.clear();
   processLoopAbortController?.abort();
@@ -169,11 +176,31 @@ function countPendingChapters(
 }
 
 function hasRunningWorker(): boolean {
-  return [...workerStates.value.values()].some((s) => s.running);
+  return [...workerStates.value.values()].some(
+    (s) => s.running && s.allowUpload !== undefined,
+  );
+}
+
+function canUpload(): boolean {
+  return (
+    hasRunningWorker() &&
+    [...workerStates.value.values()].every(
+      (s) => !s.running || s.allowUpload !== false,
+    )
+  );
+}
+
+function abortMetadataTasks(): void {
+  for (const [key, state] of metadataTasks) {
+    if (state.settled) continue;
+    state.controller.abort();
+    metadataTasks.delete(key);
+  }
 }
 
 function clearTaskRuntimeState(task: string): void {
-  metadataStartedTasks.delete(task);
+  metadataTasks.get(task)?.controller.abort();
+  metadataTasks.delete(task);
   taskStates.value.delete(task);
   taskCache.delete(task);
   taskVersions.value.delete(task);
@@ -181,21 +208,59 @@ function clearTaskRuntimeState(task: string): void {
 
 // ========== 全局处理循环 ==========
 
+function updateJobCompletion(
+  job: TranslateJob,
+  task: TranslationTask,
+  state: TaskState,
+): void {
+  const currentJob = jobs.value.find((it) => it.task === job.task);
+  if (
+    currentJob?.createAt !== job.createAt ||
+    taskCache.get(job.task) !== task ||
+    taskStates.value.get(job.task) !== state
+  ) {
+    return;
+  }
+  const metadata = metadataTasks.get(job.task);
+  if (
+    state.chapters.every((chapter) => chapter.status === 'done') &&
+    (!isSakura.value || !task.needsMetadata || metadata?.settled)
+  ) {
+    job.finishAt = Date.now();
+  }
+}
+
 /**
  * 翻译标题、简介和目录。与旧版工作区一致，GPT 不翻译元数据。
  * 不阻塞章节翻译，失败只记录日志。
  */
 function translateMetadataOnce(
-  jobTask: string,
+  job: TranslateJob,
   task: TranslationTask,
-  signal: AbortSignal,
+  state: TaskState,
 ): void {
-  if (!isSakura.value || !task.translateMetadata) return;
-  if (metadataStartedTasks.has(jobTask)) return;
-  metadataStartedTasks.add(jobTask);
+  if (!isSakura.value || !task.needsMetadata || !task.translateMetadata) return;
+  if (!canUpload() || metadataTasks.has(job.task)) return;
+  const metadata: MetadataState = {
+    task,
+    createAt: job.createAt,
+    controller: new AbortController(),
+    settled: false,
+  };
+  metadataTasks.set(job.task, metadata);
+  const signal = metadata.controller.signal;
+  const canUploadMetadata = () =>
+    !signal.aborted &&
+    metadataTasks.get(job.task) === metadata &&
+    taskCache.get(job.task) === metadata.task &&
+    jobs.value.some(
+      (it) => it.task === job.task && it.createAt === metadata.createAt,
+    ) &&
+    canUpload();
 
   // 简介可能含换行，按行翻译后再按原行数拼回
   const translateTexts = async (texts: string[]) => {
+    signal.throwIfAborted();
     const lineCounts = texts.map((text) => text.split('\n').length);
     // 分段失败时 pipeline 会回退为原文，不能把原文当译文上传
     let failed = false;
@@ -208,21 +273,46 @@ function translateMetadataOnce(
         { onSegError: () => (failed = true) },
       )
     ).split('\n');
+    signal.throwIfAborted();
     if (failed) throw new Error('分段翻译失败');
+    if (
+      lines.length !== lineCounts.reduce((total, count) => total + count, 0)
+    ) {
+      throw new Error('元数据译文行数不匹配');
+    }
     return lineCounts.map((count) => lines.splice(0, count).join('\n'));
   };
   task
-    .translateMetadata(translateTexts)
-    .then(() => console.log(`[${jobTask}] 元数据翻译完成`))
+    .translateMetadata(translateTexts, signal, canUploadMetadata)
+    .then(() => {
+      if (!signal.aborted && metadataTasks.get(job.task) === metadata) {
+        console.log(`[${job.task}] 元数据翻译完成`);
+      }
+    })
     .catch((e) => {
-      metadataStartedTasks.delete(jobTask);
-      console.warn(`[${jobTask}] 元数据翻译失败`, e);
+      if (!signal.aborted) console.warn(`[${job.task}] 元数据翻译失败`, e);
+    })
+    .finally(() => {
+      if (metadataTasks.get(job.task) !== metadata) return;
+      metadata.settled = true;
+      updateJobCompletion(job, task, state);
     });
 }
 
 function runProcessLoop(): void {
   if (!hasRunningWorker()) return;
 
+  for (const job of jobs.value) {
+    if (job.finishAt) continue;
+    const task = taskCache.get(job.task);
+    const state = taskStates.value.get(job.task);
+    if (task?.initialized && state?.initialized) {
+      translateMetadataOnce(job, task, state);
+    }
+  }
+
+  const pendingCount = countPendingChapters(jobs.value, taskStates.value);
+  if (pendingCount === 0) return;
   processLoopAbortController ??= new AbortController();
   const signal = processLoopAbortController.signal;
 
@@ -235,11 +325,11 @@ function runProcessLoop(): void {
       executingTasks.add(job.task);
 
       const task = await getOrCreateTask(job.task);
-      translateMetadataOnce(job.task, task, signal);
-      const executor = new TaskExecutor(task, pipeline, fetchSemaphore, () =>
-        [...workerStates.value.values()].every(
-          (s) => !s.running || s.allowUpload !== false,
-        ),
+      const executor = new TaskExecutor(
+        task,
+        pipeline,
+        fetchSemaphore,
+        canUpload,
       );
 
       const segmentTracker = state.getChapterState(chapterId);
@@ -260,23 +350,20 @@ function runProcessLoop(): void {
           signal,
         )
         .then(() => {
-          const allDone = state.chapters.every((c) => c.status === 'done');
+          if (taskStates.value.get(job.task) !== state) return;
           const allProcessed = state.chapters.every(
             (c) => c.status === 'done' || c.status === 'error',
           );
           if (allProcessed) {
             executingTasks.delete(job.task);
           }
-          if (allDone) {
-            (job as TranslateJobRecord).finishAt = Date.now();
-          }
+          updateJobCompletion(job, task, state);
         });
     }
   };
 
   // 运行中新增的待翻章节（新任务、重试、任务延迟初始化）也要补满窗口，
   // 否则章节并发会一直被卡在循环启动时的待翻章节数。
-  const pendingCount = countPendingChapters(jobs.value, taskStates.value);
   const spawnCount = Math.min(GLOBAL_WINDOW - activeProcessors, pendingCount);
   for (let i = 0; i < spawnCount; i++) {
     activeProcessors++;
@@ -344,6 +431,7 @@ const stopWorker = (workerId: string) => {
   workerStates.value.set(workerId, { ...state, running: false });
 
   if ([...workerStates.value.values()].every((s) => !s.running)) {
+    abortMetadataTasks();
     processLoopAbortController?.abort();
     processLoopAbortController = null;
     pipeline.queue.clear();
@@ -400,6 +488,7 @@ watch(
       ...taskStates.value.keys(),
       ...taskCache.keys(),
       ...taskVersions.value.keys(),
+      ...metadataTasks.keys(),
     ]);
     for (const task of knownTasks) {
       if (!activeTasks.has(task)) clearTaskRuntimeState(task);
@@ -444,9 +533,7 @@ watch(
             error: 0,
             total: chapters.length,
           };
-          if (chapters.length === 0 || doneCount === chapters.length) {
-            job.finishAt = Date.now();
-          }
+          updateJobCompletion(job, task, state);
         } catch (e) {
           console.warn('任务初始化失败', job.task, e);
         }

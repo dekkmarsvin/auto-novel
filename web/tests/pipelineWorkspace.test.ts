@@ -9,6 +9,8 @@ const boundary = vi.hoisted(() => ({
   store: vi.fn(),
   task: vi.fn(),
   execute: vi.fn(),
+  createSakura: vi.fn(),
+  translate: vi.fn(),
 }));
 vi.mock('../src/stores', () => ({ useWorkspaceStore: boundary.store }));
 vi.mock(
@@ -31,12 +33,23 @@ vi.mock('../src/domain/translator/IndexedDbSegmentCache', () => ({
 vi.mock('@auto-novel/translator', () => ({
   Semaphore: class {},
   OpenAiTranslator: class {},
-  SakuraTranslator: class {},
+  SakuraTranslator: class {
+    constructor(private allowed: boolean) {}
+    static async create() {
+      return new this(await boundary.createSakura());
+    }
+    allowUpload() {
+      return this.allowed;
+    }
+  },
   TranslationPipeline: class {
     queue = { clear() {} };
     registerTranslator() {}
     unregisterTranslator() {}
     clearLoops() {}
+    translate(...args: unknown[]) {
+      return boundary.translate(...args);
+    }
   },
 }));
 vi.mock('vue-draggable-plus', () => ({ VueDraggable: {} }));
@@ -94,6 +107,7 @@ interface Controls {
   startAllWorkers(): void;
   stopAllWorkers(): void;
   runProcessLoop(): void;
+  deleteJob(task: string): void;
   taskStates: Vue.Ref<Map<string, TaskState>>;
 }
 interface Execution {
@@ -103,6 +117,14 @@ interface Execution {
   finished: boolean;
   finish(status?: 'done' | 'error' | 'pending'): void;
 }
+interface MetadataCall {
+  id: string;
+  signal: AbortSignal;
+  canUpload(): boolean;
+  translate(texts: string[]): Promise<string[]>;
+  resolve(): void;
+  reject(error: Error): void;
+}
 const cleanups: (() => void)[] = [];
 afterEach(async () => {
   cleanups.splice(0).forEach((cleanup) => cleanup());
@@ -110,19 +132,28 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
-async function workspace() {
+async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
   const jobs = Vue.ref<
-    { task: string; description: string; createAt: number }[]
+    { task: string; description: string; createAt: number; finishAt?: number }[]
   >([]);
   const records = Vue.ref({
     workers: [{ id: 'offline', concurrency: 1 }],
     jobs: [],
   });
-  boundary.store.mockImplementation((type: string) =>
-    type === 'gpt-pipeline'
+  let storeCalls = 0;
+  boundary.store.mockImplementation(() =>
+    storeCalls++ === 0
       ? { ref: records }
-      : { ref: Vue.computed(() => ({ jobs: jobs.value })) },
+      : {
+          ref: Vue.computed(() => ({ jobs: jobs.value })),
+          deleteJob(task: string) {
+            jobs.value = jobs.value.filter((job) => job.task !== task);
+          },
+        },
   );
+  boundary.createSakura.mockResolvedValue(true);
+  boundary.translate.mockResolvedValue('标题译文\n简介译文\n第二行\n目录译文');
+  const metadataCalls: MetadataCall[] = [];
   const tasks = new Map<
     string,
     {
@@ -130,10 +161,18 @@ async function workspace() {
       initialized: boolean;
       chapters: ChapterMeta[];
       initMeta(): Promise<void>;
+      needsMetadata?: boolean;
+      glossary: Record<string, string>;
+      translateMetadata?(
+        translate: MetadataCall['translate'],
+        signal: AbortSignal,
+        canUpload: MetadataCall['canUpload'],
+      ): Promise<void>;
     }
   >();
-  boundary.task.mockImplementation(({ volumeId }: { volumeId: string }) =>
-    tasks.get(volumeId),
+  boundary.task.mockImplementation(
+    ({ volumeId, novelId }: { volumeId?: string; novelId?: string }) =>
+      tasks.get(volumeId ?? novelId!),
   );
   const calls: Execution[] = [];
   boundary.execute.mockImplementation(
@@ -170,7 +209,7 @@ async function workspace() {
       // Run the production SFC setup, including its watchers and lifecycle hooks.
       // Rendering controls adds no coverage to this scheduling contract.
       controls = Workspace.setup!(
-        { translatorId: 'gpt' },
+        { translatorId },
         { expose() {} },
       ) as Controls;
       return () => null;
@@ -188,11 +227,20 @@ async function workspace() {
   cleanups.push(() => {
     unmount();
     calls.forEach((call) => call.finish('pending'));
+    metadataCalls.forEach((call) => call.resolve());
   });
-  const add = (id: string, count = 1, meta = Promise.resolve()) => {
+  let version = 0;
+  const add = (
+    id: string,
+    count = 1,
+    meta = Promise.resolve(),
+    needsMetadata = false,
+  ) => {
     const task = {
       id,
       initialized: false,
+      glossary: { 人名: '译名' },
+      needsMetadata,
       chapters: Array.from({ length: count }, (_, order) => ({
         chapterId: String(order),
         title: String(order),
@@ -203,17 +251,37 @@ async function workspace() {
         await meta;
         task.initialized = true;
       },
+      translateMetadata: needsMetadata
+        ? (
+            translate: MetadataCall['translate'],
+            signal: AbortSignal,
+            canUpload: MetadataCall['canUpload'],
+          ) =>
+            new Promise<void>((resolve, reject) => {
+              metadataCalls.push({
+                id,
+                translate,
+                signal,
+                canUpload,
+                resolve,
+                reject,
+              });
+            })
+        : undefined,
     };
     tasks.set(id, task);
     jobs.value.push({
-      task: `local/${id}`,
+      task: needsMetadata ? `web/offline/${id}` : `local/${id}`,
       description: id,
-      createAt: tasks.size,
+      createAt: ++version,
     });
   };
   return {
     add,
     calls,
+    jobs,
+    workers: records.value.workers,
+    metadataCalls,
     controls,
     unmount,
     active: () => calls.filter((call) => !call.finished),
@@ -221,6 +289,136 @@ async function workspace() {
 }
 
 describe('pipeline workspace scheduling', () => {
+  it('runs metadata without pending chapters after model detection, and rejects an unapproved model', async () => {
+    const ws = await workspace('sakura');
+    ws.add('translated', 0, Promise.resolve(), true);
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+    const detection = deferred();
+    boundary.createSakura.mockImplementation(async () => {
+      await detection.promise;
+      return true;
+    });
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(ws.metadataCalls).toHaveLength(0);
+    detection.resolve();
+    await flush();
+    expect(ws.metadataCalls).toHaveLength(1);
+    expect(ws.calls).toHaveLength(0);
+    const metadata = ws.metadataCalls[0];
+    expect(metadata.canUpload()).toBe(true);
+    const otherDetection = deferred();
+    boundary.createSakura.mockImplementationOnce(async () => {
+      await otherDetection.promise;
+      return true;
+    });
+    ws.workers.push({ id: 'detecting', concurrency: 1 });
+    ws.controls.startAllWorkers();
+    await flush();
+    // The pending candidate is not registered; the approved worker can continue.
+    expect(metadata.canUpload()).toBe(true);
+    otherDetection.resolve();
+    await flush();
+    await expect(
+      metadata.translate(['题名', '简介\n第二行', '目录']),
+    ).resolves.toEqual(['标题译文', '简介译文\n第二行', '目录译文']);
+    expect(boundary.translate).toHaveBeenCalledWith(
+      '题名\n简介\n第二行\n目录',
+      { 人名: '译名' },
+      undefined,
+      metadata.signal,
+      expect.objectContaining({ onSegError: expect.any(Function) }),
+    );
+    boundary.translate.mockImplementationOnce(
+      async (text, _glossary, _history, _signal, tracker) => {
+        tracker.onSegError(0, new Error('Model failed'));
+        return text;
+      },
+    );
+    await expect(metadata.translate(['原文'])).rejects.toThrow('分段翻译失败');
+    metadata.resolve();
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+    ws.controls.runProcessLoop();
+    expect(ws.metadataCalls).toHaveLength(1);
+
+    ws.controls.stopAllWorkers();
+    ws.add('blocked', 0, Promise.resolve(), true);
+    await flush();
+    boundary.createSakura.mockResolvedValue(false);
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(ws.metadataCalls).toHaveLength(1);
+    expect(ws.jobs.value[1].finishAt).toBeUndefined();
+  });
+
+  it('retains metadata cancellation after chapters finish, including restart and unmount', async () => {
+    const ws = await workspace('sakura');
+    ws.add('slow-metadata', 1, Promise.resolve(), true);
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    const first = ws.metadataCalls[0];
+    ws.calls[0].finish();
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+    ws.controls.stopAllWorkers();
+    expect(first.signal.aborted).toBe(true);
+    expect(first.canUpload()).toBe(false);
+    first.resolve();
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(ws.metadataCalls).toHaveLength(2);
+    const second = ws.metadataCalls[1];
+    expect(second.signal.aborted).toBe(false);
+    ws.unmount();
+    expect(second.signal.aborted).toBe(true);
+    expect(second.canUpload()).toBe(false);
+    second.resolve();
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+  });
+
+  it('keeps a replacement job metadata attempt when an older promise rejects', async () => {
+    const ws = await workspace('sakura');
+    ws.add('same', 1, Promise.resolve(), true);
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    const old = ws.metadataCalls[0];
+    ws.calls[0].finish();
+    await flush();
+    ws.controls.deleteJob('web/offline/same');
+    ws.add('same', 2, Promise.resolve(), true);
+    await flush();
+    expect(ws.metadataCalls).toHaveLength(2);
+    const current = ws.metadataCalls[1];
+    old.reject(new Error('Old translation finished late'));
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+
+    ws.calls[1].finish('error');
+    await flush();
+    ws.controls.taskStates.value
+      .get('web/offline/same')!
+      .updateStatus('0', 'pending');
+    ws.controls.runProcessLoop();
+    await flush();
+    expect(ws.metadataCalls).toHaveLength(2);
+    expect(ws.calls).toHaveLength(4);
+    expect(old.signal.aborted).toBe(true);
+    expect(current.signal.aborted).toBe(false);
+    expect(current.canUpload()).toBe(true);
+    current.resolve();
+    ws.active().forEach((call) => call.finish());
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+  });
+
   it('fills free chapter slots when a newly added task finishes delayed initialization', async () => {
     const ws = await workspace();
     ws.add('first');

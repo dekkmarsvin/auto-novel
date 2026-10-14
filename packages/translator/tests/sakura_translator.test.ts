@@ -69,5 +69,21 @@ describe('SakuraTranslator blank lines', () => {
     expect(result).toEqual(['甲', '', '<图片>x', '', '乙']);
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain('あ\nい');
+    expect(prompts[0]).not.toContain('<图片>');
+  });
+
+  it('keeps an all-blank/image segment without requesting a model completion', async () => {
+    const fetch = vi.fn(async (input: Request | string) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (!url.endsWith('/models')) throw new Error('Unexpected completion');
+      return json({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetch);
+    const translator = await SakuraTranslator.create({
+      endpoint: 'https://sakura.test',
+    });
+    const lines = ['', ' \t\r', '<图片>image-url'];
+    expect(await translator.translate(lines)).toEqual(lines);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
