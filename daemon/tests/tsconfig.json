@@ -7,7 +7,7 @@
     "moduleResolution": "nodenext",
     "allowImportingTsExtensions": true,
     "paths": {
-      "@/*": ["../src/lib/*", "../src/app/*"]
+      "@/*": ["../src/*"]
     }
   },
   "include": [".", "../vitest.setup.ts"]

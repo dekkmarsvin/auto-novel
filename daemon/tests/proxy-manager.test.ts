@@ -7,6 +7,7 @@ describe('ProxyManager', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     while (stores.length) {
       const store = stores.pop();
       store?.close();
@@ -30,7 +31,9 @@ describe('ProxyManager', () => {
     expect(renewed?.config.host).toBe('proxy.test');
   });
 
-  test('cycles through multiple proxies by weight', () => {
+  test('selects both proxy candidates at the draw boundaries', () => {
+    // Exercise both ends of the weighted draw without a random CI failure.
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValue(0.99);
     const manager = createManager({ failThreshold: 3 });
     manager.add({ protocol: 'http', host: 'proxy.a', port: 8000 });
     manager.add({ protocol: 'http', host: 'proxy.b', port: 8001 });
