@@ -10,6 +10,7 @@ import io.ktor.server.request.*
 import io.ktor.server.resources.*
 import io.ktor.server.resources.put
 import io.ktor.server.routing.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import org.koin.ktor.ext.inject
 
@@ -49,6 +50,8 @@ private suspend inline fun <reified T : Any> ApplicationCall.respondSetting(bloc
     try {
         val result = block()
         if (result is Unit) response.status(HttpStatusCode.OK) else respond(result)
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: HttpException) {
         respond(e.status, e.message)
     } catch (_: Exception) {

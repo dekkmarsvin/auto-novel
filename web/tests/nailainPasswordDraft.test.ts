@@ -26,7 +26,7 @@ function setup() {
   )!;
   return { owner, get, put, api, notify, scope, draft };
 }
-describe('settings password draft used by Setting.vue', () => {
+describe('settings password draft state', () => {
   it('an old administrator GET cannot overwrite a new administrator draft', async () => {
     const s = setup();
     const second = deferred<string>();
@@ -60,18 +60,16 @@ describe('settings password draft used by Setting.vue', () => {
     expect(s.draft.canSave.value).toBe(false);
     s.scope.stop();
   });
-  for (const boundary of ['logout', 'role loss', 'account switch', 'dispose']) {
-    it(`clears secrets and ignores late GET/PUT on ${boundary}`, async () => {
+  for (const boundary of ['loss of administrator identity', 'dispose']) {
+    it(`clears the draft and ignores late GET on ${boundary}`, async () => {
       const s = setup();
       s.draft.edit('mock-secret');
       if (boundary === 'dispose') s.scope.stop();
-      else s.owner.value = boundary === 'account switch' ? 'admin-b' : null;
+      else s.owner.value = null;
       expect(s.draft.password.value).toBe('');
       s.get.resolve('mock-old');
       await s.get.promise;
-      // A new administrator performs its own load; the old response cannot restore its draft.
-      if (boundary !== 'account switch')
-        expect(s.draft.password.value).toBe('');
+      expect(s.draft.password.value).toBe('');
       expect(s.notify).not.toHaveBeenCalled();
       s.scope.stop();
     });

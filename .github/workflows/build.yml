@@ -42,6 +42,9 @@ jobs:
       - name: Verify translation pipeline
         run: pnpm --filter @auto-novel/translator test
 
+      - name: Verify crawler transport regressions
+        run: pnpm --filter @auto-novel/crawler test tests/web/nailain.offline.test.ts
+
   admin-sync-authorization:
     runs-on: ubuntu-latest
 
@@ -58,6 +61,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6.4.0
 
-      - name: Verify index sync authorization
-        run: ./gradlew --no-daemon test --tests api.WebNovelAdminSyncAllRouteTest --tests api.ApiRouteRetirementTest
+      - name: Verify API authorization and source settings regressions
+        run: ./gradlew --no-daemon test --tests api.WebNovelAdminSyncAllRouteTest --tests api.ApiRouteRetirementTest --tests api.SiteSettingRouteTest --tests infra.provider.providers.NailainOfflineTest --tests infra.common.SiteSettingRepositoryTest
         working-directory: server

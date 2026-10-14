@@ -26,7 +26,7 @@ class SiteSettingRouteTest : DescribeSpec({
             val repo = mockk<SiteSettingRepository>()
             val users = mockk<UserRepository>()
             coEvery { users.getId(any()) } returns "mock-id"
-            coEvery { repo.get(any()) } returns "mock-value"
+            coEvery { repo.get(SiteSettingRepository.NAILAIN_PASSWORD) } returns "mock-value"
             coEvery { repo.set(any(), any()) } just Runs
             testApplication {
                 application {
@@ -51,6 +51,7 @@ class SiteSettingRouteTest : DescribeSpec({
                     get.headers[HttpHeaders.CacheControl] shouldBe "no-store"
                     put.headers[HttpHeaders.CacheControl] shouldBe "no-store"
                     get.bodyAsText() shouldBe """{"password":"mock-value"}"""
+                    coVerify(exactly = 1) { repo.get(SiteSettingRepository.NAILAIN_PASSWORD) }
                     coVerify(exactly = 1) { repo.set(SiteSettingRepository.NAILAIN_PASSWORD, "mock-new") }
                     val empty = client.put("/site-setting/nailain-password") {
                         bearerAuth(jwt); contentType(ContentType.Application.Json); setBody("""{"password":""}""")

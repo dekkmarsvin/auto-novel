@@ -31,9 +31,11 @@ deployment administrators, encrypted where stored/transferred, and excluded
 from public artifacts and logs. This is an operational boundary, not a claim
 that application encryption or backup hardening was implemented here.
 
-`NAILAIN offline regressions` runs isolated transport, settings authorization,
-Mongo-driver mock, fallback and Vue draft tests without production Mongo,
-credentials, or source-site requests. Environment-gated live tests remain
+The existing `Build` workflow runs crawler transport checks, Vue draft tests,
+settings authorization, precise Mongo write checks and fallback/provider tests
+without production Mongo, credentials, or source-site requests. These tests
+exercise the real provider and routes; Mongo write checks use a mocked driver
+and are not database persistence evidence. Environment-gated live tests remain
 separate and are not CI evidence.
 
 The external browser addon still lacks NAILAIN host permission and fork-domain
