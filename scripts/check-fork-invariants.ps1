@@ -92,6 +92,10 @@ $RequiredFiles = @(
     'web/src/pages/novel/WenkuNovel.vue',
     'web/src/api/novel/WebNovelApi.ts',
     'web/src/api/novel/WenkuNovelApi.ts',
+    'web/src/api/WebNovelApi.ts',
+    'web/src/api/WenkuNovelApi.ts',
+    'web/src/config.ts',
+    'web/src/webKit.ts',
     'web/src/model/WebNovel.ts',
     'web/src/model/WenkuNovel.ts',
     'docker-compose.dev.yml'
@@ -117,8 +121,8 @@ Assert-FileContains 'server/src/main/kotlin/api/RouteWenkuNovel.kt' 'themeGlossa
 
 Assert-FileContains 'web/src/model/WebNovel.ts' 'themeGlossaryId' 'WebNovel DTO themeGlossaryId field'
 Assert-FileContains 'web/src/model/WenkuNovel.ts' 'themeGlossaryId' 'WenkuNovel DTO themeGlossaryId field'
-Assert-FileContains 'web/src/api/novel/WebNovelApi.ts' 'themeGlossaryId' 'WebNovel API client themeGlossaryId payload'
-Assert-FileContains 'web/src/api/novel/WenkuNovelApi.ts' 'themeGlossaryId' 'WenkuNovel API client themeGlossaryId payload'
+Assert-FileContains 'web/src/api/WebNovelApi.ts' 'themeGlossaryId' 'WebNovel API client themeGlossaryId payload'
+Assert-FileContains 'web/src/api/WenkuNovelApi.ts' 'themeGlossaryId' 'WenkuNovel API client themeGlossaryId payload'
 Assert-FileContains 'web/src/components/GlossaryButton.vue' 'ThemeGlossaryApi\.list' 'GlossaryButton ThemeGlossary list loading'
 Assert-FileContains 'web/src/components/GlossaryButton.vue' 'update:themeGlossaryId' 'GlossaryButton themeGlossaryId event'
 Assert-FileContains 'web/src/pages/novel/components/TranslateOptions.vue' 'themeGlossaryId' 'TranslateOptions themeGlossaryId prop'
@@ -126,7 +130,22 @@ Assert-FileContains 'web/src/pages/novel/WenkuNovel.vue' 'theme-glossary-id' 'We
 
 Assert-FileContains 'web/vite.config.ts' 'books\.kotoban\.top' 'production domain books.kotoban.top'
 Assert-FileContains 'web/src/components/markdown/MarkdownView.vue' 'books\.kotoban\.top' 'markdown host fallback domain'
-Assert-FileContains 'web/src/api/auth/session.ts' 'auth\.kotoban\.top' 'fork authentication domain'
+Assert-FileContains 'web/src/config.ts' 'auth\.kotoban\.top' 'fork authentication domain'
+Assert-FileContains 'web/package.json' '@novelia/web-kit' 'upstream web-kit integration'
+
+foreach ($RetiredPath in @(
+    'server/src/main/kotlin/api/RouteArticle.kt',
+    'server/src/main/kotlin/api/RouteComment.kt',
+    'web/src/pages/forum/Forum.vue',
+    'web/src/pages/forum/ForumArticle.vue',
+    'web/src/pages/forum/ForumArticleEdit.vue',
+    'web/src/stores/forum/useBlacklistStore.ts',
+    'web/src/api/auth/session.ts'
+)) {
+    if (Test-Path -LiteralPath (Resolve-RepoPath $RetiredPath) -PathType Leaf) {
+        Add-Failure "Retired legacy capability was restored: $RetiredPath"
+    }
+}
 
 $ForbiddenDomainMatches = Get-FilesForDomainCheck |
     Select-String -Pattern 'n\.novelia\.cc' -List -ErrorAction SilentlyContinue |

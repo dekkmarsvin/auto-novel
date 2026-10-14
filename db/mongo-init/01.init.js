@@ -1,5 +1,3 @@
-db["article"].createIndex({ pinned: 1, updateAt: 1 });
-db["comment-alt"].createIndex({ site: 1, parent: 1, id: 1 });
 db["operation-history"].createIndex({ createAt: 1 });
 db["user"].createIndex({ username: 1 }, { unique: true });
 

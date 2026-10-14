@@ -20,7 +20,7 @@ services:
     build:
       context: ./server
     ports:
-      - 5000:8080
+      - 5000:8081
     depends_on:
       - mongo
       - elasticsearch

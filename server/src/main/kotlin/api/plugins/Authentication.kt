@@ -107,12 +107,6 @@ fun User?.requireNsfwAccess() {
     }
 }
 
-fun User.requireForumAccess() {
-    if (!atLeast(UserRole.Member)) {
-        throwUnauthorized("当前账户没有权限执行此操作")
-    }
-}
-
 fun User.requireNovelAccess() {
     if (!atLeast(UserRole.Member)) {
         throwUnauthorized("当前账户没有权限执行此操作")
@@ -136,10 +130,9 @@ fun Route.authenticateDb(
 private val AuthenticatedUserKey = AttributeKey<User>("AuthenticatedUserKey")
 
 private val PostAuthenticationInterceptors = createRouteScopedPlugin(name = "User Validator") {
-    val userRepo = application.get<UserRepository>()
-
     on(AuthenticationChecked) { call ->
         call.principal<JWTPrincipal>()?.let { principal ->
+            val userRepo = call.application.get<UserRepository>()
             val user = User(
                 id = userRepo.getId(principal.subject!!),
                 username = principal.subject!!,

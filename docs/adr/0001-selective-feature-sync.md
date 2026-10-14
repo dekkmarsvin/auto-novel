@@ -4,11 +4,22 @@ This fork treats upstream `auto-novel/auto-novel` changes as candidate changes, 
 
 This is a deliberate trade-off against full upstream parity. It reduces the chance of losing fork capabilities during merges, while allowing explicitly reviewed **Legacy Capabilities** to follow upstream removal when their maintenance cost no longer serves the fork.
 
+On 2026-10-14 the maintainer approved retiring the unused built-in forum and
+comments. Subsequent evaluated upstream groups should follow the upstream core
+architecture, with differences concentrated in ThemeGlossary, site configuration,
+deployment identity, and necessary security/regression fixes. Existing community
+data is retained; the upstream community UI is disabled at a single deployment
+boundary until an installation explicitly configures its own service.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.
 - Changes that remove or alter a **Fork Capability** require explicit review instead of automatic acceptance.
 - Changes that affect a **Legacy Capability** may be accepted when they reduce maintenance burden and the compatibility impact is explicitly reviewed.
+- Legacy Article/Comment code and local username blacklists are retired. Do not
+  restore them during sync or implicitly enable upstream's public forum.
+- Use the SDK Git revision selected by Auto-Novel upstream; companion Auth
+  service releases are tracked independently against the same token/API contract.
 - A **Disposable Merge Staging Branch** may be used to resolve conflicts and inspect a large upstream tree, but it is not an acceptable final artifact for main.
 - The final upstream sync artifact may be either a **Curated Upstream Sync Commit** whose first parent is the fork branch and whose diff represents the accepted upstream value plus fork adaptations, or a **Manifested Upstream Cherry-Pick Series** applied with `git cherry-pick -x`.
 - Each completed upstream sync must include or reference a **Sync Manifest** that records the upstream range, accepted groups, rejected removals, fork adaptations, patch-equivalence notes, the next sync starting point, and validation commands.
