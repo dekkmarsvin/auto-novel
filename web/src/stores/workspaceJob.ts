@@ -22,6 +22,9 @@ export const addWorkspaceJob = (jobs: TranslateJob[], job: TranslateJob) => {
 
 /** 一次排队可能拆成多个任务，需要按实际结果提示，不能只看第一个。 */
 export const summarizeQueueResults = (results: boolean[]) => {
+  if (results.length === 0) {
+    return { type: 'error', text: '排队失败：没有选中章节' } as const;
+  }
   const success = results.filter(Boolean).length;
   const failed = results.length - success;
   if (failed === 0) {

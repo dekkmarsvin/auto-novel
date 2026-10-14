@@ -73,7 +73,11 @@ describe('addWorkspaceJob', () => {
 });
 
 describe('summarizeQueueResults', () => {
-  it('reports success only when every split task was queued', () => {
+  it('reports success only when at least one task was selected and every split task was queued', () => {
+    expect(summarizeQueueResults([])).toEqual({
+      type: 'error',
+      text: '排队失败：没有选中章节',
+    });
     expect(summarizeQueueResults([true, true])).toEqual({
       type: 'success',
       text: '排队成功',

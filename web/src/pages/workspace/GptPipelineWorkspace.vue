@@ -69,6 +69,8 @@ const pipeline = new TranslationPipeline(
 const taskStates = ref(new Map<string, TaskState>());
 const taskCache = new Map<string, TranslationTask>();
 const taskVersions = ref(new Map<string, number>());
+/** 同一版本只初始化一次；跨标签页替换对象不能重建执行状态。 */
+const initializingTasks = new Map<string, { createAt: number }>();
 
 interface WorkerState {
   running: boolean;
@@ -103,6 +105,7 @@ let processLoopAbortController: AbortController | null = null;
 let activeProcessors = 0;
 
 onUnmounted(() => {
+  initializingTasks.clear();
   abortMetadataTasks();
   pipeline.clearLoops();
   pipeline.queue.clear();
@@ -199,6 +202,7 @@ function abortMetadataTasks(): void {
 }
 
 function clearTaskRuntimeState(task: string): void {
+  initializingTasks.delete(task);
   metadataTasks.get(task)?.controller.abort();
   metadataTasks.delete(task);
   taskStates.value.delete(task);
@@ -495,12 +499,16 @@ const clearCache = () =>
 watch(
   () => [...jobs.value],
   async (workspaceJobs) => {
-    const uninitialized: TranslateJob[] = [];
+    const uninitialized: {
+      job: TranslateJob;
+      initialization: { createAt: number };
+    }[] = [];
     const activeTasks = new Set(workspaceJobs.map((job) => job.task));
     const knownTasks = new Set([
       ...taskStates.value.keys(),
       ...taskCache.keys(),
       ...taskVersions.value.keys(),
+      ...initializingTasks.keys(),
       ...metadataTasks.keys(),
     ]);
     for (const task of knownTasks) {
@@ -514,7 +522,7 @@ watch(
       const state = taskStates.value.get(job.task);
       if (
         taskVersions.value.get(job.task) === job.createAt &&
-        state?.initialized
+        (state?.initialized || initializingTasks.has(job.task))
       ) {
         continue;
       }
@@ -526,13 +534,22 @@ watch(
         taskVersions.value.set(job.task, job.createAt);
         continue;
       }
-      uninitialized.push(job);
+      const initialization = { createAt: job.createAt };
+      taskVersions.value.set(job.task, job.createAt);
+      initializingTasks.set(job.task, initialization);
+      uninitialized.push({ job, initialization });
     }
     await Promise.all(
-      uninitialized.map(async (job) => {
+      uninitialized.map(async ({ job, initialization }) => {
         try {
           const task = await getOrCreateTask(job.task);
           if (!task.initialized) await task.initMeta();
+          if (
+            initializingTasks.get(job.task) !== initialization ||
+            taskCache.get(job.task) !== task
+          ) {
+            return;
+          }
           const currentJob = findCurrentJob(job);
           if (!currentJob) return;
           const chapters = task.chapters;
@@ -549,6 +566,10 @@ watch(
           updateJobCompletion(job, task, state);
         } catch (e) {
           console.warn('任务初始化失败', job.task, e);
+        } finally {
+          if (initializingTasks.get(job.task) === initialization) {
+            initializingTasks.delete(job.task);
+          }
         }
       }),
     );
