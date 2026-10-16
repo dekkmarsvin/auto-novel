@@ -73,7 +73,6 @@ if (RegexUtil.isSafari(navigator.userAgent)) {
       :date-locale="dateZhCN"
       inline-theme-disabled
       :theme-overrides="{
-        Drawer: { bodyPadding: '0px' },
         List: { color: '#0000' },
         common: {
           ...(theme.bodyColor === undefined
@@ -83,15 +82,13 @@ if (RegexUtil.isSafari(navigator.userAgent)) {
       }"
     >
       <n-global-style />
-      <n-message-provider container-style="white-space: pre-wrap">
-        <n-loading-bar-provider>
-          <router-view v-slot="{ Component }">
-            <keep-alive :include="['MainLayout']">
-              <component :is="Component" />
-            </keep-alive>
-          </router-view>
-        </n-loading-bar-provider>
-      </n-message-provider>
+      <n-loading-bar-provider>
+        <router-view v-slot="{ Component }">
+          <keep-alive :include="['MainLayout']">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
+      </n-loading-bar-provider>
     </n-config-provider>
   </WebKitApp>
 </template>
@@ -119,9 +116,6 @@ li {
   right: 40px;
   bottom: 20px;
   box-shadow: rgb(0 0 0 / 40%) 2px 2px 8px 0px;
-}
-.n-drawer-header__main {
-  flex: 1;
 }
 .sortable-ghost {
   opacity: 0.7;

@@ -1,7 +1,15 @@
-.vscode
+.vscode/
 .idea/
 .antigravity-images
 .worktrees/
+
+# AI
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.claude/
+.codex/
+.cursor/
 
 # TS
 node_modules/

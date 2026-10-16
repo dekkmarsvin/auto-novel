@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
 import { DeleteOutlineOutlined, PlusOutlined } from '@vicons/material';
 import type { UploadCustomRequestOptions } from 'naive-ui';
 
@@ -6,13 +7,11 @@ import { useLocalVolumeStore } from '@/stores';
 import type { ParsedFile } from '@/util/file';
 import { parseFile } from '@/util/file';
 
-const message = useMessage();
-
 const files = shallowRef<ParsedFile[]>([]);
 
 const loadFile = async (file: File) => {
   if (files.value.find((it) => it.name === file.name) !== undefined) {
-    message.warning('文件已经载入');
+    Toast.warning('文件已经载入');
     return;
   }
   try {
@@ -21,7 +20,7 @@ const loadFile = async (file: File) => {
     files.value = [...files.value];
     triggerRef(files);
   } catch (e) {
-    message.warning(`${e}`);
+    Toast.warning(`${e}`);
   }
 };
 
@@ -36,13 +35,15 @@ const clearFile = () => {
 };
 
 const loadLocalFile = (volumeId: string) =>
-  useLocalVolumeStore()
-    .then((repo) => repo.getFile(volumeId))
-    .then((file) => {
-      if (file === undefined) throw '小说不存在';
-      return loadFile(file.file);
-    })
-    .catch((error) => message.error(`文件载入失败：${error}`));
+  Toast.promise(
+    useLocalVolumeStore()
+      .then((repo) => repo.getFile(volumeId))
+      .then((file) => {
+        if (file === undefined) throw '小说不存在';
+        return loadFile(file.file);
+      }),
+    { error: '文件载入失败' },
+  );
 
 const customRequest = ({
   file,
@@ -53,7 +54,7 @@ const customRequest = ({
   loadFile(file.file)
     .then(onFinish)
     .catch((err) => {
-      message.error('文件载入失败:' + err);
+      Toast.error('文件载入失败:' + err);
       onError();
     });
 };

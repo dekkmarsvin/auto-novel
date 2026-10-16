@@ -8,6 +8,10 @@ on:
       [
         .github/workflows/cd-web.yml,
         web/**,
+        apps/admin/**,
+        deploy/web/**,
+        .github/workflows/ci-web.yml,
+        .github/workflows/build.yml,
         packages/crawler/**,
         packages/translator/**,
         package.json,
@@ -50,13 +54,13 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
-          file: web/Dockerfile
+          file: deploy/web/Dockerfile
           push: true
           provenance: false
           build-args: |
-            GIT_COMMIT=${{ github.sha }}
-            GIT_REPOSITORY=${{ github.repository }}
-            BUILD_TIME=${{ steps.build_metadata.outputs.build_time }}
+            VITE_COMMIT_SHA=${{ github.sha }}
+            VITE_GIT_REPOSITORY=${{ github.repository }}
+            VITE_BUILD_TIME=${{ steps.build_metadata.outputs.build_time }}
           tags: ghcr.io/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:latest
           labels: org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha

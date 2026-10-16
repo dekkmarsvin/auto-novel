@@ -35,7 +35,7 @@ ThemeGlossary 是本 Fork 基于个人使用需求新增并维护的功能；上
 
 - `web/vite.config.ts` — API proxy target
 - `web/src/components/markdown/MarkdownView.vue` — currentHost fallback
-- `web/src/util/useUserData/api.ts` — 认证域名注释
+- `web/src/config.ts`、`web/src/webKit.ts` 与 `apps/admin/vite.config.ts` — 认证使用 `auth.kotoban.top`
 
 Docker image owner 使用 `dekkmarsvin`（而非上游的 `auto-novel`）。
 
@@ -115,34 +115,45 @@ Sync Manifest 至少记录 upstream range、accepted groups、rejected upstream 
 
 同步 PR 可以使用 GitHub 的普通 fork PR merge commit；这种 merge commit 只合并本 fork 的 sync 分支，不等同于 direct upstream merge。不要把 `upstream/main` 的 merge commit 合入 `main`。若使用 squash merge，squash commit 必须保留 `Sync-Manifest:` trailer 或等价的 manifest 证据，否则会丢失选择性同步的审计线索。
 
-同步提交在视为 ready 前必须通过 `npm run build`。GitHub Actions 会在 PR 与 `main` push 上执行非发布用途的 build check；`Publish Web` / `Publish Api` 只负责镜像建置与发布。
+同步提交在视为 ready 前必须通过 `npm run build`。GitHub Actions 会在 PR 与 `main` push 上执行非发布用途的 build check；`Publish Web` / `Publish API` / `Publish Server` 负责镜像建置与发布；部署前必须确认同一 SHA 的 Build、Fork Invariants 与所需镜像发布全部成功。
 
 ## 部署
 
-> [!WARNING]
-> 注意：本项目并不是为了个人部署设计的，不保证所有功能可用和前向兼容。
+Web / Admin 共用 Caddy；`/api/v1/banner` 与 `/api/v1/admin/*` 转发至 Go API，小说与 ThemeGlossary 请求仍转发至 Ktor Server。Go API 使用独立 PostgreSQL 与 R2，既有 MongoDB / Elasticsearch / Redis 数据及挂载不迁移、不删除。
+
+新安装使用 `docker-compose.yml`。先建立私人 `.env`，填写以下配置（已有环境请补字段，不要覆盖原来的秘密）：
+
+```dotenv
+HTTPS_PROXY=
+PIXIV_COOKIE_PHPSESSID=
+NAILAIN_PASSWORD=
+# 必须与 auth.kotoban.top 的 Auth API 所签发 access token 的秘密一致
+ACCESS_TOKEN_SECRET=
+POSTGRES_PASSWORD=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=
+R2_PUBLIC_BASE_URL=
+```
+
+R2 S3 凭据仅授予选定 bucket 的对象读写权限。`R2_PUBLIC_BASE_URL` 必须为图片服务的 HTTPS 根地址；不要填写 API 密钥或 S3 写入端点。Bucket CORS 需允许 `https://books.kotoban.top` 发起 `PUT`，并接受 `Content-Type`、`If-None-Match` 请求头。本地管理页面直传时，另外允许实际使用的 localhost 来源。管理端的图片直传使用签名 URL，不向 R2 发送登入 bearer token。
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/dekkmarsvin/auto-novel.git
-cd auto-novel
-
-# 2. 生成环境变量配置
-cat > .env << EOF
-HTTPS_PROXY=              # web 小说代理，可以为空
-PIXIV_COOKIE_PHPSESSID=   # Pixiv Cookie，用于爬取P站小说，可以为空
-NAILAIN_PASSWORD=         # NAILAIN ARCHIVE 合言葉后备值；优先使用管理员在设置页面填写的值，可以为空
-
-# 以下字段个人部署不需要填写
-ACCESS_TOKEN_SECRET=
-MAILGUN_API_KEY=
-MAILGUN_API_URL=https://api.eu.mailgun.net/v3/verify.fishhawk.top/messages
-MAILGUN_FROM_EMAIL=postmaster@verify.fishhawk.top
-EOF
-
-# 3. 启动服务
 mkdir -p -m 777 ./data/es/data ./data/es/plugins
 docker compose up -d
 ```
 
-启动后，访问 http://localhost 即可。
+PostgreSQL 首次创建资料目录时会执行唯增的 `sql/init.sql`。已有 PostgreSQL 资料目录请明确执行同一初始化文件；不要删除目录来重新初始化：
+
+```bash
+docker compose exec -T postgresql sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/init.sql
+```
+
+- 用户端：http://localhost:8080/
+- 横幅管理：http://localhost:8080/admin/，需同一 Auth 服务的管理员账号。
+- Go API 健康检查为 `/health`，会验证 PostgreSQL 与 banner 表可用。
+
+当前 upstream 首页尚未读取新横幅 API；管理端保存图片不会改变首页轮播。
+
+升级旧版时，原 Compose `api`（Ktor）服务改名为 `server`，新的 `api` 是 Go 服务。部署须先保留当前镜像、备份与容器证据，确认 Ktor 的档案挂载、Auth 秘密及 NAILAIN 设置，再协调切换 Web / API / Server；既有资料服务不需重建。不要对生产资料执行 `docker compose down -v`。

@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import type { ParsedFile } from '@/util/file';
+import { copyToClipboard, Toast } from '@novelia/web-kit';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
+import type { ParsedFile } from '@/util/file';
 import type { TranslatorConfig } from '@/domain/translate';
 import { Translator } from '@/domain/translate';
 import { Glossary } from '@/model/Glossary';
@@ -11,7 +12,6 @@ const props = defineProps<{
   files: ParsedFile[];
 }>();
 
-const message = useMessage();
 const sakuraWorkspace = useSakuraWorkspaceStore().ref;
 
 const countKatakana = (content: string) => {
@@ -89,8 +89,10 @@ const copyTranslationJson = async () => {
     ]),
   );
   const jsonString = Glossary.toText(obj);
-  navigator.clipboard.writeText(jsonString);
-  message.info('已经将翻译结果复制到剪切板');
+  await Toast.promise(copyToClipboard(jsonString), {
+    success: '已经将翻译结果复制到剪切板',
+    error: '复制失败',
+  });
 };
 
 const showSakuraSelectModal = ref(false);
@@ -105,7 +107,7 @@ const translateKatakanas = async (id: 'youdao' | 'sakura') => {
       (it) => it.id === selectedSakuraWorkerId.value,
     );
     if (worker === undefined) {
-      message.error('未选择Sakura翻译器');
+      Toast.error('未选择Sakura翻译器');
       return;
     }
     config = {
@@ -117,18 +119,17 @@ const translateKatakanas = async (id: 'youdao' | 'sakura') => {
   } else {
     config = { id };
   }
-  try {
-    const translator = await Translator.create(config, false);
-    const zhWords = await translator.translate(jpWords, {});
-
-    const jpToZh: { [key: string]: string } = {};
-    jpWords.forEach((jpWord, index) => {
-      jpToZh[jpWord] = zhWords[index];
-    });
-    katakanaTranslations.value = jpToZh;
-  } catch (e: unknown) {
-    message.error(`翻译器错误：${e}`);
-  }
+  await Toast.promise(
+    Translator.create(config, false).then(async (translator) => {
+      const zhWords = await translator.translate(jpWords, {});
+      const jpToZh: { [key: string]: string } = {};
+      jpWords.forEach((jpWord, index) => {
+        jpToZh[jpWord] = zhWords[index];
+      });
+      katakanaTranslations.value = jpToZh;
+    }),
+    { error: '翻译器错误' },
+  );
 };
 </script>
 

@@ -1,11 +1,11 @@
 <script lang="ts" setup>
+import { copyToClipboard, Toast } from '@novelia/web-kit';
+
 import type { TranslatorConfig } from '@/domain/translate';
 import { Translator } from '@/domain/translate';
 import type { Glossary } from '@/model/Glossary';
 import type { GptWorker, SakuraWorker, TranslatorId } from '@/model/Translator';
 import { useGptWorkspaceStore, useSakuraWorkspaceStore } from '@/stores';
-
-const message = useMessage();
 
 const textJp = ref('');
 const textZh = ref('');
@@ -50,7 +50,7 @@ const translate = async () => {
       (it) => it.id === selectedGptWorkerId.value,
     );
     if (worker === undefined) {
-      message.error('未选择GPT翻译器');
+      Toast.error('未选择GPT翻译器');
       return;
     }
     selectedWorker = worker;
@@ -65,7 +65,7 @@ const translate = async () => {
       (it) => it.id === selectedSakuraWorkerId.value,
     );
     if (worker === undefined) {
-      message.error('未选择Sakura翻译器');
+      Toast.error('未选择Sakura翻译器');
       return;
     }
     selectedWorker = worker;
@@ -81,33 +81,33 @@ const translate = async () => {
     };
   }
 
-  try {
-    const translator = await Translator.create(config, false);
-    const linesJp = textJp.value.split('\n');
-    const linesZh = await translator.translate(linesJp, {
-      glossary: glossary.value,
-    });
-    textZh.value = linesZh.join('\n');
-  } catch (e: unknown) {
-    message.error(`翻译器错误：${e}`);
-  }
-
-  savedTranslation.value.push({
-    id,
-    workerId: selectedWorker?.id,
-    endpoint: selectedWorker?.endpoint,
-    jp: textJp.value,
-    zh: textZh.value,
-  });
+  await Toast.promise(
+    Translator.create(config, false).then(async (translator) => {
+      const linesJp = textJp.value.split('\n');
+      const linesZh = await translator.translate(linesJp, {
+        glossary: glossary.value,
+      });
+      textZh.value = linesZh.join('\n');
+      savedTranslation.value.push({
+        id,
+        workerId: selectedWorker?.id,
+        endpoint: selectedWorker?.endpoint,
+        jp: textJp.value,
+        zh: textZh.value,
+      });
+    }),
+    { error: '翻译器错误' },
+  );
 };
 const clearTranslation = () => {
   textJp.value = '';
   textZh.value = '';
 };
-const copyToClipboard = () => {
-  navigator.clipboard.writeText(textZh.value);
-  message.info('已经将翻译结果复制到剪切板');
-};
+const copyTranslation = () =>
+  Toast.promise(copyToClipboard(textZh.value), {
+    success: '已经将翻译结果复制到剪切板',
+    error: '复制失败',
+  });
 const clearSavedTranslation = () => {
   savedTranslation.value = [];
 };
@@ -179,7 +179,7 @@ const clearSavedTranslation = () => {
             label="复制到剪贴板"
             :round="false"
             size="small"
-            @action="copyToClipboard"
+            @action="copyTranslation"
           />
         </n-flex>
       </c-action-wrapper>

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
 import {
   BookOutlined,
   DeleteOutlineOutlined,
@@ -14,7 +15,6 @@ import {
 } from '@auto-novel/translator';
 import type { TranslatorTracker } from '@auto-novel/translator';
 
-import { doAction } from '@/pages/util';
 import { useWorkspaceStore } from '@/stores';
 import { TaskExecutor } from '@/domain/translator/TaskExecutor';
 import { IndexedDbSegmentCache } from '@/domain/translator/IndexedDbSegmentCache';
@@ -35,8 +35,6 @@ import { TranslateTaskDescriptor } from '@/model/Translator';
 import PipelineTaskCard from './components/PipelineTaskCard.vue';
 
 const props = defineProps<{ translatorId: TranslatorId }>();
-const message = useMessage();
-
 const isSakura = computed(() => props.translatorId === 'sakura');
 const segCacheName = isSakura.value ? 'sakura-seg-cache' : 'gpt-seg-cache';
 
@@ -331,7 +329,7 @@ function runProcessLoop(): void {
   const signal = processLoopAbortController.signal;
 
   const processOne = async () => {
-    while (!signal.aborted) {
+    while (!signal.aborted && hasRunningWorker()) {
       const item = getNextJob(jobs.value, taskStates.value);
       if (!item) break;
 
@@ -404,7 +402,7 @@ const startWorker = async (workerId: string) => {
 
   const w = workerStore.ref.value.workers.find((w) => w.id === workerId);
   if (!w) {
-    message.error(`翻译器 ${workerId} 不存在`);
+    Toast.error(`翻译器 ${workerId} 不存在`);
     return;
   }
 
@@ -435,7 +433,7 @@ const startWorker = async (workerId: string) => {
   } catch (e) {
     if (workerStates.value.get(workerId) !== state) return;
     stopWorker(workerId);
-    message.error(`翻译器启动失败：${e}`);
+    Toast.error(`翻译器启动失败：${e}`);
   }
 };
 
@@ -465,7 +463,7 @@ const stopAllWorkers = () => {
 
 const deleteJob = (task: string) => {
   if (executingTasks.has(task)) {
-    message.error('任务正在翻译中');
+    Toast.error('任务正在翻译中');
     return;
   }
   jobStore.deleteJob(task);
@@ -485,16 +483,15 @@ function retryTaskCards() {
     }
   }
   if (!hasFailed) {
-    message.info('没有需要重试的失败任务');
+    Toast.info('没有需要重试的失败任务');
   }
 }
 
 const clearCache = () =>
-  doAction(
-    new IndexedDbSegmentCache(segCacheName).clear(),
-    '缓存清除',
-    message,
-  );
+  Toast.promise(new IndexedDbSegmentCache(segCacheName).clear(), {
+    success: '缓存清除成功',
+    error: '缓存清除失败',
+  });
 
 watch(
   () => [...jobs.value],

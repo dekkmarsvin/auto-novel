@@ -1,11 +1,11 @@
 FROM gradle:8-jdk17 AS deps
 USER root
 WORKDIR /server
-COPY build.gradle.kts settings.gradle.kts gradle.properties ./
+COPY server/build.gradle.kts server/settings.gradle.kts server/gradle.properties ./
 RUN gradle --no-daemon dependencies
 
 FROM deps AS builder
-COPY . ./
+COPY server/ ./
 RUN gradle --no-daemon installDist
 
 FROM eclipse-temurin:17-jre

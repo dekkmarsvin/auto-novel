@@ -30,9 +30,16 @@ vi.mock('@vicons/material', () => ({
   DeleteOutlineOutlined: {},
   EditOutlined: {},
 }));
-vi.mock('naive-ui', () => ({
-  useMessage: () => ({ info: vi.fn(), error: vi.fn(), success: vi.fn() }),
+vi.mock('@novelia/web-kit', () => ({
+  copyToClipboard: vi.fn().mockResolvedValue(undefined),
+  Toast: {
+    info: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    promise: (promise: Promise<unknown>) => promise.catch(() => undefined),
+  },
 }));
+vi.mock('naive-ui', () => ({}));
 
 interface HostNode {
   getRootNode: () => object;
@@ -148,9 +155,8 @@ async function mountEditor(
     });
     return Response.json({});
   });
-  const { default: Editor } = await import(
-    '../src/components/NovelGlossaryEditor.vue'
-  );
+  const { default: Editor } =
+    await import('../src/components/NovelGlossaryEditor.vue');
   const source = readFileSync(
     new URL('../src/components/NovelGlossaryEditor.vue', import.meta.url),
     'utf8',

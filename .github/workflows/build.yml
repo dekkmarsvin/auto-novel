@@ -42,6 +42,9 @@ jobs:
       - name: Verify web regressions
         run: pnpm --filter @auto-novel/web test
 
+      - name: Verify admin credential boundaries
+        run: pnpm --filter @auto-novel/admin test
+
       - name: Verify built storage bootstrap
         run: node web/tests/builtBootstrap.acceptance.mjs
 
@@ -70,3 +73,6 @@ jobs:
       - name: Verify API authorization and source settings regressions
         run: ./gradlew --no-daemon test --tests api.WebNovelAdminSyncAllRouteTest --tests api.ApiRouteRetirementTest --tests api.SiteSettingRouteTest --tests infra.provider.providers.NailainOfflineTest --tests infra.common.SiteSettingRepositoryTest
         working-directory: server
+
+  go-api:
+    uses: ./.github/workflows/ci-api.yml
