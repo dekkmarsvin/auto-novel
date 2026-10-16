@@ -1,8 +1,9 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
 import { UploadOutlined } from '@vicons/material';
 
 import { WebNovelRepo } from '@/repos';
-import { doAction, useIsWideScreen } from '@/pages/util';
+import { useIsWideScreen } from '@/pages/util';
 
 const { providerId, novelId } = defineProps<{
   providerId: string;
@@ -11,8 +12,6 @@ const { providerId, novelId } = defineProps<{
 
 const router = useRouter();
 const isWideScreen = useIsWideScreen();
-const message = useMessage();
-
 const allowSubmit = ref(false);
 const formValue = ref({
   titleJp: '',
@@ -47,13 +46,13 @@ WebNovelRepo.useWebNovel(providerId, novelId, false)
       };
       allowSubmit.value = true;
     } else {
-      message.error(`载入失败: ${error?.message}`);
+      Toast.error(`载入失败: ${error?.message}`);
     }
   });
 
 const submit = async () => {
   if (!allowSubmit.value) {
-    message.warning('小说未载入，无法提交');
+    Toast.warning('小说未载入，无法提交');
     return;
   }
 
@@ -65,7 +64,7 @@ const submit = async () => {
     ...formValue.value.toc.map((item) => ({ [item.jp]: item.zh })),
   );
 
-  await doAction(
+  await Toast.promise(
     Promise.all([
       WebNovelRepo.updateNovelTranslation(providerId, novelId, {
         title,
@@ -78,8 +77,7 @@ const submit = async () => {
     ]).then(() => {
       router.push({ path: `/novel/${providerId}/${novelId}` });
     }),
-    '编辑',
-    message,
+    { success: '编辑成功', error: '编辑失败' },
   );
 };
 </script>

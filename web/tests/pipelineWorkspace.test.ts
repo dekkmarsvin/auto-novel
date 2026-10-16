@@ -59,10 +59,9 @@ vi.mock('@vicons/material', () => ({
   PlusOutlined: {},
   RefreshOutlined: {},
 }));
-vi.mock('naive-ui', () => ({
-  useMessage: () => ({ error: vi.fn(), info: vi.fn() }),
+vi.mock('@novelia/web-kit', () => ({
+  Toast: { error: vi.fn(), info: vi.fn(), promise: vi.fn() },
 }));
-vi.mock('../src/pages/util', () => ({ doAction: vi.fn() }));
 vi.mock('../src/pages/workspace/components/PipelineTaskCard.vue', () => ({
   default: {},
 }));
@@ -213,9 +212,8 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
         calls.push(call);
       }),
   );
-  const { default: Workspace } = await import(
-    '../src/pages/workspace/GptPipelineWorkspace.vue'
-  );
+  const { default: Workspace } =
+    await import('../src/pages/workspace/GptPipelineWorkspace.vue');
   let controls!: Controls;
   const app = renderer.createApp({
     setup() {

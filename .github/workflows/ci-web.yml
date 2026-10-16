@@ -1,26 +1,24 @@
-name: ci-web
+name: CI Web
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/ci-web.yml
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - web/**
-      - packages/crawler/**
-      - packages/translator/**
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-web-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
+    name: CI Web
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-    permissions:
-      contents: read
+    env:
+      HUSKY: '0'
 
     steps:
       - uses: actions/checkout@v5
@@ -32,6 +30,13 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - run: pnpm --stream --filter '@auto-novel/web...' run build
+      - name: Type-check and build
+        run: pnpm --stream --filter '@auto-novel/web...' --filter '@auto-novel/admin...' run build
+
+      - name: Test
+        run: |
+          pnpm --filter @auto-novel/web test
+          pnpm --filter @auto-novel/admin test

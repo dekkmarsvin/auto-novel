@@ -48,6 +48,8 @@ function Assert-FileContains {
 function Get-FilesForDomainCheck {
     $Paths = @(
         'web',
+        'apps',
+        'deploy',
         '.github',
         'docker-compose.yml',
         'docker-compose.dev.yml',
@@ -98,7 +100,12 @@ $RequiredFiles = @(
     'web/src/webKit.ts',
     'web/src/model/WebNovel.ts',
     'web/src/model/WenkuNovel.ts',
-    'docker-compose.dev.yml'
+    'docker-compose.dev.yml',
+    'deploy/web/Dockerfile',
+    'deploy/web/Caddyfile',
+    'deploy/server/Dockerfile',
+    'deploy/api/Dockerfile',
+    'deploy/daemon/Dockerfile'
 )
 
 foreach ($Path in $RequiredFiles) {
@@ -132,6 +139,19 @@ Assert-FileContains 'web/vite.config.ts' 'books\.kotoban\.top' 'production domai
 Assert-FileContains 'web/src/components/markdown/MarkdownView.vue' 'books\.kotoban\.top' 'markdown host fallback domain'
 Assert-FileContains 'web/src/config.ts' 'auth\.kotoban\.top' 'fork authentication domain'
 Assert-FileContains 'web/package.json' '@novelia/web-kit' 'upstream web-kit integration'
+Assert-FileContains 'apps/admin/vite.config.ts' 'books\.kotoban\.top' 'admin production API domain'
+Assert-FileContains 'apps/admin/vite.config.ts' 'auth\.kotoban\.top' 'admin authentication domain'
+Assert-FileContains 'deploy/web/Caddyfile' 'reverse_proxy server:8081' 'retained Ktor API routing'
+Assert-FileContains 'deploy/web/Caddyfile' 'reverse_proxy api:8080' 'independent Go API routing'
+Assert-FileContains 'deploy/web/Caddyfile' '/api/v1/banner' 'public banner routing'
+Assert-FileContains 'docker-compose.dev.yml' 'dockerfile: deploy/web/Dockerfile' 'retained development Web build'
+Assert-FileContains 'docker-compose.dev.yml' 'dockerfile: deploy/api/Dockerfile' 'development Go API build'
+Assert-FileContains 'docker-compose.dev.yml' 'dockerfile: deploy/server/Dockerfile' 'development Ktor build'
+
+foreach ($Workflow in @('cd-web.yml', 'cd-api.yml', 'cd-server.yml')) {
+    Assert-FileContains ".github/workflows/$Workflow" 'IMAGE_OWNER:\s*\$\{\{ github\.repository_owner \}\}' 'portable fork image owner'
+    Assert-FileContains ".github/workflows/$Workflow" 'org\.opencontainers\.image\.revision=\$\{\{ github\.sha \}\}' 'published image source revision'
+}
 
 foreach ($RetiredPath in @(
     'server/src/main/kotlin/api/RouteArticle.kt',

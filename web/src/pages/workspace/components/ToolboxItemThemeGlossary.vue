@@ -1,16 +1,14 @@
 <script lang="ts" setup>
 import { isCurrentAuthor } from '@/identity';
 import { onMounted, ref } from 'vue';
-import { useMessage } from 'naive-ui';
+import { copyToClipboard, Toast } from '@novelia/web-kit';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
 import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
 import { Glossary } from '@/model/Glossary';
-import { copyToClipBoard } from '@/pages/util';
 import { useWhoamiStore } from '@/stores';
 
-const message = useMessage();
 const list = ref<ThemeGlossaryDto[]>([]);
 
 const whoamiStore = useWhoamiStore();
@@ -23,7 +21,7 @@ const loadList = async () => {
   try {
     list.value = await ThemeGlossaryApi.list();
   } catch (e) {
-    message.error(`载入失败: ${e}`);
+    Toast.error(`载入失败: ${e}`);
   }
 };
 
@@ -34,17 +32,17 @@ const newName = ref('');
 
 const createThemeGlossary = async () => {
   if (!newName.value) {
-    message.warning('请输入名称');
+    Toast.warning('请输入名称');
     return;
   }
   try {
     await ThemeGlossaryApi.create(newName.value, {});
-    message.success('创建成功');
+    Toast.success('创建成功');
     showCreateModal.value = false;
     newName.value = '';
     await loadList();
   } catch (e) {
-    message.error(`创建失败: ${e}`);
+    Toast.error(`创建失败: ${e}`);
   }
 };
 
@@ -78,10 +76,10 @@ const deleteThemeGlossary = async (id: string, name: string) => {
   if (!confirm(`确定要删除 ${name} 吗？`)) return;
   try {
     await ThemeGlossaryApi.deleteGlossary(id);
-    message.success('删除成功');
+    Toast.success('删除成功');
     await loadList();
   } catch (e) {
-    message.error(`删除失败: ${e}`);
+    Toast.error(`删除失败: ${e}`);
   }
 };
 
@@ -110,24 +108,18 @@ const clearTerm = () => {
   glossary.value = {};
 };
 
-const exportGlossary = async (ev: MouseEvent) => {
-  const isSuccess = await copyToClipBoard(
-    Glossary.toText(glossary.value),
-    ev.target as HTMLElement,
-  );
-  if (isSuccess) {
-    message.success('导出成功：已复制到剪贴板');
-  } else {
-    message.success('导出失败');
-  }
-};
+const exportGlossary = () =>
+  Toast.promise(copyToClipboard(Glossary.toText(glossary.value)), {
+    success: '导出成功：已复制到剪贴板',
+    error: '导出失败',
+  });
 
 const importGlossary = () => {
   const importedGlossary = Glossary.fromText(importGlossaryRaw.value);
   if (importedGlossary === undefined) {
-    message.error('导入失败：术语表格式不正确');
+    Toast.error('导入失败：术语表格式不正确');
   } else {
-    message.success('导入成功');
+    Toast.success('导入成功');
     for (const jp in importedGlossary) {
       const zh = importedGlossary[jp];
       glossary.value[jp] = zh;
@@ -140,11 +132,11 @@ const submitGlossary = async () => {
   if (!id) return;
   try {
     await ThemeGlossaryApi.update(id, activeGlossaryName.value, glossary.value);
-    message.success('更新成功');
+    Toast.success('更新成功');
     showGlossaryModal.value = false;
     await loadList();
   } catch (e) {
-    message.error(`更新失败: ${e}`);
+    Toast.error(`更新失败: ${e}`);
   }
 };
 </script>

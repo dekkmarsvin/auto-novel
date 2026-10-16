@@ -1,6 +1,7 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
+
 import { CommentRepo } from '@/repos';
-import { doAction } from '@/pages/util';
 
 const props = defineProps<{
   site: string;
@@ -14,17 +15,15 @@ const emit = defineEmits<{
   replied: [];
 }>();
 
-const message = useMessage();
-
 const content = ref('');
 
 const reply = async () => {
   if (content.value.length === 0) {
-    message.info('回复内容不能为空');
+    Toast.info('回复内容不能为空');
     return;
   }
 
-  await doAction(
+  await Toast.promise(
     CommentRepo.createComment(props.site, {
       content: content.value,
       ...(props.parent === undefined ? {} : { rootId: props.parent }),
@@ -32,8 +31,7 @@ const reply = async () => {
       content.value = '';
       emit('replied');
     }),
-    '回复发布',
-    message,
+    { success: '回复发布成功', error: '回复发布失败' },
   );
 };
 </script>

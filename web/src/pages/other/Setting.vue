@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { useWebKit } from '@novelia/web-kit';
+import { Toast, useWebKit } from '@novelia/web-kit';
 import { SiteSettingApi } from '@/api';
 import { community } from '@/config';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
@@ -13,19 +13,17 @@ import {
 import { useNailainPasswordDraft } from './nailainPasswordDraft';
 import { InfoOutlined } from '@vicons/material';
 
-const message = useMessage();
-
 const settingStore = useSettingStore();
 const { setting } = storeToRefs(settingStore);
 
 const clearWebSearchHistory = () => {
   useWebSearchHistoryStore().clear();
-  message.success('清空成功');
+  Toast.success('清空成功');
 };
 
 const clearWenkuSearchHistory = () => {
   useWenkuSearchHistoryStore().clear();
-  message.success('清空成功');
+  Toast.success('清空成功');
 };
 
 const playSound = (source: string) => {
@@ -41,7 +39,7 @@ const nailainDraft = useNailainPasswordDraft(
       ? `${whoami.value.user?.id}:${whoami.value.user?.username}`
       : null,
   SiteSettingApi,
-  (kind, text) => message[kind](text),
+  (kind, text) => Toast[kind](text),
 );
 const {
   password: nailainPassword,

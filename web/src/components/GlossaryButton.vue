@@ -1,13 +1,13 @@
 <script lang="ts" setup>
 import { isCurrentAuthor } from '@/identity';
 import { DeleteOutlineOutlined } from '@vicons/material';
+import { copyToClipboard, Toast } from '@novelia/web-kit';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
 import { Glossary } from '@/model/Glossary';
 import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
 import type { ThemeGlossaryDto } from '@/model/ThemeGlossary';
-import { copyToClipBoard, doAction } from '@/pages/util';
 import { useLocalVolumeStore, useWhoamiStore } from '@/stores';
 import { downloadFile } from '@/util';
 import { useQueryCache } from '@pinia/colada';
@@ -21,8 +21,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:themeGlossaryId': [id?: string];
 }>();
-
-const message = useMessage();
 
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
@@ -99,7 +97,7 @@ const queryCache = useQueryCache();
 const submitGlossary = () => {
   const submittedGlossary = { ...toRaw(glossary.value) };
   const submittedThemeGlossaryId = localThemeGlossaryId.value;
-  return doAction(
+  return Toast.promise(
     updateGlossary(
       submittedGlossary,
       submittedThemeGlossaryId ?? undefined,
@@ -131,8 +129,7 @@ const submitGlossary = () => {
         }
       }
     }),
-    '术语表提交',
-    message,
+    { success: '术语表提交成功', error: '术语表提交失败' },
   );
 };
 
@@ -191,24 +188,18 @@ const addTerm = () => {
   }
 };
 
-const exportGlossary = async (ev: MouseEvent) => {
-  const isSuccess = await copyToClipBoard(
-    Glossary.toText(glossary.value),
-    ev.target as HTMLElement,
-  );
-  if (isSuccess) {
-    message.success('导出成功：已复制到剪贴板');
-  } else {
-    message.success('导出失败');
-  }
-};
+const exportGlossary = () =>
+  Toast.promise(copyToClipboard(Glossary.toText(glossary.value)), {
+    success: '导出成功：已复制到剪贴板',
+    error: '导出失败',
+  });
 
 const importGlossary = () => {
   const importedGlossary = Glossary.fromText(importGlossaryRaw.value);
   if (importedGlossary === undefined) {
-    message.error('导入失败：术语表格式不正确');
+    Toast.error('导入失败：术语表格式不正确');
   } else {
-    message.success('导入成功');
+    Toast.success('导入成功');
     for (const jp in importedGlossary) {
       const zh = importedGlossary[jp];
       glossary.value[jp] = zh;

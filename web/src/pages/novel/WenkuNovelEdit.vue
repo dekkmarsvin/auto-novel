@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
 import { useDuplicateSearch } from './duplicateSearch';
 import {
   DeleteOutlineOutlined,
@@ -15,10 +16,9 @@ import { WenkuNovelRepo } from '@/repos';
 import coverPlaceholder from '@/image/cover_placeholder.png';
 import type { WenkuNovelOutlineDto, WenkuVolumeDto } from '@/model/WenkuNovel';
 import { presetKeywordsNonR18, presetKeywordsR18 } from '@/model/WenkuNovel';
-import { doAction, useIsWideScreen } from '@/pages/util';
+import { useIsWideScreen } from '@/pages/util';
 import { useWhoamiStore } from '@/stores';
-import { RegexUtil, delay } from '@/util';
-import { runCatching } from '@/util/result';
+import { RegexUtil } from '@/util';
 
 const { novelId } = defineProps<{
   novelId: string | undefined;
@@ -26,8 +26,6 @@ const { novelId } = defineProps<{
 
 const router = useRouter();
 const isWideScreen = useIsWideScreen();
-const message = useMessage();
-
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
@@ -135,14 +133,14 @@ if (novelId !== undefined) {
         amazonUrl.value = data.title.replace(/[?？。!！]$/, '');
         allowSubmit.value = true;
       } else {
-        message.error(`载入失败: ${error?.message}`);
+        Toast.error(`载入失败: ${error?.message}`);
       }
     });
 }
 
 const submit = async () => {
   if (!allowSubmit.value) {
-    message.warning('文章未载入，无法提交');
+    Toast.warning('文章未载入，无法提交');
     return;
   }
 
@@ -171,20 +169,18 @@ const submit = async () => {
   };
 
   if (novelId === undefined) {
-    await doAction(
+    await Toast.promise(
       WenkuNovelRepo.createNovel(body).then((id) => {
         router.push({ path: `/wenku/${id}` });
       }),
-      '新建文库',
-      message,
+      { success: '新建文库成功', error: '新建文库失败' },
     );
   } else {
-    await doAction(
+    await Toast.promise(
       WenkuNovelRepo.updateNovel(novelId, body).then(() => {
         router.push({ path: `/wenku/${novelId}` });
       }),
-      '编辑文库',
-      message,
+      { success: '编辑文库成功', error: '编辑文库失败' },
     );
   }
 };
@@ -193,10 +189,8 @@ const populateNovelFromAmazon = async (
   urlOrQuery: string,
   forcePopulateVolumes: boolean,
 ) => {
-  const msgReactive = message.create('', {
-    type: 'loading',
-    duration: 0,
-  });
+  const toastId = Toast.info('智能导入中...', { duration: 0 });
+  Toast.update(toastId, { status: 'loading' });
 
   const result = await smartImport(
     urlOrQuery.trim(),
@@ -204,14 +198,14 @@ const populateNovelFromAmazon = async (
     forcePopulateVolumes,
     {
       log: (message) => {
-        msgReactive.content = message;
+        Toast.update(toastId, { message });
       },
       populateNovel: (novel) => {
         formValue.value = {
           title: formValue.value.title ? formValue.value.title : novel.title,
           titleZh: formValue.value.titleZh
             ? formValue.value.titleZh
-            : novel.titleZh ?? '',
+            : (novel.titleZh ?? ''),
           cover: novel.volumes[0]?.cover,
           authors:
             formValue.value.authors.length > 0
@@ -242,13 +236,18 @@ const populateNovelFromAmazon = async (
 
   if (result) {
     formValue.value.cover = formValue.value.volumes[0]?.cover;
-    msgReactive.content = '智能导入完成';
-    msgReactive.type = 'info';
+    Toast.update(toastId, {
+      message: '智能导入完成',
+      status: 'info',
+      duration: 3000,
+    });
   } else {
-    msgReactive.content = '智能导入失败';
-    msgReactive.type = 'error';
+    Toast.update(toastId, {
+      message: '智能导入失败',
+      status: 'error',
+      duration: 3000,
+    });
   }
-  delay(3000).then(() => msgReactive.destroy());
 };
 
 const submitCurrentStep = ref(1);
@@ -289,11 +288,11 @@ const similarQuery = computed(
 const findSimilarNovels = async () => {
   const query = similarQuery.value;
   if (!query) {
-    message.warning('请先填写标题');
+    Toast.warning('请先填写标题');
     return;
   }
   const error = await searchDuplicates();
-  if (error) message.error('搜索相似小说失败:' + String(error));
+  if (error) Toast.error('搜索相似小说失败:' + String(error));
 };
 const moveToPrevStep = () => {
   if (submitCurrentStep.value > 1) {

@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
+
 import ky from 'ky';
 
 import { WebNovelApi } from '@/api';
@@ -36,8 +38,6 @@ const emit = defineEmits<{
   'update:themeGlossaryId': [string | undefined];
 }>();
 
-const message = useMessage();
-
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
 
@@ -53,21 +53,23 @@ const startTranslateTask = (translatorId: 'youdao') =>
     { id: translatorId },
   );
 
-const importToWorkspace = async () => {
-  const blob = await ky.get(files.value.jp.url).blob();
-  const file = new File([blob], files.value.jp.filename);
-
-  const repo = await useLocalVolumeStore();
-  await repo
-    .createVolume(file, 'default')
-    .then(() => repo.updateGlossary(file.name, toRaw(props.glossary)))
-    .then(() => message.success('导入成功'))
-    .catch((error) => message.error(`导入失败:${error}`));
-};
+const importToWorkspace = () =>
+  Toast.promise(
+    (async () => {
+      const blob = await ky.get(files.value.jp.url).blob();
+      const file = new File([blob], files.value.jp.filename);
+      const repo = await useLocalVolumeStore();
+      await repo.createVolume(file, 'default');
+      await repo.updateGlossary(file.name, toRaw(props.glossary));
+    })(),
+    { success: '导入成功', error: '导入失败' },
+  );
 
 const files = computed(() => {
   const title =
-    setting.value.downloadFilenameType === 'jp' ? titleJp : titleZh ?? titleJp;
+    setting.value.downloadFilenameType === 'jp'
+      ? titleJp
+      : (titleZh ?? titleJp);
 
   const { mode, translationsMode, translations, type } =
     setting.value.downloadFormat;
@@ -101,7 +103,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
   const taskNumber = translateOptions.value!.getTaskNumber();
 
   if (endIndex <= startIndex || startIndex >= total) {
-    message.error('排队失败：没有选中章节');
+    Toast.error('排队失败：没有选中章节');
     return;
   }
 
@@ -150,7 +152,7 @@ const submitJob = (id: 'gpt' | 'sakura') => {
     return success;
   });
   const { type, text } = summarizeQueueResults(results);
-  message[type](text);
+  Toast[type](text);
 };
 </script>
 

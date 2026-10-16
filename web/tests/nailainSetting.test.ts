@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
 vi.mock('../src/api', () => ({ SiteSettingApi: api }));
 vi.mock('@vicons/material', () => ({ InfoOutlined: {} }));
 vi.mock('@novelia/web-kit', () => ({
+  Toast: { success: vi.fn(), error: vi.fn() },
   useWebKit: () => ({
     theme: { preference: Vue.ref('light'), setPreference: vi.fn() },
   }),
@@ -54,7 +55,6 @@ vi.mock('naive-ui', () => {
         'NInput',
       ].map((name) => [name, pass]),
     ),
-    useMessage: () => ({ success: vi.fn(), error: vi.fn() }),
   };
 });
 vi.mock('../src/components/CButton.vue', () => ({

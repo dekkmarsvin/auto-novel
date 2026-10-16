@@ -1,10 +1,10 @@
 <script lang="ts" setup>
+import { Toast } from '@novelia/web-kit';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { GenericNovelId } from '@/model/Common';
 import type { LocalVolumeMetadata } from '@/model/LocalVolume';
 import { useBookshelfLocalStore } from '@/pages/bookshelf/BookshelfLocalStore';
-import { doAction } from '@/pages/util';
 import {
   Setting,
   summarizeQueueResults,
@@ -19,15 +19,16 @@ const props = defineProps<{
   type: 'gpt' | 'sakura';
 }>();
 
-const message = useMessage();
-
 const settingStore = useSettingStore();
 const { setting } = storeToRefs(settingStore);
 
 const store = useBookshelfLocalStore();
 
 const deleteVolume = (volumeId: string) =>
-  doAction(store.deleteVolume(volumeId), '删除', message);
+  Toast.promise(store.deleteVolume(volumeId), {
+    success: '删除成功',
+    error: '删除失败',
+  });
 
 const calculateFinished = (volume: LocalVolumeMetadata) =>
   volume.toc.filter((it) => {
@@ -60,7 +61,7 @@ const queueAllVolumes = (volumes: LocalVolumeMetadata[]) => {
     type: props.type,
     shouldTop: shouldTopJob.value ?? false,
   });
-  message.info(`${success}本小说已排队，${failed}本失败`);
+  Toast.info(`${success}本小说已排队，${failed}本失败`);
 };
 
 const shouldTopJob = useShouldTopJob();
@@ -78,24 +79,26 @@ const queueVolume = (volumeId: string, total: number = 65536) => {
     total: total,
   });
   const { type, text } = summarizeQueueResults(results);
-  message[type](text);
+  Toast[type](text);
 };
 
 const downloadVolume = async (volumeId: string) => {
   const { mode } = setting.value.downloadFormat;
   const repo = await useLocalVolumeStore();
 
-  try {
-    const { filename, blob } = await repo.getTranslationFile({
-      id: volumeId,
-      mode,
-      translationsMode: 'priority',
-      translations: [props.type],
-    });
-    downloadFile(filename, blob);
-  } catch (error) {
-    message.error(`文件生成错误：${error}`);
-  }
+  await Toast.promise(
+    repo
+      .getTranslationFile({
+        id: volumeId,
+        mode,
+        translationsMode: 'priority',
+        translations: [props.type],
+      })
+      .then(({ filename, blob }) => {
+        downloadFile(filename, blob);
+      }),
+    { error: '文件生成错误' },
+  );
 };
 
 const progressFilter = ref<'all' | 'finished' | 'unfinished'>('all');

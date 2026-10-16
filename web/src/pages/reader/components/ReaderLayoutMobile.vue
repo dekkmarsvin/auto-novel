@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { XDrawer } from '@novelia/web-kit';
 import {
   ArrowBackIosOutlined,
   ArrowForwardIosOutlined,
@@ -22,6 +23,17 @@ const emit = defineEmits<{
 }>();
 
 const showMenu = ref(false);
+
+// 先关闭抽屉，避免其模态交互和滚动锁影响外部弹窗。
+const openCatalogModal = () => {
+  showMenu.value = false;
+  emit('requireCatalogModal');
+};
+
+const openSettingModal = () => {
+  showMenu.value = false;
+  emit('requireSettingModal');
+};
 
 const readerSettingStore = useReaderSettingStore();
 const { readerSetting } = storeToRefs(readerSettingStore);
@@ -66,11 +78,12 @@ const onGlobalClick = (event: MouseEvent) => {
     <slot />
   </div>
 
-  <n-drawer
-    v-model:show="showMenu"
-    :height="'auto'"
-    placement="bottom"
-    :auto-focus="false"
+  <XDrawer
+    v-model:open="showMenu"
+    title="阅读菜单"
+    height="auto"
+    side="bottom"
+    @open-auto-focus.prevent
   >
     <n-flex
       :size="0"
@@ -104,7 +117,7 @@ const onGlobalClick = (event: MouseEvent) => {
           quaternary
           text="目录"
           :icon="FormatListBulletedOutlined"
-          @click="emit('requireCatalogModal')"
+          @click="openCatalogModal"
           style="width: 100%"
         />
       </div>
@@ -113,7 +126,7 @@ const onGlobalClick = (event: MouseEvent) => {
           quaternary
           text="设置"
           :icon="TuneOutlined"
-          @click="emit('requireSettingModal')"
+          @click="openSettingModal"
           style="width: 100%"
         />
       </div>
@@ -128,5 +141,5 @@ const onGlobalClick = (event: MouseEvent) => {
         />
       </div>
     </n-flex>
-  </n-drawer>
+  </XDrawer>
 </template>
