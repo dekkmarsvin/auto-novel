@@ -4,6 +4,10 @@ import type {
   ChapterMeta,
   TaskState,
 } from '../src/domain/translator/TaskState';
+// Compile the SFC during collection, before any case installs its mutable
+// store fixtures. A cold dynamic import inside workspace() can outlive a test
+// timeout and resume after the next case has replaced those shared mocks.
+import Workspace from '../src/pages/workspace/GptPipelineWorkspace.vue';
 
 const boundary = vi.hoisted(() => ({
   store: vi.fn(),
@@ -212,8 +216,6 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
         calls.push(call);
       }),
   );
-  const { default: Workspace } =
-    await import('../src/pages/workspace/GptPipelineWorkspace.vue');
   let controls!: Controls;
   const app = renderer.createApp({
     setup() {

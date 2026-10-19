@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Toast } from '@novelia/web-kit';
+import { Toast, XDialog } from '@novelia/web-kit';
 import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
 import type { GptWorker } from '@/model/Translator';
@@ -62,7 +62,7 @@ const formRules: FormRules = {
   ],
   model: [emptyCheck('模型')],
   endpoint: [
-    emptyCheck('链接'),
+    emptyCheck('API端点'),
     {
       validator: (rule: FormItemRule, value: string) => {
         try {
@@ -72,7 +72,7 @@ const formRules: FormRules = {
           return false;
         }
       },
-      message: '链接不合法',
+      message: 'API端点不合法',
       trigger: 'input',
     },
   ],
@@ -139,10 +139,11 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
 </script>
 
 <template>
-  <c-modal
-    :show="show"
-    @update:show="$emit('update:show', $event)"
+  <XDialog
+    :open="show"
+    @update:open="$emit('update:show', $event)"
     :title="verb + 'GPT翻译器'"
+    class="w-[600px]"
   >
     <n-form
       ref="form"
@@ -166,10 +167,10 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
           :input-props="{ spellcheck: false }"
         />
       </n-form-item-row>
-      <n-form-item-row path="endpoint" label="链接">
+      <n-form-item-row path="endpoint" label="API端点">
         <n-input
           v-model:value="formValue.endpoint"
-          placeholder="兼容OpenAI的API链接，默认使用deepseek"
+          placeholder="兼容OpenAI的API端点，默认使用deepseek"
           :input-props="{ spellcheck: false }"
         />
       </n-form-item-row>
@@ -183,16 +184,16 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
       </n-form-item-row>
 
       <n-text depth="3" style="font-size: 12px">
-        # 链接例子：https://api.deepseek.com
+        # API端点例子：https://api.deepseek.com
       </n-text>
     </n-form>
 
-    <template #action>
+    <template #footer>
       <n-flex v-if="props.worker === undefined" :size="12">
         <c-button label="添加并继续" @action="submitAndContinue" />
         <c-button label="添加" type="primary" @action="submit" />
       </n-flex>
       <c-button v-else label="更新" type="primary" @action="submit" />
     </template>
-  </c-modal>
+  </XDialog>
 </template>

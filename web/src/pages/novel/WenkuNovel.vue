@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Toast } from '@novelia/web-kit';
+import { Toast, XDialog, XAsyncContent } from '@novelia/web-kit';
 import { EditNoteOutlined, LanguageOutlined } from '@vicons/material';
 import { createReusableTemplate } from '@vueuse/core';
 
@@ -103,7 +103,7 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
     >
       <div class="layout-content">
         <n-flex :wrap="false" style="padding-top: 20px; padding-bottom: 21px">
-          <div>
+          <div style="flex: 0 0 160px">
             <n-image
               width="160"
               :src="novel.cover ? novel.cover : coverPlaceholder"
@@ -112,7 +112,7 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
               style="border-radius: 2px"
             />
           </div>
-          <n-flex vertical style="min-width: 0">
+          <n-flex vertical style="flex: 1; min-width: 0">
             <n-h2
               prefix="bar"
               style="margin: 8px 0"
@@ -161,10 +161,10 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
           @action="showWebNovelsModal = true"
         />
 
-        <c-modal
+        <XDialog
           title="相关网络小说"
-          v-model:show="showWebNovelsModal"
-          :extra-height="100"
+          v-model:open="showWebNovelsModal"
+          class="w-[600px]"
         >
           <n-ul>
             <n-li v-for="webId of novel.webIds" :key="webId">
@@ -173,7 +173,7 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
               </c-a>
             </n-li>
           </n-ul>
-        </c-modal>
+        </XDialog>
       </n-flex>
 
       <n-p>原名：{{ novel.title }}</n-p>
@@ -296,6 +296,11 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
       </NovelBottomTabs>
     </template>
 
-    <CResultX v-else :error="error" title="加载错误" />
+    <XAsyncContent
+      v-else
+      :loading="!error"
+      :error="error?.message ?? ''"
+      error-title="加载错误"
+    />
   </div>
 </template>

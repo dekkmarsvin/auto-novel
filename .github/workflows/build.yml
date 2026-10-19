@@ -52,7 +52,7 @@ jobs:
         run: pnpm --filter @auto-novel/translator test
 
       - name: Verify crawler transport regressions
-        run: pnpm --filter @auto-novel/crawler test tests/web/nailain.offline.test.ts
+        run: pnpm --filter @auto-novel/crawler test tests/web/nailain.offline.test.ts tests/web/pixiv.offline.test.ts
 
   admin-sync-authorization:
     runs-on: ubuntu-latest

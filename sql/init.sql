@@ -4,11 +4,19 @@ create table if not exists banner
     type         smallint    not null default 0,
     key          text        not null,
     link_url     text,
+    focal_x      double precision not null default 0.5 check (focal_x between 0 and 1),
+    focal_y      double precision not null default 0.5 check (focal_y between 0 and 1),
     sort_order   int         not null default 0,
     is_active    boolean     not null default true,
     created_at   timestamptz not null default current_timestamp,
     updated_at   timestamptz not null default current_timestamp
 );
+
+-- The init script is also applied to existing installations. PostgreSQL's
+-- DEFAULT initializes existing rows to the same centered focal point as new ones.
+alter table banner
+    add column if not exists focal_x double precision not null default 0.5 check (focal_x between 0 and 1),
+    add column if not exists focal_y double precision not null default 0.5 check (focal_y between 0 and 1);
 
 -- Image cleanup assumes a key belongs to exactly one banner.
 create unique index if not exists banner_key_unique on banner (key);
@@ -18,6 +26,8 @@ comment on column banner.id is 'Banner ID';
 comment on column banner.type is 'Banner 的位置: 0=首页';
 comment on column banner.key is 'R2 对象 Key';
 comment on column banner.link_url is '点击跳转地址，NULL=不跳转';
+comment on column banner.focal_x is '原图焦点横坐标，0=左，1=右';
+comment on column banner.focal_y is '原图焦点纵坐标，0=上，1=下';
 comment on column banner.sort_order is '轮播顺序，数值越小越靠前，同值按 ID 升序排列';
 comment on column banner.is_active is '是否参与轮换';
 comment on column banner.created_at is '创建时间';

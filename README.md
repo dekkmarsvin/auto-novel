@@ -125,6 +125,8 @@ Web / Admin 共用 Caddy；`/api/v1/banner` 与 `/api/v1/admin/*` 转发至 Go A
 
 ```dotenv
 HTTPS_PROXY=
+# 可选：Go API 的独立代理；不沿用小说爬虫的 HTTPS_PROXY
+SHIELD_PROXY_URL=
 PIXIV_COOKIE_PHPSESSID=
 NAILAIN_PASSWORD=
 # 必须与 auth.kotoban.top 的 Auth API 所签发 access token 的秘密一致
@@ -137,23 +139,25 @@ R2_BUCKET=
 R2_PUBLIC_BASE_URL=
 ```
 
-R2 S3 凭据仅授予选定 bucket 的对象读写权限。`R2_PUBLIC_BASE_URL` 必须为图片服务的 HTTPS 根地址；不要填写 API 密钥或 S3 写入端点。Bucket CORS 需允许 `https://books.kotoban.top` 发起 `PUT`，并接受 `Content-Type`、`If-None-Match` 请求头。本地管理页面直传时，另外允许实际使用的 localhost 来源。管理端的图片直传使用签名 URL，不向 R2 发送登入 bearer token。
+R2 S3 凭据仅授予选定 bucket 的对象读写权限。`R2_PUBLIC_BASE_URL` 必须为图片服务的 HTTPS 根地址；不要填写 API 密钥或 S3 写入端点。Bucket CORS 需允许 `https://books.kotoban.top` 发起 `PUT`，并接受 `Content-Type`、`If-None-Match`、`Cache-Control` 请求头。本地管理页面直传时，另外允许实际使用的 localhost 来源。管理端的图片直传使用签名 URL，不向 R2 发送登入 bearer token。
 
 ```bash
 mkdir -p -m 777 ./data/es/data ./data/es/plugins
 docker compose up -d
 ```
 
-PostgreSQL 首次创建资料目录时会执行唯增的 `sql/init.sql`。已有 PostgreSQL 资料目录请明确执行同一初始化文件；不要删除目录来重新初始化：
+PostgreSQL 首次创建资料目录时会执行唯增的 `sql/init.sql`。已有 PostgreSQL 资料目录请在启动新版 Go API 前执行同一升级脚本；它会在事务内新增缺少的焦点栏位并把既有横幅设为中心焦点，可重复执行。不要删除目录来重新初始化：
 
 ```bash
-docker compose exec -T postgresql sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/init.sql
+./scripts/apply_db_schema.sh
 ```
 
 - 用户端：http://localhost:8080/
 - 横幅管理：http://localhost:8080/admin/，需同一 Auth 服务的管理员账号。
-- Go API 健康检查为 `/health`，会验证 PostgreSQL 与 banner 表可用。
+- Go API 健康检查为 `/health`，会验证 PostgreSQL 与横幅焦点栏位可用。
 
-当前 upstream 首页尚未读取新横幅 API；管理端保存图片不会改变首页轮播。
+首页读取已启用的横幅，并依焦点裁剪。每个浏览器选中一张显示两小时后换下一张，列表快取十二小时，因此后台新增、排序或停用不会立刻反映到已快取的浏览器。无可用横幅或 API 暂时失败时保留原本的静态图片；目前首页横幅不提供点击跳转。
+
+新上传图片上限为 500 KiB，可在后台预览 WebP 压缩结果。已保存的横幅可修改焦点、排序、启用状态及链接，但不能原地换图；换图需另外建立横幅。既有较大图片不会因此删除或禁止调整上述设定。图片 key 不重用，使用一年 immutable 快取。回退应用映像时保留新增数据库栏位，不需删除横幅或 R2 物件。
 
 升级旧版时，原 Compose `api`（Ktor）服务改名为 `server`，新的 `api` 是 Go 服务。部署须先保留当前镜像、备份与容器证据，确认 Ktor 的档案挂载、Auth 秘密及 NAILAIN 设置，再协调切换 Web / API / Server；既有资料服务不需重建。不要对生产资料执行 `docker compose down -v`。

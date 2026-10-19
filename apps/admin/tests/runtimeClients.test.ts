@@ -28,6 +28,48 @@ it('confines the local development credential to the same-origin API', async () 
 
 it('uploads the image directly without forwarding its bearer credential', async () => {
   const requests: Request[] = [];
+  const uploads: {
+    method: string;
+    url: string;
+    headers: Headers;
+    withCredentials: boolean;
+    body: unknown;
+  }[] = [];
+  // Keep the real SDK upload transport and intercept only the browser I/O.
+  // This covers the switch from fetch to XHR, including its raw File body.
+  vi.stubGlobal(
+    'XMLHttpRequest',
+    class {
+      upload = { onprogress: null };
+      onload: (() => void) | null = null;
+      status = 204;
+      statusText = 'No Content';
+      withCredentials = true;
+      headers = new Headers();
+      method = '';
+      url = '';
+      open(method: string, url: string) {
+        this.method = method;
+        this.url = url;
+      }
+      setRequestHeader(name: string, value: string) {
+        this.headers.set(name, value);
+      }
+      getAllResponseHeaders() {
+        return '';
+      }
+      send(body: unknown) {
+        uploads.push({
+          method: this.method,
+          url: this.url,
+          headers: this.headers,
+          withCredentials: this.withCredentials,
+          body,
+        });
+        queueMicrotask(() => this.onload?.());
+      }
+    },
+  );
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -51,11 +93,13 @@ it('uploads the image directly without forwarding its bearer credential', async 
     type: 'image/png',
   });
   await api.upload(file);
-  expect(requests).toHaveLength(2);
+  expect(requests).toHaveLength(1);
   expect(requests[0].headers.get('Authorization')).toMatch(/^Bearer /);
-  expect(requests[1].url).toContain('https://objects.example/');
-  expect(requests[1].headers.has('Authorization')).toBe(false);
-  expect(requests[1].credentials).toBe('omit');
-  expect(requests[1].headers.get('If-None-Match')).toBe('*');
-  expect(await requests[1].text()).toBe('image-fixture');
+  expect(uploads).toHaveLength(1);
+  expect(uploads[0].url).toContain('https://objects.example/');
+  expect(uploads[0].method).toBe('PUT');
+  expect(uploads[0].headers.has('Authorization')).toBe(false);
+  expect(uploads[0].withCredentials).toBe(false);
+  expect(uploads[0].headers.get('If-None-Match')).toBe('*');
+  expect(uploads[0].body).toBe(file);
 });

@@ -1,6 +1,13 @@
 <script lang="ts" setup>
-import { Toast, XDrawer } from '@novelia/web-kit';
-import { FileDownloadOutlined, MoreVertOutlined } from '@vicons/material';
+import {
+  Toast,
+  XActionMenu,
+  XActionMenuItem,
+  XDrawer,
+  XSelect,
+  XDialog,
+} from '@novelia/web-kit';
+import { FileDownloadOutlined } from '@vicons/material';
 
 import type { LocalVolumeMetadata } from '@/model/LocalVolume';
 import {
@@ -80,7 +87,7 @@ const search = reactive({
 const favoredStore = FavoredRepo.useFavoredStore();
 const { favoreds } = storeToRefs(favoredStore);
 
-const selectedFavored = ref<string | undefined>(favoreds.value.local[0]?.id);
+const selectedFavored = ref(favoreds.value.local[0]?.id ?? 'default');
 const favoredsOptions = computed(() => {
   return favoreds.value.local.map(({ id, title }) => ({
     label: title,
@@ -107,7 +114,7 @@ const sortedVolumes = computed(() => {
     title="本地小说"
     show-header
     side="right"
-    width="clamp(280px, 80vw, 800px)"
+    size="clamp(280px, 80vw, 800px)"
     @open-auto-focus.prevent
   >
     <template #action>
@@ -120,16 +127,15 @@ const sortedVolumes = computed(() => {
         :icon="FileDownloadOutlined"
         @click="downloadVolumes"
       />
-      <n-dropdown
-        trigger="click"
-        :options="options"
-        :keyboard="false"
-        @select="handleSelect"
-      >
-        <n-button circle>
-          <n-icon :component="MoreVertOutlined" />
-        </n-button>
-      </n-dropdown>
+      <XActionMenu>
+        <XActionMenuItem
+          v-for="option in options"
+          :key="option.key"
+          @activate="handleSelect(option.key)"
+        >
+          {{ option.label }}
+        </XActionMenuItem>
+      </XActionMenu>
     </template>
 
     <n-scrollbar trigger="none" class="min-h-0 flex-1">
@@ -144,10 +150,11 @@ const sortedVolumes = computed(() => {
           </c-action-wrapper>
 
           <c-action-wrapper v-if="favoreds.local.length > 1" title="收藏">
-            <n-select
-              v-model:value="selectedFavored"
+            <XSelect
+              v-model="selectedFavored"
               :options="favoredsOptions"
-              style="max-width: 400px"
+              aria-label="收藏夹"
+              style="width: 100%; max-width: 400px"
             />
           </c-action-wrapper>
 
@@ -178,16 +185,20 @@ const sortedVolumes = computed(() => {
           </n-list>
         </n-scrollbar>
 
-        <c-modal title="清空所有文件" v-model:show="showDeleteModal">
+        <XDialog
+          title="清空所有文件"
+          v-model:open="showDeleteModal"
+          class="w-[600px]"
+        >
           <n-p>
             这将清空你的浏览器里面保存的所有EPUB/TXT文件，包括已经翻译的章节和术语表，无法恢复。
             你确定吗？
           </n-p>
 
-          <template #action>
+          <template #footer>
             <c-button label="确定" type="primary" @action="deleteAllVolumes" />
           </template>
-        </c-modal>
+        </XDialog>
       </div>
     </n-scrollbar>
   </XDrawer>

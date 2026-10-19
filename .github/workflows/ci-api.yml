@@ -17,12 +17,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    services:
+      postgresql:
+        image: postgres:17.7-alpine3.23
+        env:
+          POSTGRES_USER: banner-schema-test
+          POSTGRES_DB: banner-schema-test
+          POSTGRES_PASSWORD: fixture-only
+        options: >-
+          --health-cmd "pg_isready -U banner-schema-test -d banner-schema-test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: apps/api
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify existing banner schema upgrade
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgresql.id }}
+        run: bash script/check_banner_schema.sh "$POSTGRES_CONTAINER"
 
       - uses: actions/setup-go@v6
         with:

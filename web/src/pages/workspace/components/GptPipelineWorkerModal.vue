@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Toast } from '@novelia/web-kit';
+import { Toast, XSelect, XDialog } from '@novelia/web-kit';
 import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
 import type { GptPipelineWorker } from '@/model/Translator';
@@ -86,17 +86,32 @@ const initFormValue = (
 const formRef = useTemplateRef<FormInst>('form');
 const formValue = ref(initFormValue(props.worker));
 
-/** 用户是否手动改过链接；改过则切换接口格式时不再自动覆盖 */
-const endpointTouched = ref(false);
+/** 已保存或手动输入的 API 端点不随接口格式切换而覆盖。 */
+const preserveEndpoint = ref(Boolean(props.worker?.endpoint.trim()));
 
 const onEndpointInput = (value: string) => {
   formValue.value.endpoint = value;
-  endpointTouched.value = true;
+  preserveEndpoint.value = true;
 };
 
 const currentProfile = computed(() =>
   openAiProfiles.find((p) => p.id === formValue.value.profileId),
 );
+
+const profileFieldOptions = (field: {
+  key: string;
+  options: readonly { label: string; value: string | number }[];
+}) => {
+  const options = [...field.options];
+  const current = formValue.value.profileValues[field.key];
+  if (
+    current !== undefined &&
+    !options.some((option) => option.value === current)
+  ) {
+    options.push({ label: String(current), value: current });
+  }
+  return options;
+};
 
 function defaultProfileValues(profileId: openAiProfileId): ProfileValues {
   const profile = openAiProfiles.find((p) => p.id === profileId);
@@ -109,13 +124,16 @@ function defaultProfileValues(profileId: openAiProfileId): ProfileValues {
   return values;
 }
 
-const onProfileChange = (id: openAiProfileId) => {
+const onProfileChange = (value: string) => {
+  const profile = openAiProfiles.find((profile) => profile.id === value);
+  if (!profile) return;
+  const id = profile.id;
   formValue.value.profileId = id;
   formValue.value.profileValues = defaultProfileValues(id);
   // 已保存的地址及已输入的 Key 属于同一服务商，切换协议不能改送另一站。
   if (
     props.worker === undefined &&
-    !endpointTouched.value &&
+    !preserveEndpoint.value &&
     !keyText.value.trim()
   ) {
     formValue.value.endpoint = defaultEndpoint(id);
@@ -126,7 +144,7 @@ watch(
   () => props.worker,
   (newWorker) => {
     formValue.value = initFormValue(newWorker);
-    endpointTouched.value = false;
+    preserveEndpoint.value = Boolean(newWorker?.endpoint.trim());
   },
   { immediate: false },
 );
@@ -151,7 +169,7 @@ const editFormRules: FormRules = {
   ],
   model: [emptyCheck('模型')],
   endpoint: [
-    emptyCheck('链接'),
+    emptyCheck('API端点'),
     {
       validator: (rule: FormItemRule, value: string) => {
         try {
@@ -161,7 +179,7 @@ const editFormRules: FormRules = {
           return false;
         }
       },
-      message: '链接不合法',
+      message: 'API端点不合法',
       trigger: 'input',
     },
   ],
@@ -202,7 +220,7 @@ const addFormRules: FormRules = {
   endpoint: [
     {
       validator: (_r: FormItemRule, value: string) => value.trim().length > 0,
-      message: '链接不能为空',
+      message: 'API端点不能为空',
       trigger: 'input',
     },
     {
@@ -214,7 +232,7 @@ const addFormRules: FormRules = {
           return false;
         }
       },
-      message: '链接不合法',
+      message: 'API端点不合法',
       trigger: 'input',
     },
   ],
@@ -267,17 +285,23 @@ const addFormRules: FormRules = {
 const modelText = ref('');
 const keyText = ref('');
 const defaultConcurrency = ref(1);
+const keyIds = new Map<string, number>();
+const workerNames = reactive<Record<string, string>>({});
 const workerConcurrencies = reactive<Record<string, number>>({});
 
 watch(
   () => props.show,
   (show) => {
     if (show && props.worker === undefined) {
+      keyIds.clear();
       modelText.value = '';
       keyText.value = '';
+      for (const uid of Object.keys(workerNames)) delete workerNames[uid];
+      for (const uid of Object.keys(workerConcurrencies))
+        delete workerConcurrencies[uid];
       defaultConcurrency.value = 1;
       formValue.value = initFormValue(undefined);
-      endpointTouched.value = false;
+      preserveEndpoint.value = false;
     }
   },
 );
@@ -299,6 +323,7 @@ const keys = computed(() =>
 );
 
 interface GeneratedWorker {
+  uid: string;
   id: string;
   model: string;
   key: string;
@@ -309,36 +334,49 @@ const generatedWorkers = computed<GeneratedWorker[]>(() => {
   const ks = keys.value;
   if (ms.length === 0 || ks.length === 0) return [];
 
+  const usedIds = new Set(workspaceRef.value.workers.map((w) => w.id));
   const result: GeneratedWorker[] = [];
   for (const model of ms) {
-    for (let ki = 0; ki < ks.length; ki++) {
-      const id = ks.length === 1 ? model : `${model}[${ks[ki].slice(-4)}]`;
-      result.push({ id, model, key: ks[ki] });
+    let suffix = 2;
+    for (const key of ks) {
+      let id = model;
+      while (usedIds.has(id)) {
+        id = `${model} (${suffix++})`;
+      }
+      usedIds.add(id);
+      let keyId = keyIds.get(key);
+      if (keyId === undefined) {
+        keyId = keyIds.size;
+        keyIds.set(key, keyId);
+      }
+      const uid = JSON.stringify([model, keyId]);
+      result.push({ uid, id, model, key });
     }
   }
   return result;
 });
 
 watch(generatedWorkers, (ws) => {
-  const newIds = new Set(ws.map((w) => w.id));
+  const newIds = new Set(ws.map((w) => w.uid));
+  for (const key of Object.keys(workerNames)) {
+    if (!newIds.has(key)) delete workerNames[key];
+  }
   for (const key of Object.keys(workerConcurrencies)) {
     if (!newIds.has(key)) delete workerConcurrencies[key];
   }
   for (const w of ws) {
-    if (!(w.id in workerConcurrencies)) {
-      workerConcurrencies[w.id] = defaultConcurrency.value;
+    if (!(w.uid in workerConcurrencies)) {
+      workerConcurrencies[w.uid] = defaultConcurrency.value;
     }
   }
 });
 
-const maskKey = (key: string) => {
-  if (key.length <= 12) return key;
-  return key.slice(0, 8) + '…' + key.slice(-4);
-};
+const maskKey = (key: string) =>
+  key.length > 8 ? `••••${key.slice(-4)}` : '••••';
 
 watch(defaultConcurrency, (val) => {
   for (const w of generatedWorkers.value) {
-    workerConcurrencies[w.id] = val;
+    workerConcurrencies[w.uid] = val;
   }
 });
 
@@ -346,10 +384,18 @@ watch([modelText, keyText], () => {
   nextTick(() => formRef.value?.validate());
 });
 
+const workerName = (worker: GeneratedWorker) =>
+  (workerNames[worker.uid] ?? worker.id).trim();
+
 const validateIds = (): string | null => {
   const existingIds = new Set(workspaceRef.value.workers.map((w) => w.id));
+  const generatedIds = new Set<string>();
   for (const w of generatedWorkers.value) {
-    if (existingIds.has(w.id)) return `翻译器「${w.id}」已存在`;
+    const id = workerName(w);
+    if (!id) return '翻译器名字不能为空';
+    if (existingIds.has(id)) return `翻译器「${id}」已存在`;
+    if (generatedIds.has(id)) return `翻译器名字「${id}」重复`;
+    generatedIds.add(id);
   }
   return null;
 };
@@ -362,11 +408,11 @@ const addWorkers = () => {
   };
   for (const w of generatedWorkers.value) {
     workspace.addWorker({
-      id: w.id,
+      id: workerName(w),
       model: w.model,
       endpoint,
       key: w.key,
-      concurrency: workerConcurrencies[w.id] ?? defaultConcurrency.value,
+      concurrency: workerConcurrencies[w.uid] ?? defaultConcurrency.value,
       profile,
     });
   }
@@ -422,9 +468,9 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
 </script>
 
 <template>
-  <c-modal
-    :show="show"
-    @update:show="$emit('update:show', $event)"
+  <XDialog
+    :open="show"
+    @update:open="$emit('update:show', $event)"
     :title="verb + '翻译器'"
     style="width: min(750px, calc(100% - 16px))"
   >
@@ -436,12 +482,14 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
       label-width="auto"
     >
       <n-form-item-row label="接口格式">
-        <n-select
-          :value="formValue.profileId"
+        <XSelect
+          :model-value="formValue.profileId"
           :options="
             openAiProfiles.map((p) => ({ label: p.label, value: p.id }))
           "
-          @update:value="onProfileChange"
+          aria-label="接口格式"
+          class="w-full"
+          @update:model-value="onProfileChange"
         />
       </n-form-item-row>
 
@@ -451,21 +499,35 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
           :key="`${formValue.profileId}-${field.key}`"
           :label="field.label"
         >
-          <n-select
+          <XSelect
             v-if="field.type === 'select'"
-            :value="formValue.profileValues[field.key]"
-            :options="
-              field.options.map((o) => ({ label: o.label, value: o.value }))
+            :model-value="
+              String(
+                profileFieldOptions(field).findIndex(
+                  (option) =>
+                    option.value === formValue.profileValues[field.key],
+                ),
+              )
             "
-            @update:value="
-              (v) => (formValue.profileValues[field.key] = v ?? undefined)
+            :options="
+              profileFieldOptions(field).map((option, index) => ({
+                label: option.label,
+                value: String(index),
+              }))
+            "
+            :aria-label="field.label"
+            class="w-full"
+            @update:model-value="
+              (value) =>
+                (formValue.profileValues[field.key] =
+                  profileFieldOptions(field)[Number(value)]?.value)
             "
           />
         </n-form-item-row>
       </template>
       <!-- 添加模式：批量 -->
       <template v-if="props.worker === undefined">
-        <n-form-item-row path="endpoint" label="链接">
+        <n-form-item-row path="endpoint" label="API端点">
           <n-input
             :value="formValue.endpoint"
             :placeholder="defaultEndpoint(formValue.profileId)"
@@ -503,15 +565,23 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
           <n-table :single-line="false" size="small">
             <thead>
               <tr>
-                <th>名字</th>
+                <th>显示名称</th>
                 <th>模型</th>
                 <th>Key</th>
                 <th style="width: 80px">并发</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="w in generatedWorkers" :key="w.id">
-                <td>{{ w.id }}</td>
+              <tr v-for="w in generatedWorkers" :key="w.uid">
+                <td>
+                  <n-input
+                    :value="workerNames[w.uid] ?? w.id"
+                    :placeholder="w.id"
+                    size="small"
+                    aria-label="翻译器显示名称"
+                    @update:value="workerNames[w.uid] = $event"
+                  />
+                </td>
                 <td>{{ w.model }}</td>
                 <td style="font-family: monospace; font-size: 12px">
                   {{ maskKey(w.key) }}
@@ -520,11 +590,11 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
                   <input
                     type="number"
                     class="concurrency-input"
-                    :value="workerConcurrencies[w.id]"
+                    :value="workerConcurrencies[w.uid]"
                     min="1"
                     max="100"
                     @input="
-                      workerConcurrencies[w.id] = Number(
+                      workerConcurrencies[w.uid] = Number(
                         ($event.target as HTMLInputElement).value,
                       )
                     "
@@ -550,7 +620,7 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
             placeholder="deepseek-v4-pro"
           />
         </n-form-item-row>
-        <n-form-item-row path="endpoint" label="链接">
+        <n-form-item-row path="endpoint" label="API端点">
           <n-input
             :value="formValue.endpoint"
             :placeholder="defaultEndpoint(formValue.profileId)"
@@ -570,14 +640,14 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
       </template>
     </n-form>
 
-    <template #action>
+    <template #footer>
       <n-flex v-if="props.worker === undefined" :size="12">
         <c-button label="添加并继续" @action="submitAndContinue" />
         <c-button label="添加" type="primary" @action="submit" />
       </n-flex>
       <c-button v-else label="更新" type="primary" @action="submit" />
     </template>
-  </c-modal>
+  </XDialog>
 </template>
 
 <style scoped>

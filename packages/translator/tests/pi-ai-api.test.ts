@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
 
 import { createPiAiCompletion } from '../src/translator/pi-ai-api';
@@ -28,6 +30,87 @@ const toHeadersRecord = (headers?: HeadersInit): Record<string, string> => {
 // createPiAiCompletion 统一模型流式调用测试
 // ============================================================
 describe('createPiAiCompletion', () => {
+  it.each([
+    ['https://openrouter.ai/api/v1', true],
+    ['https://anthropic.example.test/v1', false],
+  ] as const)(
+    'sends the correct Messages authentication for %s through the SDK and HTTP boundary',
+    async (endpoint, openRouter) => {
+      let received:
+        | { path: string; headers: Record<string, unknown>; body: unknown }
+        | undefined;
+      let outgoingHeaders: Headers | undefined;
+      const server = createServer(async (request, response) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of request) chunks.push(Buffer.from(chunk));
+        received = {
+          path: request.url!,
+          headers: request.headers,
+          body: JSON.parse(Buffer.concat(chunks).toString()),
+        };
+        response.writeHead(400, { 'content-type': 'application/json' });
+        response.end(
+          JSON.stringify({ error: { message: 'fixture provider error' } }),
+        );
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, '127.0.0.1', resolve),
+      );
+      const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      try {
+        await expect(
+          createPiAiCompletion({
+            protocol: 'anthropic-messages',
+            endpoint,
+            key: 'synthetic-key',
+            model: 'claude-test',
+            messages: [{ role: 'user', content: 'source' }],
+            fetch(input, init) {
+              const url = new URL(
+                input instanceof Request ? input.url : String(input),
+              );
+              outgoingHeaders = new Headers(init?.headers);
+              return fetch(new URL(url.pathname + url.search, origin), init);
+            },
+          }),
+        ).rejects.toThrow(/fixture provider error/);
+
+        expect(received?.path).toBe(
+          openRouter ? '/api/v1/messages?beta=true' : '/v1/messages?beta=true',
+        );
+        expect(received?.body).toMatchObject({
+          model: 'claude-test',
+          messages: [{ role: 'user', content: 'source' }],
+          stream: true,
+        });
+        expect(received?.headers.authorization).toBe(
+          openRouter ? 'Bearer synthetic-key' : undefined,
+        );
+        expect(received?.headers['x-api-key']).toBe(
+          openRouter ? undefined : 'synthetic-key',
+        );
+        expect(received?.headers['anthropic-version'] !== undefined).toBe(
+          !openRouter,
+        );
+        if (openRouter) {
+          expect(
+            received?.headers['anthropic-dangerous-direct-browser-access'],
+          ).toBeUndefined();
+          expect(received?.headers['anthropic-beta']).toBeUndefined();
+        }
+        expect(
+          [...outgoingHeaders!.keys()].some(
+            (name) => name.startsWith('x-stainless-') || name === 'user-agent',
+          ),
+        ).toBe(false);
+      } finally {
+        await new Promise<void>((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+      }
+    },
+  );
+
   // --- 场景 1：各协议正常请求与流式解析 ---
   it('应通过 pi-ai 正确发送 OpenAI Chat 请求，并将思考过程与正文内容分离', async () => {
     let request:

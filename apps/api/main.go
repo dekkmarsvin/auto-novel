@@ -83,11 +83,13 @@ func main() {
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
-		var schemaReady bool
-		if err := db.QueryRowContext(ctx, "SELECT to_regclass('public.banner') IS NOT NULL").Scan(&schemaReady); err != nil || !schemaReady {
+		// A pre-focal-point banner table exists but cannot serve the current API.
+		rows, err := db.QueryContext(ctx, "SELECT focal_x, focal_y FROM public.banner LIMIT 0")
+		if err != nil {
 			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
 			return
 		}
+		_ = rows.Close()
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK\n"))
