@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import { MoreVertOutlined } from '@vicons/material';
 import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
-import { Toast } from '@novelia/web-kit';
+import { Toast, XActionMenu, XActionMenuItem, XDialog } from '@novelia/web-kit';
 
 import { FavoredRepo } from '@/stores';
 import { useBookshelfLocalStore } from '../BookshelfLocalStore';
@@ -92,24 +91,25 @@ const deleteFavored = () =>
 </script>
 
 <template>
-  <RouterLink :to="`/favorite/${type}/${id}`">
-    <n-flex align="center" justify="space-between">
+  <n-flex align="center" justify="space-between" :wrap="false">
+    <RouterLink :to="`/favorite/${type}/${id}`" class="min-w-0 flex-1 truncate">
       {{ title }}
-      <n-dropdown
-        v-if="options.length > 0"
-        trigger="hover"
-        :options="options"
-        :keyboard="false"
-        @select="onSelect"
-      >
-        <n-button quaternary circle>
-          <n-icon :component="MoreVertOutlined" />
-        </n-button>
-      </n-dropdown>
-    </n-flex>
-  </RouterLink>
+    </RouterLink>
+    <span v-if="options.length > 0" @click.stop>
+      <XActionMenu>
+        <XActionMenuItem
+          v-for="option in options"
+          :key="option.key"
+          :danger="option.key === 'delete'"
+          @activate="onSelect(option.key)"
+        >
+          {{ option.label }}
+        </XActionMenuItem>
+      </XActionMenu>
+    </span>
+  </n-flex>
 
-  <c-modal v-model:show="showEditModal" title="编辑收藏夹">
+  <XDialog v-model:open="showEditModal" title="编辑收藏夹" class="w-[600px]">
     <n-form
       ref="form"
       :model="formValue"
@@ -126,7 +126,7 @@ const deleteFavored = () =>
       </n-form-item-row>
     </n-form>
 
-    <template #action>
+    <template #footer>
       <c-button
         label="确定"
         require-login
@@ -134,16 +134,16 @@ const deleteFavored = () =>
         @action="updateFavored"
       />
     </template>
-  </c-modal>
+  </XDialog>
 
-  <c-modal v-model:show="showDeleteModal" title="删除收藏夹">
+  <XDialog v-model:open="showDeleteModal" title="删除收藏夹" class="w-[600px]">
     确定删除收藏夹[{{ title }}]吗？
     <n-text v-if="type === 'local'">
       <br />
       注意，删除本地收藏夹的同时也会清空收藏夹内所有小说。
     </n-text>
 
-    <template #action>
+    <template #footer>
       <c-button
         label="确定"
         require-login
@@ -151,5 +151,5 @@ const deleteFavored = () =>
         @action="deleteFavored"
       />
     </template>
-  </c-modal>
+  </XDialog>
 </template>

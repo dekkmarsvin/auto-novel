@@ -1,5 +1,6 @@
 import * as Vue from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Toast } from '@novelia/web-kit';
 import type { GptPipelineWorker } from '../src/model/Translator';
 
 const boundary = vi.hoisted(() => ({
@@ -14,6 +15,8 @@ vi.mock('../src/stores', () => ({
   useSakuraWorkspaceStore: boundary.sakuraStore,
 }));
 vi.mock('@novelia/web-kit', () => ({
+  XDialog: {},
+  XSelect: {},
   Toast: {
     success: vi.fn(),
     warning: vi.fn(),
@@ -59,14 +62,34 @@ interface Controls {
   }>;
   keyText: Vue.Ref<string>;
   modelText: Vue.Ref<string>;
+  generatedWorkers: Vue.ComputedRef<
+    { uid: string; id: string; model: string; key: string }[]
+  >;
+  workerNames: Record<string, string>;
+  workerConcurrencies: Record<string, number>;
+  currentProfile: Vue.ComputedRef<{
+    fields: {
+      key: string;
+      options: readonly { label: string; value: string | number }[];
+    }[];
+  }>;
+  profileFieldOptions(field: {
+    key: string;
+    options: readonly { label: string; value: string | number }[];
+  }): { label: string; value: string | number }[];
   onProfileChange(id: string): void;
   onEndpointInput(value: string): void;
   submit(): Promise<void>;
 }
 
-async function modal(worker?: GptPipelineWorker) {
+async function modal(
+  worker?: GptPipelineWorker,
+  existing: GptPipelineWorker[] = [],
+) {
   const props = Vue.reactive({ show: true, worker });
-  const records = Vue.ref({ workers: worker ? [structuredClone(worker)] : [] });
+  const records = Vue.ref({
+    workers: worker ? [structuredClone(worker)] : structuredClone(existing),
+  });
   boundary.store.mockReturnValue({
     ref: records,
     addWorker(value: GptPipelineWorker) {
@@ -141,6 +164,14 @@ describe('GPT worker profile compatibility', () => {
       profile: { id: 'gemini', values: { reasoning_effort: 'minimal' } },
     });
     const { controls, props, records } = await modal(worker);
+    const field = controls.currentProfile.value.fields[0];
+    expect(controls.profileFieldOptions(field)).toContainEqual({
+      label: 'minimal',
+      value: 'minimal',
+    });
+    expect(field.options.some((option) => option.value === 'minimal')).toBe(
+      false,
+    );
     await controls.submit();
     expect(records.value.workers[0]).toEqual(worker);
 
@@ -156,6 +187,13 @@ describe('GPT worker profile compatibility', () => {
     expect(controls.formValue.value.profileValues.reasoning_effort).toBe(
       'none',
     );
+    expect(controls.profileFieldOptions(field)).toContainEqual({
+      label: 'none',
+      value: 'none',
+    });
+    expect(field.options.some((option) => option.value === 'none')).toBe(false);
+    await controls.submit();
+    expect(records.value.workers[1]).toEqual(other);
     controls.onProfileChange('anthropic');
     await controls.submit();
     expect(records.value.workers[1]).toMatchObject({
@@ -201,6 +239,78 @@ describe('GPT worker profile compatibility', () => {
       },
     ]);
   });
+});
+
+describe('batch GPT worker creation', () => {
+  it('keeps edited names and concurrency attached to the same model and key when the preview changes', async () => {
+    const existing = storedWorker({ id: 'model-a' });
+    const { controls, records } = await modal(undefined, [existing]);
+    controls.modelText.value = 'model-a\nmodel-b';
+    controls.keyText.value = 'synthetic-one\nsynthetic-two';
+    await Vue.nextTick();
+    expect(controls.generatedWorkers.value.map((worker) => worker.id)).toEqual([
+      'model-a (2)',
+      'model-a (3)',
+      'model-b',
+      'model-b (2)',
+    ]);
+    const target = controls.generatedWorkers.value.find(
+      (worker) => worker.model === 'model-a' && worker.key === 'synthetic-two',
+    )!;
+    controls.workerNames[target.uid] = ' Preferred model ';
+    controls.workerConcurrencies[target.uid] = 7;
+
+    controls.keyText.value = 'synthetic-two\nsynthetic-one';
+    controls.modelText.value = 'model-a';
+    await Vue.nextTick();
+    await controls.submit();
+    expect(records.value.workers).toEqual([
+      existing,
+      {
+        id: 'Preferred model',
+        model: 'model-a',
+        key: 'synthetic-two',
+        endpoint: 'https://api.deepseek.com',
+        concurrency: 7,
+        profile: {
+          id: 'deepseek',
+          values: { reasoning_effort: '__default__' },
+        },
+      },
+      {
+        id: 'model-a (3)',
+        model: 'model-a',
+        key: 'synthetic-one',
+        endpoint: 'https://api.deepseek.com',
+        concurrency: 1,
+        profile: {
+          id: 'deepseek',
+          values: { reasoning_effort: '__default__' },
+        },
+      },
+    ]);
+  });
+
+  it.each([
+    [[' ', 'valid'], '翻译器名字不能为空'],
+    [['duplicate', 'duplicate'], '翻译器名字「duplicate」重复'],
+    [['saved-worker', 'valid'], '翻译器「saved-worker」已存在'],
+  ] as const)(
+    'rejects invalid batch names %j before any store writes',
+    async (names, warning) => {
+      const existing = storedWorker();
+      const { controls, records } = await modal(undefined, [existing]);
+      controls.modelText.value = 'model-a';
+      controls.keyText.value = 'synthetic-one\nsynthetic-two';
+      await Vue.nextTick();
+      controls.generatedWorkers.value.forEach((worker, index) => {
+        controls.workerNames[worker.uid] = names[index];
+      });
+      await controls.submit();
+      expect(Toast.warning).toHaveBeenCalledWith(warning);
+      expect(records.value.workers).toEqual([existing]);
+    },
+  );
 });
 
 describe('interactive translation completion', () => {

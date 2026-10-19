@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/url"
 	"regexp"
 	"strings"
@@ -16,21 +17,24 @@ import (
 )
 
 const (
-	CodeBannerIDInvalid      = "banner.id_invalid"
-	CodeBannerTypeInvalid    = "banner.type_invalid"
-	CodeBannerKeyInvalid     = "banner.key_invalid"
-	CodeBannerLinkURLInvalid = "banner.link_url_invalid"
-	CodeBannerNotFound       = "banner.not_found"
-	CodeBannerConflict       = "banner.conflict"
-	CodeBannerAdminRequired  = "banner.admin_required"
-	CodeBannerImageInvalid   = "banner.image_invalid"
-	CodeBannerImageNotFound  = "banner.image_not_found"
+	CodeBannerFocalPointInvalid = "banner.focal_point_invalid"
+	CodeBannerIDInvalid         = "banner.id_invalid"
+	CodeBannerTypeInvalid       = "banner.type_invalid"
+	CodeBannerKeyInvalid        = "banner.key_invalid"
+	CodeBannerLinkURLInvalid    = "banner.link_url_invalid"
+	CodeBannerNotFound          = "banner.not_found"
+	CodeBannerConflict          = "banner.conflict"
+	CodeBannerAdminRequired     = "banner.admin_required"
+	CodeBannerImageInvalid      = "banner.image_invalid"
+	CodeBannerImageNotFound     = "banner.image_not_found"
 )
 
 const (
-	BannerMaxImageSize       = 5 * 1024 * 1024
+	BannerMaxImageSize       = 500 * 1024
 	bannerUploadTTL          = 10 * time.Minute
 	bannerImageDeleteTimeout = 30 * time.Second
+	// Banner image keys are never reused, so browsers and CDNs can cache them for a year.
+	bannerImageCacheControl = "public, max-age=31536000, immutable"
 )
 
 var bannerObjectKey = regexp.MustCompile(`^banners/[A-Za-z0-9_-]+\.(jpg|png|webp|gif|avif)$`)
@@ -70,14 +74,15 @@ type BannerUploadResult struct {
 
 type ListBannersQuery struct{ Type domain.BannerType }
 
-// Image keys are exclusive to one banner and must not be reused after replacement
-// or deletion. Reusing an image requires uploading it under a new key.
+// Image keys are exclusive to one banner and cannot be changed or reused after deletion.
 // A nil or blank LinkURL clears the existing link.
 type BannerInput struct {
 	Type      domain.BannerType
 	Key       string
 	LinkURL   *string
 	SortOrder int32
+	FocalX    float64
+	FocalY    float64
 }
 
 type SetBannerActiveCommand struct {
@@ -97,13 +102,13 @@ func (u *BannerUsecase) PresignUpload(
 	if extension == "" || input.Size <= 0 || input.Size > BannerMaxImageSize {
 		return nil, Invalid(
 			CodeBannerImageInvalid,
-			"图片必须为 JPEG、PNG、WebP、GIF 或 AVIF，且不超过 5 MiB",
+			"图片必须为 JPEG、PNG、WebP、GIF 或 AVIF，且不超过 500 KiB",
 		)
 	}
 	key := "banners/" + rand.Text() + extension
 	expiresAt := time.Now().Add(bannerUploadTTL)
 	upload, err := u.objectRepo.PresignPut(
-		ctx, key, input.ContentType, input.Size, bannerUploadTTL,
+		ctx, key, input.ContentType, bannerImageCacheControl, input.Size, bannerUploadTTL,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("banner.presign_upload: %w", err)
@@ -199,6 +204,12 @@ func normalizeBannerInput(input BannerInput) (repository.BannerContent, error) {
 	if err := checkBannerType(input.Type); err != nil {
 		return repository.BannerContent{}, err
 	}
+	if math.IsNaN(input.FocalX) || math.IsNaN(input.FocalY) ||
+		input.FocalX < 0 || input.FocalX > 1 || input.FocalY < 0 || input.FocalY > 1 {
+		return repository.BannerContent{}, Invalid(
+			CodeBannerFocalPointInvalid, "焦点坐标必须为 0–1 之间的有限数值",
+		)
+	}
 	input.Key = strings.TrimSpace(input.Key)
 	if !bannerObjectKey.MatchString(input.Key) {
 		return repository.BannerContent{}, Invalid(CodeBannerKeyInvalid, "图片对象 Key 无效")
@@ -221,6 +232,8 @@ func normalizeBannerInput(input BannerInput) (repository.BannerContent, error) {
 		Key:       input.Key,
 		LinkURL:   linkURL,
 		SortOrder: input.SortOrder,
+		FocalX:    input.FocalX,
+		FocalY:    input.FocalY,
 	}, nil
 }
 
@@ -346,19 +359,16 @@ func (u *BannerUsecase) Update(
 	if err != nil {
 		return nil, err
 	}
-	if err := u.checkImage(ctx, content.Key); err != nil {
-		return nil, err
-	}
 	previous, err := u.bannerRepo.Get(ctx, id)
 	if err != nil {
 		return nil, bannerError(err, "update")
 	}
+	if content.Key != previous.Key {
+		return nil, Invalid(CodeBannerKeyInvalid, "编辑不能更换图片，请删除后重新上传")
+	}
 	banner, err := u.bannerRepo.Update(ctx, id, content)
 	if err != nil {
 		return nil, bannerError(err, "update")
-	}
-	if previous.Key != banner.Key {
-		u.deleteImageAsync(ctx, previous.Key)
 	}
 	result := u.result(*banner)
 	return &result, nil

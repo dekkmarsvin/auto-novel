@@ -174,66 +174,66 @@ export class Pixiv implements WebNovelProvider {
     const toc: WebNovelTocItem[] = [];
     const keywords = Array.isArray(obj.tags) ? [...obj.tags] : [];
 
-    if (keywords.length === 0) {
+    const total = obj.total;
+    if (!Number.isInteger(total) || total < 0) {
+      throw new CrawlerParseError('Pixiv 系列目录总数异常');
+    }
+    const keywordsAlt = new Set<string>();
+    const chapterIds = new Set<string>();
+    for (let start = 0; start < total; start += 30) {
       const contentData: any = await this.client
         .get(
-          `https://www.pixiv.net/ajax/novel/series_content/${novelId}?limit=30&last_order=0&order_by=asc`,
+          `https://www.pixiv.net/ajax/novel/series_content/${novelId}?limit=30&last_order=${start}&order_by=asc&lang=zh`,
         )
         .json();
-      const contents = contentData.body?.page?.seriesContents ?? [];
+      const contents = contentData.body?.page?.seriesContents;
+      if (
+        contentData.error ||
+        !Array.isArray(contents) ||
+        contents.length !== Math.min(30, total - start)
+      ) {
+        throw new CrawlerParseError('Pixiv 系列目录分页不完整，请稍后重试');
+      }
 
       contents.forEach((seriesContent: any) => {
-        if (seriesContent.title == undefined) {
+        const viewableType = seriesContent?.series?.viewableType;
+        if (typeof viewableType !== 'number') {
+          throw new CrawlerParseError('Pixiv 系列目录章节数据异常');
+        }
+        if (viewableType !== 0) {
           throw new CrawlerAuthError('当前账号无法获取该小说资源');
         }
+        const chapterId = seriesContent.id;
+        if (
+          typeof chapterId !== 'string' ||
+          !chapterId ||
+          typeof seriesContent.title !== 'string' ||
+          chapterIds.has(chapterId)
+        ) {
+          throw new CrawlerParseError('Pixiv 系列目录章节数据异常');
+        }
+        chapterIds.add(chapterId);
 
-        keywords.push(...(seriesContent.tags ?? []));
+        if (keywords.length === 0 && keywordsAlt.size < 20) {
+          seriesContent.tags?.forEach((tag: string) => keywordsAlt.add(tag));
+        }
         toc.push({
           title: seriesContent.title,
-          chapterId: seriesContent.id,
-          createAt: seriesContent.createDate,
+          chapterId,
+          createAt:
+            seriesContent.createDate ??
+            (seriesContent.uploadTimestamp
+              ? new Date(seriesContent.uploadTimestamp * 1000).toISOString()
+              : null),
         });
       });
-
-      if (contents.length < 30) {
-        return {
-          title: obj.title,
-          authors: [author],
-          type: WebNovelType.Ongoing,
-          keywords,
-          attentions,
-          points: null,
-          totalCharacters,
-          introduction,
-          toc,
-        };
-      }
     }
-
-    toc.length = 0;
-
-    const titleData: any = await this.client
-      .get(`https://www.pixiv.net/ajax/novel/series/${novelId}/content_titles`)
-      .json();
-    const items = titleData.body ?? [];
-
-    items.forEach((item: any) => {
-      if (!item.available) {
-        throw new CrawlerAuthError('当前账号无法获取该小说资源');
-      }
-
-      toc.push({
-        title: item.title,
-        chapterId: item.id,
-        createAt: null,
-      });
-    });
 
     return {
       title: obj.title,
       authors: [author],
       type: WebNovelType.Ongoing,
-      keywords,
+      keywords: keywords.length > 0 ? keywords : [...keywordsAlt],
       attentions,
       points: null,
       totalCharacters,

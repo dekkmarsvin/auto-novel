@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { isCurrentAuthor } from '@/identity';
 import { onMounted, ref } from 'vue';
-import { copyToClipboard, Toast } from '@novelia/web-kit';
+import { copyToClipboard, Toast, XDialog } from '@novelia/web-kit';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
@@ -216,102 +216,92 @@ const submitGlossary = async () => {
     <n-empty v-else description="暂无共用主题术语表" />
   </n-flex>
 
-  <c-modal title="新建共用术语表" v-model:show="showCreateModal">
+  <XDialog title="新建共用术语表" v-model:open="showCreateModal">
     <n-input
       v-model:value="newName"
       placeholder="请输入主题名称（例如：刀剑神域）"
       @keyup.enter="createThemeGlossary"
     />
-    <template #action>
+    <template #footer>
       <c-button label="创建" type="primary" @action="createThemeGlossary" />
     </template>
-  </c-modal>
+  </XDialog>
 
-  <c-modal
+  <XDialog
     :title="`正在编辑：${activeGlossaryName}`"
-    v-model:show="showGlossaryModal"
-    :extra-height="120"
+    v-model:open="showGlossaryModal"
+    class="w-[600px]"
+    @open-auto-focus.prevent
   >
-    <template #header-extra>
-      <n-flex
-        vertical
-        size="large"
-        style="max-width: 400px; margin-bottom: 16px"
-      >
-        <n-input-group>
-          <n-input
-            v-model:value="activeGlossaryName"
-            size="small"
-            placeholder="主题名称"
-          />
-        </n-input-group>
-
-        <n-input-group>
-          <n-input
-            pair
-            v-model:value="termsToAdd"
-            size="small"
-            separator="=>"
-            :placeholder="['日文', '中文']"
-            :input-props="{ spellcheck: false }"
-          />
-          <c-button
-            label="添加"
-            :round="false"
-            size="small"
-            @action="addTerm"
-          />
-        </n-input-group>
-
+    <n-flex vertical size="large" style="max-width: 400px; margin-bottom: 16px">
+      <n-input-group>
         <n-input
-          v-model:value="importGlossaryRaw"
-          type="textarea"
+          v-model:value="activeGlossaryName"
           size="small"
-          placeholder="批量导入术语表"
-          :input-props="{ spellcheck: false }"
-          :rows="1"
+          placeholder="主题名称"
         />
+      </n-input-group>
 
-        <n-flex align="center" :wrap="false">
-          <c-button
-            label="导出"
-            :round="false"
-            size="small"
-            @action="exportGlossary"
-          />
-          <c-button
-            label="导入"
-            :round="false"
-            size="small"
-            @action="importGlossary"
-          />
-          <c-button
-            secondary
-            type="error"
-            label="清空"
-            :round="false"
-            size="small"
-            @action="clearTerm"
-          />
-        </n-flex>
-        <n-flex align="center" :wrap="false">
-          <c-button
-            :disabled="deletedTerms.length === 0"
-            label="撤销删除"
-            :round="false"
-            size="small"
-            @action="undoDeleteTerm"
-          />
-          <n-text
-            v-if="lastDeletedTerm !== undefined"
-            depth="3"
-            style="font-size: 12px"
-          >
-            {{ lastDeletedTerm }}
-          </n-text>
-        </n-flex>
+      <n-input-group>
+        <n-input
+          pair
+          v-model:value="termsToAdd"
+          size="small"
+          separator="=>"
+          :placeholder="['日文', '中文']"
+          :input-props="{ spellcheck: false }"
+        />
+        <c-button label="添加" :round="false" size="small" @action="addTerm" />
+      </n-input-group>
+
+      <n-input
+        v-model:value="importGlossaryRaw"
+        type="textarea"
+        size="small"
+        placeholder="批量导入术语表"
+        :input-props="{ spellcheck: false }"
+        :rows="1"
+      />
+
+      <n-flex align="center" :wrap="false">
+        <c-button
+          label="导出"
+          :round="false"
+          size="small"
+          @action="exportGlossary"
+        />
+        <c-button
+          label="导入"
+          :round="false"
+          size="small"
+          @action="importGlossary"
+        />
+        <c-button
+          secondary
+          type="error"
+          label="清空"
+          :round="false"
+          size="small"
+          @action="clearTerm"
+        />
       </n-flex>
-    </template>
+      <n-flex align="center" :wrap="false">
+        <c-button
+          :disabled="deletedTerms.length === 0"
+          label="撤销删除"
+          :round="false"
+          size="small"
+          @action="undoDeleteTerm"
+        />
+        <n-text
+          v-if="lastDeletedTerm !== undefined"
+          depth="3"
+          style="font-size: 12px"
+        >
+          {{ lastDeletedTerm }}
+        </n-text>
+      </n-flex>
+    </n-flex>
 
     <n-table
       v-if="Object.keys(glossary).length !== 0"
@@ -343,7 +333,7 @@ const submitGlossary = async () => {
       </tr>
     </n-table>
 
-    <template #action>
+    <template #footer>
       <c-button
         v-if="!isReadOnly"
         label="保存提交"
@@ -351,5 +341,5 @@ const submitGlossary = async () => {
         @action="submitGlossary"
       />
     </template>
-  </c-modal>
+  </XDialog>
 </template>

@@ -8,6 +8,11 @@ services:
     build:
       context: .
       dockerfile: deploy/web/Dockerfile
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
+      interval: 5s
+      timeout: 5s
+      retries: 5
     ports:
       - 80:80
     volumes:
@@ -25,6 +30,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     environment:
+      - HTTPS_PROXY=${SHIELD_PROXY_URL:-}
       - ACCESS_TOKEN_SECRET
       - DB_HOST=postgresql
       - DB_PORT=5432
@@ -38,10 +44,8 @@ services:
       - R2_PUBLIC_BASE_URL
     healthcheck:
       test:
-        [
-          'CMD-SHELL',
-          'wget --spider --tries=1 --no-verbose http://localhost:8080/health || exit 1',
-        ]
+        ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:8080/health || exit 1']
+      start_period: 30s
       interval: 5s
       timeout: 5s
       retries: 5

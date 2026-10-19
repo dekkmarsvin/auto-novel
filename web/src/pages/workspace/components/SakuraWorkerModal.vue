@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Toast } from '@novelia/web-kit';
+import { Toast, XDialog } from '@novelia/web-kit';
 import type { FormInst, FormItemRule, FormRules } from 'naive-ui';
 
 import type { SakuraWorker } from '@/model/Translator';
@@ -45,7 +45,7 @@ const formRules: FormRules = {
   endpoint: [
     {
       validator: (rule: FormItemRule, value: string) => value.trim().length > 0,
-      message: '链接不能为空',
+      message: 'API端点不能为空',
       trigger: 'input',
     },
     {
@@ -57,7 +57,7 @@ const formRules: FormRules = {
           return false;
         }
       },
-      message: '链接不合法',
+      message: 'API端点不合法',
       trigger: 'input',
     },
   ],
@@ -109,10 +109,11 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
 </script>
 
 <template>
-  <c-modal
-    :show="show"
-    @update:show="$emit('update:show', $event)"
+  <XDialog
+    :open="show"
+    @update:open="$emit('update:show', $event)"
     :title="verb + 'Sakura翻译器'"
+    class="w-[600px]"
   >
     <n-form
       ref="form"
@@ -128,10 +129,10 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
           :input-props="{ spellcheck: false }"
         />
       </n-form-item-row>
-      <n-form-item-row path="endpoint" label="链接">
+      <n-form-item-row path="endpoint" label="API端点">
         <n-input
           v-model:value="formValue.endpoint"
-          placeholder="翻译器的链接"
+          placeholder="翻译器的API端点"
           :input-props="{ spellcheck: false }"
         />
       </n-form-item-row>
@@ -169,7 +170,7 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
       <n-text depth="3" style="font-size: 12px">
         # 分段长度还在测试中，非默认500无法上传
         <br />
-        # 链接例子：http://127.0.0.1:8080
+        # API端点例子：http://127.0.0.1:8080
       </n-text>
       <br />
       <n-text depth="3" style="font-size: 12px">
@@ -177,12 +178,12 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
       </n-text>
     </n-form>
 
-    <template #action>
+    <template #footer>
       <n-flex v-if="props.worker === undefined" :size="12">
         <c-button label="添加并继续" @action="submitAndContinue" />
         <c-button label="添加" type="primary" @action="submit" />
       </n-flex>
       <c-button v-else label="更新" type="primary" @action="submit" />
     </template>
-  </c-modal>
+  </XDialog>
 </template>

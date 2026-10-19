@@ -31,6 +31,7 @@ vi.mock('@vicons/material', () => ({
   EditOutlined: {},
 }));
 vi.mock('@novelia/web-kit', () => ({
+  XConfirmDialog: { render: () => null },
   copyToClipboard: vi.fn().mockResolvedValue(undefined),
   Toast: {
     info: vi.fn(),
@@ -216,7 +217,7 @@ async function mountEditor(
             Vue.h(tag, {}, slots.default?.()),
       }),
     );
-  app.component('n-modal', { render: () => null });
+  app.component('XConfirmDialog', { render: () => null });
   app.component(
     'n-input',
     Vue.defineComponent({

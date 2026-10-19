@@ -1,4 +1,8 @@
-import type { WebKitContext } from '@novelia/web-kit';
+import {
+  uploadFile,
+  type UploadFileOptions,
+  type WebKitContext,
+} from '@novelia/web-kit';
 import { inject, type InjectionKey } from 'vue';
 
 export interface Banner {
@@ -8,6 +12,8 @@ export interface Banner {
   imageUrl: string;
   linkUrl: string | null;
   sortOrder: number;
+  focalX: number;
+  focalY: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +24,8 @@ export interface BannerInput {
   key: string;
   linkUrl: string | null;
   sortOrder: number;
+  focalX: number;
+  focalY: number;
 }
 
 interface BannerUpload {
@@ -36,14 +44,20 @@ const imageTypes = [
   'image/avif',
 ];
 export const imageAccept = imageTypes.join(',');
+export const maxImageBytes = 500 * 1024;
+
+/** 添加图片时只校验格式，大小留到上传前（压缩后）再校验。 */
+export function validateImageType(file: Pick<File, 'type'>) {
+  if (!imageTypes.includes(file.type)) {
+    throw new Error('图片必须为 JPEG、PNG、WebP、GIF 或 AVIF');
+  }
+}
 
 export function validateImage(file: Pick<File, 'size' | 'type'>) {
-  if (
-    !imageTypes.includes(file.type) ||
-    file.size <= 0 ||
-    file.size > 5 * 1024 * 1024
-  ) {
-    throw new Error('图片必须为 JPEG、PNG、WebP、GIF 或 AVIF，且不超过 5 MiB');
+  validateImageType(file);
+  if (file.size <= 0) throw new Error('图片内容为空');
+  if (file.size > maxImageBytes) {
+    throw new Error(`图片大小不能超过 ${maxImageBytes / 1024} KB`);
   }
 }
 
@@ -75,10 +89,11 @@ export function createBannerApi(
         .get('admin/banner/', { searchParams: { type: 0 } })
         .json<Banner[]>();
     },
-    save(id: number | undefined, input: BannerInput) {
-      return id === undefined
-        ? client.post('admin/banner/', { json: input }).json<Banner>()
-        : client.put(`admin/banner/${id}`, { json: input }).json<Banner>();
+    create(input: BannerInput) {
+      return client.post('admin/banner/', { json: input }).json<Banner>();
+    },
+    update(id: number, input: BannerInput) {
+      return client.put(`admin/banner/${id}`, { json: input }).json<Banner>();
     },
     async setActive(id: number, active: boolean) {
       const path = `admin/banner/${id}/active`;
@@ -88,21 +103,26 @@ export function createBannerApi(
     async remove(id: number) {
       await client.delete(`admin/banner/${id}`);
     },
-    async upload(file: File) {
+    async upload(
+      file: File,
+      options: Pick<UploadFileOptions, 'onProgress' | 'signal'> = {},
+    ) {
       validateImage(file);
       const upload = await client
         .post('admin/banner/upload', {
           json: { contentType: file.type, size: file.size },
+          signal: options.signal,
         })
         .json<BannerUpload>();
-      const response = await fetch(upload.uploadUrl, {
+      await uploadFile(file, {
+        url: upload.uploadUrl,
         method: 'PUT',
+        bodyType: 'file',
         headers: upload.headers,
-        body: file,
-        credentials: 'omit',
+        withCredentials: false,
+        onProgress: options.onProgress,
+        signal: options.signal,
       });
-      if (!response.ok)
-        throw new Error(`图片上传失败（${response.status}），请重试`);
       return { key: upload.key, imageUrl: upload.imageUrl };
     },
   };

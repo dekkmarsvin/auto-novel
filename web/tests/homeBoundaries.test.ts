@@ -85,7 +85,7 @@ vi.mock('naive-ui', () => {
       .concat([['useThemeVars', () => ({ bodyColor: '#fff' })]]),
   );
 });
-vi.mock('../src/pages/home/components/PanelWebNovel.vue', () => ({
+vi.mock('../src/pages/home/PanelWebNovel.vue', () => ({
   default: Vue.defineComponent({
     props: ['novels', 'error'],
     setup: (props) => () =>
@@ -98,12 +98,13 @@ vi.mock('../src/pages/home/components/PanelWebNovel.vue', () => ({
       ),
   }),
 }));
-vi.mock('../src/pages/home/components/PanelWenkuNovel.vue', () => ({
+vi.mock('../src/pages/home/PanelWenkuNovel.vue', () => ({
   default: { render: () => Vue.h('div') },
 }));
-vi.mock('../src/components/CModal.vue', () => ({
+vi.mock('../src/pages/home/HomeBanner.vue', () => ({
   default: { render: () => Vue.h('div') },
 }));
+vi.mock('@novelia/web-kit', () => ({ XDialog: { render: () => null } }));
 vi.mock('../src/components/CButton.vue', () => ({
   default: { render: () => Vue.h('button') },
 }));
@@ -215,11 +216,11 @@ async function setup() {
   });
   await router.push('/');
   app.use(router);
-  const { default: Home } = await import('../src/pages/home/Home.vue');
+  const { default: Home } = await import('../src/pages/home/HomeView.vue');
   // Vitest transforms SFCs for SSR. Compile the actual template for reactive
   // host rendering while retaining Home's actual setup and HTTP/query pipeline.
   const source = readFileSync(
-    new URL('../src/pages/home/Home.vue', import.meta.url),
+    new URL('../src/pages/home/HomeView.vue', import.meta.url),
     'utf8',
   );
   const template = source.slice(
@@ -259,7 +260,6 @@ async function setup() {
     'bulletin',
     'section-header',
     'c-button',
-    'c-modal',
   ])
     mounted.component(name, pass);
   mounted.component(
@@ -277,6 +277,8 @@ async function setup() {
     }),
   );
   mounted.component('PanelWenkuNovel', pass);
+  mounted.component('HomeBanner', { render: () => null });
+  mounted.component('XDialog', { render: () => null });
   signIn();
   mounted.mount(root);
   await Vue.nextTick();

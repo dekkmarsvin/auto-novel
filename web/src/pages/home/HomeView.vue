@@ -5,35 +5,21 @@ import {
   ReadMoreOutlined,
   StarBorderOutlined,
 } from '@vicons/material';
+import { XDialog } from '@novelia/web-kit';
 
 import { FavoredApi } from '@/api';
 import { community } from '@/config';
 import { usePrivateFavoredQuery } from '@/repos/usePrivateFavoredQuery';
 import { WebNovelRepo, WenkuNovelRepo } from '@/repos';
-import { useBreakPoints } from '@/pages/util';
+
 import { useWhoamiStore } from '@/stores';
-import { WebUtil } from '@/util/web';
 
-const bp = useBreakPoints();
-const showShortcut = bp.smaller('tablet');
-
-const router = useRouter();
-const vars = useThemeVars();
+import HomeBanner from './HomeBanner.vue';
+import PanelWebNovel from './PanelWebNovel.vue';
+import PanelWenkuNovel from './PanelWenkuNovel.vue';
 
 const whoamiStore = useWhoamiStore();
 const { whoami } = storeToRefs(whoamiStore);
-
-const url = ref('');
-const query = (url: string) => {
-  if (url.length === 0) return;
-  const parseResult = WebUtil.parseUrl(url);
-  if (parseResult !== undefined) {
-    const { providerId, novelId } = parseResult;
-    router.push({ path: `/novel/${providerId}/${novelId}` });
-  } else {
-    router.push({ path: '/novel', query: { query: url } });
-  }
-};
 
 const { data: favoriteList, error: favoriteError } = usePrivateFavoredQuery(
   'home-favorite-list',
@@ -90,83 +76,42 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
 </script>
 
 <template>
-  <div
-    style="
-      background: rgba(0, 0, 0, 0.45) url('/files-extra/banner.v1.webp');
-      background-size: cover;
-      background-position: center top;
-      background-blend-mode: darken;
-    "
-  >
-    <div id="banner" class="layout-content">
-      <n-h1
-        style="
-          text-align: center;
-          font-size: 3em;
-          color: white;
-          filter: drop-shadow(0.05em 0.05em black);
-        "
-      >
-        轻小说机翻机器人
-      </n-h1>
-      <n-input-group>
-        <n-input
-          v-model:value="url"
-          size="large"
-          placeholder="输入网络小说链接直接跳转，或搜索本站缓存..."
-          :input-props="{ spellcheck: false }"
-          @keyup.enter="query(url)"
-          :style="{ 'background-color': vars.bodyColor }"
-        />
-        <n-button size="large" type="primary" @click="query(url)">
-          搜索
-        </n-button>
-      </n-input-group>
-    </div>
-  </div>
+  <HomeBanner />
 
-  <div class="layout-content">
-    <n-flex
-      v-if="showShortcut"
-      :size="0"
-      justify="space-around"
-      :wrap="false"
-      style="margin: 8px 0px"
-    >
+  <div class="layout-content min-[540px]:pt-4">
+    <div class="my-2 grid grid-cols-3 min-[540px]:hidden">
       <router-link
         :to="whoami.isSignedIn ? '/favorite/web' : '/favorite/local'"
-        style="flex: 1"
       >
-        <n-button quaternary style="width: 100%; height: 64px">
-          <n-flex align="center" vertical style="font-size: 12px">
+        <n-button quaternary class="h-16! w-full">
+          <div class="flex flex-col items-center gap-2 text-xs">
             <n-icon size="24" :component="StarBorderOutlined" />
             我的收藏
-          </n-flex>
+          </div>
         </n-button>
       </router-link>
 
-      <router-link to="/novel" style="flex: 1">
-        <n-button quaternary style="width: 100%; height: 64px">
-          <n-flex align="center" vertical style="font-size: 12px">
+      <router-link to="/novel">
+        <n-button quaternary class="h-16! w-full">
+          <div class="flex flex-col items-center gap-2 text-xs">
             <n-icon size="24" :component="LanguageOutlined" />
             网络小说
-          </n-flex>
+          </div>
         </n-button>
       </router-link>
 
-      <router-link to="/wenku" style="flex: 1">
-        <n-button quaternary style="width: 100%; height: 64px">
-          <n-flex align="center" vertical style="font-size: 12px">
+      <router-link to="/wenku">
+        <n-button quaternary class="h-16! w-full">
+          <div class="flex flex-col items-center gap-2 text-xs">
             <n-icon size="24" :component="BookOutlined" />
             文库小说
-          </n-flex>
+          </div>
         </n-button>
       </router-link>
-    </n-flex>
-    <div v-else style="height: 16px" />
+    </div>
 
     <bulletin>
-      <n-flex>
+      <div class="flex flex-wrap gap-x-3 gap-y-2">
         <n-button text type="primary" @click="showHowToUseModal = true">
           使用说明
         </n-button>
@@ -185,13 +130,13 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
           /
         </template>
         <n-a :href="githubLink" target="_blank">GitHub</n-a>
-      </n-flex>
-      <n-p>
+      </div>
+      <p class="my-4 first:mt-0 last:mb-0">
         禁止使用脚本绕过翻译器提交翻译文本，哪怕你觉得自己提交的是正经翻译。
-      </n-p>
-      <n-p v-if="community.enabled">
+      </p>
+      <p v-if="community.enabled" class="my-4 first:mt-0 last:mb-0">
         FishHawk长期996，网站开发速度大幅下降已成常态，论坛反馈目前没有精力维护，有问题加群@吧
-      </n-p>
+      </p>
     </bulletin>
 
     <template v-if="whoami.isSignedIn">
@@ -204,7 +149,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
         :novels="favoriteList?.slice(0, 8)"
         :error="favoriteError"
       />
-      <n-divider />
+      <hr class="my-6 border-divider" />
     </template>
 
     <section-header title="网络小说-最多点击">
@@ -216,7 +161,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
       :novels="mostVisitedWeb?.items?.slice(0, 8)"
       :error="mostVisitedWebError"
     />
-    <n-divider />
+    <hr class="my-6 border-divider" />
 
     <section-header title="文库小说-最新更新">
       <router-link to="/wenku">
@@ -227,43 +172,38 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
       :novels="latestUpdateWenku?.items?.slice(0, 12)"
       :error="latestUpdateWenkuError"
     />
-    <n-divider />
+    <hr class="my-6 border-divider" />
   </div>
 
-  <c-modal title="使用说明" v-model:show="showHowToUseModal">
-    <n-p>
+  <XDialog title="使用说明" v-model:open="showHowToUseModal" class="w-150">
+    <p class="my-4 first:mt-0 last:mb-0">
       将小说链接复制到网站首页的输入框里，点击搜索，如果链接正确，将会跳转到小说页面。
-    </n-p>
-    <n-p>支持的小说站如下:</n-p>
-    <n-p v-for="[name, link] of linkExample" :key="name">
+    </p>
+    <p class="my-4 first:mt-0 last:mb-0">支持的小说站如下:</p>
+    <p
+      v-for="[name, link] of linkExample"
+      :key="name"
+      class="my-4 first:mt-0 last:mb-0"
+    >
       <b>{{ name }}</b>
       <br />
       <!-- eslint-disable-next-line vue/no-v-html -->
       <span v-html="link" />
-    </n-p>
-  </c-modal>
+    </p>
+  </XDialog>
 
-  <c-modal v-if="community.enabled" title="QQ群" v-model:show="showQQModal">
-    <n-p>
+  <XDialog
+    v-if="community.enabled"
+    title="QQ群"
+    v-model:open="showQQModal"
+    class="w-150"
+  >
+    <p class="my-4 first:mt-0 last:mb-0">
       交流群：
       <n-a :href="qqLink" target="_blank">819513328</n-a>
       ，验证答案是“绿色”。
       <br />
       <n-qr-code :size="150" :value="qqLink" />
-    </n-p>
-  </c-modal>
+    </p>
+  </XDialog>
 </template>
-
-<style scoped>
-#banner {
-  max-width: 800px;
-  padding-top: 20px;
-  padding-bottom: 50px;
-}
-@media only screen and (max-width: 600px) {
-  #banner {
-    padding-top: 10px;
-    padding-bottom: 35px;
-  }
-}
-</style>
