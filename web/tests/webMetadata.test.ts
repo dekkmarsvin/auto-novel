@@ -18,6 +18,9 @@ vi.mock('../src/api/client', async () => {
 vi.mock('../src/api', async () => ({
   WebNovelApi: (await import('../src/api/WebNovelApi')).WebNovelApi,
 }));
+vi.mock('../src/domain/crawler', () => ({
+  CrawlerService: { updateWebNovel: vi.fn(), updateWebNovelChapter: vi.fn() },
+}));
 
 import { WebTranslationTask } from '../src/domain/translator/TranslationTask/WebTranslationTask';
 

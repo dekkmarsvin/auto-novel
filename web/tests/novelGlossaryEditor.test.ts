@@ -5,8 +5,15 @@ import * as Vue from 'vue';
 import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GenericNovelId } from '../src/model/Common';
+import Editor from '../src/components/NovelGlossaryEditor.vue';
 
-const transport = vi.hoisted(() => ({ fetch: vi.fn() }));
+const transport = vi.hoisted(() => {
+  // Compile the SFC during collection, before a case installs its fetch
+  // fixture. Browser globals are needed by its import graph, not a Node DOM.
+  vi.stubGlobal('Audio', class {});
+  vi.stubGlobal('window', new EventTarget());
+  return { fetch: vi.fn() };
+});
 vi.mock('../src/webKit', async () => {
   const { default: ky } = await import('ky');
   const { mockWhoami } = await import('./mockWhoami');
@@ -145,7 +152,6 @@ async function mountEditor(
   themeGlossaryId = 'theme',
 ) {
   vi.stubGlobal('window', new EventTarget());
-  vi.stubGlobal('Audio', class {});
   const puts: { url: string; method: string; body: unknown }[] = [];
   transport.fetch.mockImplementation(async (request: Request) => {
     if (request.method === 'GET') return readThemes();
@@ -156,8 +162,6 @@ async function mountEditor(
     });
     return Response.json({});
   });
-  const { default: Editor } =
-    await import('../src/components/NovelGlossaryEditor.vue');
   const source = readFileSync(
     new URL('../src/components/NovelGlossaryEditor.vue', import.meta.url),
     'utf8',

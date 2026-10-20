@@ -4,6 +4,7 @@ import { BannerApi, type Banner } from '@/api';
 
 const STORAGE_KEY = 'auto-novel:banner:v1';
 const CACHE_TTL = 12 * 60 * 60 * 1000;
+const MANUAL_REFRESH_COOLDOWN = 60 * 1000;
 const SELECTION_TTL = 2 * 60 * 60 * 1000;
 
 interface BannerListCache {
@@ -57,6 +58,7 @@ const state = useLocalStorage<BannerCache>(STORAGE_KEY, {
   },
 });
 let pending: Promise<Banner[]> | undefined;
+let lastRefreshAttempt = -Infinity;
 
 export const BannerRepo = {
   /** 同步读取仍有效的缓存选中项，供首屏直接出图，避免先闪一次占位。 */
@@ -69,17 +71,35 @@ export const BannerRepo = {
     return banner ? { banner, expiresAt: selection.expiresAt } : undefined;
   },
 
-  list: (): Promise<Banner[]> => {
+  /** 手动切换使用一分钟刷新冷却，不影响默认的十二小时缓存。 */
+  list: (refresh = false): Promise<Banner[]> => {
+    if (pending) return pending;
     const cached = state.value.list;
-    if (cached && Date.now() < cached.expiresAt) {
+    const now = Date.now();
+    // 从原缓存有效期推算成功拉取时间，兼容旧缓存并跨页面刷新保留冷却。
+    const lastRefresh = Math.max(
+      lastRefreshAttempt,
+      cached ? cached.expiresAt - CACHE_TTL : -Infinity,
+    );
+    if (
+      cached &&
+      (refresh
+        ? now < lastRefresh + MANUAL_REFRESH_COOLDOWN
+        : now < cached.expiresAt)
+    ) {
       return Promise.resolve(cached.banners);
     }
-    if (pending) return pending;
 
+    lastRefreshAttempt = now;
     pending = BannerApi.list()
       .then((banners) => {
         state.value.list = { banners, expiresAt: Date.now() + CACHE_TTL };
         return banners;
+      })
+      .catch((error: unknown) => {
+        // 手动刷新失败仍用旧列表切换，失败尝试也受冷却限制。
+        if (refresh && cached) return cached.banners;
+        throw error;
       })
       .finally(() => {
         pending = undefined;
@@ -87,24 +107,36 @@ export const BannerRepo = {
     return pending;
   },
 
-  current: async (): Promise<BannerSelection | undefined> => {
-    const banners = await BannerRepo.list();
+  // Manual changes are accepted only after the image has loaded successfully.
+  remember: (selection: BannerSelection) => {
+    state.value.selection = {
+      bannerId: selection.banner.id,
+      expiresAt: selection.expiresAt,
+    };
+  },
+
+  current: async (
+    next = false,
+    { persist = true } = {},
+  ): Promise<BannerSelection | undefined> => {
+    const banners = await BannerRepo.list(next);
     if (banners.length === 0) {
-      delete state.value.selection;
+      if (persist) delete state.value.selection;
       return undefined;
     }
 
     const previous = state.value.selection;
     const index = banners.findIndex((it) => it.id === previous?.bannerId);
-    if (previous && index >= 0 && Date.now() < previous.expiresAt) {
+    if (!next && previous && index >= 0 && Date.now() < previous.expiresAt) {
       // 从列表读取最新数据，不延长原选中项的有效期。
       return { banner: banners[index], expiresAt: previous.expiresAt };
     }
 
     const banner = banners[(index + 1) % banners.length];
     const expiresAt = Date.now() + SELECTION_TTL;
-    state.value.selection = { bannerId: banner.id, expiresAt };
-    return { banner, expiresAt };
+    const selected = { banner, expiresAt };
+    if (persist) BannerRepo.remember(selected);
+    return selected;
   },
 };
 

@@ -2,6 +2,9 @@ import * as Vue from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Toast } from '@novelia/web-kit';
 import type { GptPipelineWorker } from '../src/model/Translator';
+// Compile before a case installs its mutable worker store, so a cold import
+// cannot outlive that case's timeout and resume against the next case's store.
+import Modal from '../src/pages/workspace/components/GptPipelineWorkerModal.vue';
 
 const boundary = vi.hoisted(() => ({
   store: vi.fn(),
@@ -96,8 +99,6 @@ async function modal(
       records.value.workers.push(value);
     },
   });
-  const { default: Modal } =
-    await import('../src/pages/workspace/components/GptPipelineWorkerModal.vue');
   let controls!: Controls;
   const form = Vue.defineComponent({
     setup(_props, { expose }) {
