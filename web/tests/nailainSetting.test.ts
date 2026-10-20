@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import * as Vue from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+// Finish cold SFC compilation before a case installs its pending API response.
+import Setting from '../src/pages/other/Setting.vue';
 
 const api = vi.hoisted(() => ({
   getNailainPassword: vi.fn(),
@@ -131,6 +133,7 @@ function find(
 let unmount: (() => void) | undefined;
 afterEach(() => {
   unmount?.();
+  unmount = undefined;
   vi.clearAllMocks();
 });
 
@@ -141,7 +144,6 @@ describe('NAILAIN Setting.vue input and save integration', () => {
       () => new Promise<string>((resolve) => (completeRead = resolve)),
     );
     api.setNailainPassword.mockResolvedValue(undefined);
-    const { default: Setting } = await import('../src/pages/other/Setting.vue');
     // Vite's SSR SFC transform retains the real setup. Compile its template for
     // reactive host rendering, as in the existing homepage boundary tests.
     const source = readFileSync(

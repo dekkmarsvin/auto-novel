@@ -4,6 +4,7 @@ import type {
   ChapterMeta,
   TaskState,
 } from '../src/domain/translator/TaskState';
+import type { TaskExecutionContext } from '../src/domain/translator/TranslationTask/types';
 // Compile the SFC during collection, before any case installs its mutable
 // store fixtures. A cold dynamic import inside workspace() can outlive a test
 // timeout and resume after the next case has replaced those shared mocks.
@@ -35,6 +36,7 @@ vi.mock('../src/domain/translator/IndexedDbSegmentCache', () => ({
   IndexedDbSegmentCache: class {},
 }));
 vi.mock('@auto-novel/translator', () => ({
+  allowModels: {},
   Semaphore: class {},
   OpenAiTranslator: class {},
   SakuraTranslator: class {
@@ -101,16 +103,20 @@ const flush = async () => {
 };
 const deferred = () => {
   let resolve!: () => void;
-  const promise = new Promise<void>((done) => {
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 };
 interface Controls {
   startAllWorkers(): void;
   stopAllWorkers(): void;
   runProcessLoop(): void;
   deleteJob(task: string): void;
+  retryTask(task: string): void;
+  preparationErrors: Map<string, string>;
   taskStates: Vue.Ref<Map<string, TaskState>>;
 }
 interface Execution {
@@ -166,6 +172,8 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
       chapters: ChapterMeta[];
       initMeta(): Promise<void>;
       needsMetadata?: boolean;
+      needsPreparation?: boolean;
+      prepareExecution?(context: TaskExecutionContext): Promise<void>;
       glossary: Record<string, string>;
       translateMetadata?(
         translate: MetadataCall['translate'],
@@ -248,12 +256,21 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
     count = 1,
     meta = Promise.resolve(),
     needsMetadata = false,
+    preparation?: (context: TaskExecutionContext) => Promise<void>,
   ) => {
     const task = {
       id,
       initialized: false,
       glossary: { 人名: '译名' },
       needsMetadata,
+      needsPreparation: Boolean(preparation),
+      async prepareExecution(context: TaskExecutionContext) {
+        await preparation?.(context);
+        context.signal.throwIfAborted();
+        if (context.canUpload?.() === false)
+          throw new DOMException('Stopped', 'AbortError');
+        this.needsPreparation = false;
+      },
       chapters: Array.from({ length: count }, (_, order) => ({
         chapterId: String(order),
         title: String(order),
@@ -284,7 +301,7 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
     };
     tasks.set(id, task);
     jobs.value.push({
-      task: needsMetadata ? `web/offline/${id}` : `local/${id}`,
+      task: needsMetadata || preparation ? `web/offline/${id}` : `local/${id}`,
       description: id,
       createAt: ++version,
     });
@@ -303,6 +320,79 @@ async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
 }
 
 describe('pipeline workspace scheduling', () => {
+  it('shows preparation failures and retries explicitly without stopping workers or looping automatically', async () => {
+    const ws = await workspace();
+    const prepare = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('任务快照加载失败'))
+      .mockResolvedValue(undefined);
+    ws.add('browser', 2, Promise.resolve(), false, prepare);
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(ws.calls).toHaveLength(0);
+    expect(ws.controls.preparationErrors.get('web/offline/browser')).toBe(
+      '任务快照加载失败',
+    );
+    expect(ws.jobs.value[0].finishAt).toBeUndefined();
+    ws.controls.runProcessLoop();
+    await flush();
+    expect(prepare).toHaveBeenCalledTimes(1);
+
+    ws.controls.retryTask('web/offline/browser');
+    await flush();
+    expect(prepare).toHaveBeenCalledTimes(2);
+    expect(ws.controls.preparationErrors.size).toBe(0);
+    expect(ws.active()).toHaveLength(2);
+    ws.active().forEach((call) => call.finish());
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+  });
+
+  it('retains preparation cancellation and ignores a late failure after a job is replaced', async () => {
+    const ws = await workspace();
+    const old = deferred();
+    const restarted = deferred();
+    const contexts: TaskExecutionContext[] = [];
+    const prepare = vi
+      .fn()
+      .mockImplementationOnce((context) => {
+        contexts.push(context);
+        return old.promise;
+      })
+      .mockImplementationOnce((context) => {
+        contexts.push(context);
+        return restarted.promise;
+      });
+    ws.add('browser', 1, Promise.resolve(), false, prepare);
+    await flush();
+    ws.controls.startAllWorkers();
+    await flush();
+    ws.controls.stopAllWorkers();
+    expect(contexts[0].signal.aborted).toBe(true);
+    expect(contexts[0].canUpload?.()).toBe(false);
+    ws.controls.startAllWorkers();
+    await flush();
+    expect(prepare).toHaveBeenCalledTimes(1);
+    old.resolve();
+    await flush();
+    expect(prepare).toHaveBeenCalledTimes(2);
+    expect(contexts[1].canUpload?.()).toBe(true);
+    ws.jobs.value = [];
+    ws.add('browser', 1, Promise.resolve(), false, async () => {});
+    await flush();
+    expect(contexts[1].signal.aborted).toBe(true);
+    expect(contexts[1].canUpload?.()).toBe(false);
+    restarted.reject(new Error('旧准备任务迟到的错误'));
+    await flush();
+    expect(ws.controls.preparationErrors.size).toBe(0);
+    expect(ws.active()).toHaveLength(1);
+    ws.calls[0].finish();
+    await flush();
+    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+  });
+
   it('runs metadata without pending chapters after model detection, and rejects an unapproved model', async () => {
     const ws = await workspace('sakura');
     ws.add('translated', 0, Promise.resolve(), true);

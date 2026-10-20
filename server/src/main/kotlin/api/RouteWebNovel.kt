@@ -913,7 +913,8 @@ class WebNovelApi(
         val tocZh = mutableMapOf<Int, String>()
         val tocRecord = mutableListOf<Operation.WebEdit.Toc>()
         metadata.toc.forEachIndexed { index, item ->
-            val newTitleZh = toc[item.titleJp]
+            // Prefer stable IDs, but old cached clients still send Japanese titles.
+            val newTitleZh = item.chapterId?.let(toc::get) ?: toc[item.titleJp]
             if (newTitleZh != null && newTitleZh != item.titleZh) {
                 tocZh[index] = newTitleZh
                 tocRecord.add(

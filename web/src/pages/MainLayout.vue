@@ -81,21 +81,25 @@ const navigationOptions = computed<WebKitMenuOption[]>(() => [
         label: '小说工具箱',
         to: '/workspace/toolbox',
       },
-      { key: '/workspace/gpt', label: 'GPT工作区', to: '/workspace/gpt' },
-      {
-        key: '/workspace/sakura',
-        label: 'Sakura工作区',
-        to: '/workspace/sakura',
-      },
       {
         key: '/workspace/gpt-pipeline',
-        label: 'GPT工作区BETA',
+        label: 'GPT工作区',
         to: '/workspace/gpt-pipeline',
       },
       {
         key: '/workspace/sakura-pipeline',
-        label: 'Sakura工作区BETA',
+        label: 'Sakura工作区',
         to: '/workspace/sakura-pipeline',
+      },
+      {
+        key: '/workspace/gpt',
+        label: 'GPT工作区（旧版）',
+        to: '/workspace/gpt',
+      },
+      {
+        key: '/workspace/sakura',
+        label: 'Sakura工作区（旧版）',
+        to: '/workspace/sakura',
       },
       {
         key: '/workspace/interactive',

@@ -2,7 +2,7 @@ import { PiniaColada, useQueryCache } from '@pinia/colada';
 import { createPinia, disposePinia } from 'pinia';
 import { createApp, effectScope, nextTick } from 'vue';
 import type { WhoamiUser } from '@novelia/web-kit';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 const account = vi.hoisted(() => ({
   listeners: new Set<(user?: WhoamiUser) => void>(),
@@ -41,9 +41,22 @@ vi.mock('../src/webKit', async () => {
   };
 });
 
-const cleanups: (() => void)[] = [];
-afterEach(() => {
-  for (const cleanup of cleanups.splice(0)) cleanup();
+// The real repository cache is created eagerly from the active Pinia. Give it
+// the same app lifetime as production, and finish cold imports in collection
+// before any case installs its mutable HTTP fixture.
+const pinia = createPinia();
+const app = createApp({});
+app.use(pinia);
+app.use(PiniaColada, {
+  queryOptions: { refetchOnWindowFocus: false, refetchOnReconnect: false },
+});
+const { WebNovelRepo } = await import('../src/repos/useWebNovel');
+const { WenkuNovelRepo } = await import('../src/repos/useWenkuNovel');
+afterAll(() => disposePinia(pinia));
+
+const cleanups: (() => Promise<void>)[] = [];
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0)) await cleanup();
 });
 function signIn(id?: number) {
   for (const listener of account.listeners)
@@ -73,16 +86,24 @@ async function setup(kind: 'web' | 'wenku') {
         );
       }),
   );
-  const pinia = createPinia();
-  const app = createApp({});
-  app.use(pinia);
-  app.use(PiniaColada, {
-    queryOptions: { refetchOnWindowFocus: false, refetchOnReconnect: false },
-  });
-  const { WebNovelRepo } = await import('../src/repos/useWebNovel');
-  const { WenkuNovelRepo } = await import('../src/repos/useWenkuNovel');
-  signIn(1);
   const scope = effectScope();
+  const cache = app.runWithContext(() => useQueryCache());
+  expect(cache.getEntries()).toHaveLength(0);
+  // Register disposal before creating the query, including an assertion/setup
+  // failure. Let real HTTP cancellation and Colada's error handlers settle while
+  // their Pinia is still alive, then release its state.
+  cleanups.push(async () => {
+    const pending = cache
+      .getEntries()
+      .flatMap((entry) => (entry.pending ? [entry.pending.refreshCall] : []));
+    signIn();
+    cache.cancelQueries();
+    scope.stop();
+    await Promise.allSettled(pending);
+    await nextTick();
+    for (const entry of cache.getEntries()) cache.remove(entry);
+  });
+  signIn(1);
   const query = app.runWithContext(() =>
     scope.run(() =>
       kind === 'web'
@@ -92,12 +113,6 @@ async function setup(kind: 'web' | 'wenku') {
           }),
     ),
   )!;
-  const cache = app.runWithContext(() => useQueryCache());
-  cleanups.push(() => {
-    signIn();
-    scope.stop();
-    disposePinia(pinia);
-  });
   return { requests, query, cache };
 }
 const page = (owner: string) =>

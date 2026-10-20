@@ -71,7 +71,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6.4.0
 
       - name: Verify API authorization and source settings regressions
-        run: ./gradlew --no-daemon test --tests api.WebNovelAdminSyncAllRouteTest --tests api.ApiRouteRetirementTest --tests api.SiteSettingRouteTest --tests infra.provider.providers.NailainOfflineTest --tests infra.common.SiteSettingRepositoryTest
+        run: ./gradlew --no-daemon test --tests api.WebNovelAdminSyncAllRouteTest --tests api.ApiRouteRetirementTest --tests api.SiteSettingRouteTest --tests api.WebNovelTranslationTest --tests infra.provider.providers.NailainOfflineTest --tests infra.provider.providers.PixivOfflineTest --tests infra.common.SiteSettingRepositoryTest
         working-directory: server
 
   go-api:

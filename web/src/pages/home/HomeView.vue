@@ -83,7 +83,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
       <router-link
         :to="whoami.isSignedIn ? '/favorite/web' : '/favorite/local'"
       >
-        <n-button quaternary class="h-16! w-full">
+        <n-button quaternary block class="h-16!">
           <div class="flex flex-col items-center gap-2 text-xs">
             <n-icon size="24" :component="StarBorderOutlined" />
             我的收藏
@@ -92,7 +92,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
       </router-link>
 
       <router-link to="/novel">
-        <n-button quaternary class="h-16! w-full">
+        <n-button quaternary block class="h-16!">
           <div class="flex flex-col items-center gap-2 text-xs">
             <n-icon size="24" :component="LanguageOutlined" />
             网络小说
@@ -101,7 +101,7 @@ const githubLink = 'https://github.com/auto-novel/auto-novel';
       </router-link>
 
       <router-link to="/wenku">
-        <n-button quaternary class="h-16! w-full">
+        <n-button quaternary block class="h-16!">
           <div class="flex flex-col items-center gap-2 text-xs">
             <n-icon size="24" :component="BookOutlined" />
             文库小说

@@ -8,6 +8,7 @@ import {
 } from '@vicons/material';
 import { VueDraggable } from 'vue-draggable-plus';
 import {
+  allowModels,
   Semaphore,
   OpenAiTranslator,
   SakuraTranslator,
@@ -98,6 +99,8 @@ interface MetadataState {
 }
 /** 元数据独立于章节窗口；已结束的尝试保留到任务清除，避免重复上传。 */
 const metadataTasks = new Map<string, MetadataState>();
+const preparationTasks = new Map<string, { controller: AbortController }>();
+const preparationErrors = reactive(new Map<string, string>());
 
 let processLoopAbortController: AbortController | null = null;
 let activeProcessors = 0;
@@ -105,6 +108,7 @@ let activeProcessors = 0;
 onUnmounted(() => {
   initializingTasks.clear();
   abortMetadataTasks();
+  abortPreparationTasks();
   pipeline.clearLoops();
   pipeline.queue.clear();
   processLoopAbortController?.abort();
@@ -149,6 +153,7 @@ function getNextJob(
 ): { job: TranslateJob; chapterId: string; state: TaskState } | null {
   for (const job of jobs) {
     if (job.finishAt) continue;
+    if (taskCache.get(job.task)?.needsPreparation) continue;
     const state = taskStatesMap.get(job.task);
     if (!state) continue;
     for (const ch of state.chapters) {
@@ -167,6 +172,7 @@ function countPendingChapters(
   let count = 0;
   for (const job of jobs) {
     if (job.finishAt) continue;
+    if (taskCache.get(job.task)?.needsPreparation) continue;
     const state = taskStatesMap.get(job.task);
     if (!state) continue;
     for (const ch of state.chapters) {
@@ -201,6 +207,9 @@ function abortMetadataTasks(): void {
 
 function clearTaskRuntimeState(task: string): void {
   initializingTasks.delete(task);
+  preparationTasks.get(task)?.controller.abort();
+  preparationTasks.delete(task);
+  preparationErrors.delete(task);
   metadataTasks.get(task)?.controller.abort();
   metadataTasks.delete(task);
   taskStates.value.delete(task);
@@ -228,6 +237,7 @@ function updateJobCompletion(
   const currentJob = findCurrentJob(job);
   if (
     !currentJob ||
+    task.needsPreparation ||
     taskCache.get(job.task) !== task ||
     taskStates.value.get(job.task) !== state
   ) {
@@ -240,6 +250,72 @@ function updateJobCompletion(
   ) {
     currentJob.finishAt = Date.now();
   }
+}
+
+function abortPreparationTasks(): void {
+  for (const preparation of preparationTasks.values()) {
+    preparation.controller.abort();
+    // 等待插件返回后再释放占位
+  }
+}
+
+function prepareTaskOnce(
+  job: TranslateJob,
+  task: TranslationTask,
+  state: TaskState,
+): void {
+  if (
+    !task.prepareExecution ||
+    !canUpload() ||
+    preparationTasks.has(job.task) ||
+    preparationErrors.has(job.task)
+  ) {
+    return;
+  }
+  const preparation = { controller: new AbortController() };
+  preparationTasks.set(job.task, preparation);
+  const signal = preparation.controller.signal;
+  const canPrepare = () =>
+    !signal.aborted &&
+    preparationTasks.get(job.task) === preparation &&
+    taskCache.get(job.task) === task &&
+    taskStates.value.get(job.task) === state &&
+    !!findCurrentJob(job) &&
+    canUpload();
+  task
+    .prepareExecution({
+      signal,
+      canUpload: canPrepare,
+      onLog: (message) => console.log(`[${job.task}] ${message}`),
+    })
+    .then(() => {
+      if (!canPrepare()) return;
+      state.initChapters(task.chapters);
+      const currentJob = findCurrentJob(job)!;
+      currentJob.progress = {
+        finished: task.chapters.filter((chapter) => chapter.status === 'done')
+          .length,
+        error: 0,
+        total: task.chapters.length,
+      };
+      updateJobCompletion(job, task, state);
+    })
+    .catch((error) => {
+      if (!canPrepare()) return;
+      preparationErrors.set(
+        job.task,
+        (error instanceof Error ? error.message : String(error)) ||
+          '任务准备失败',
+      );
+      console.warn(`[${job.task}] 任务准备失败`, error);
+    })
+    .finally(() => {
+      if (preparationTasks.get(job.task) !== preparation) return;
+      preparationTasks.delete(job.task);
+      if (signal.aborted || !task.needsPreparation) {
+        runProcessLoop();
+      }
+    });
 }
 
 /**
@@ -319,6 +395,10 @@ function runProcessLoop(): void {
     const task = taskCache.get(job.task);
     const state = taskStates.value.get(job.task);
     if (task?.initialized && state?.initialized) {
+      if (task.needsPreparation) {
+        prepareTaskOnce(job, task, state);
+        continue;
+      }
       translateMetadataOnce(job, task, state);
     }
   }
@@ -326,7 +406,8 @@ function runProcessLoop(): void {
   const pendingCount = countPendingChapters(jobs.value, taskStates.value);
   if (pendingCount === 0) return;
   processLoopAbortController ??= new AbortController();
-  const signal = processLoopAbortController.signal;
+  const controller = processLoopAbortController;
+  const signal = controller.signal;
 
   const processOne = async () => {
     while (!signal.aborted && hasRunningWorker()) {
@@ -341,7 +422,12 @@ function runProcessLoop(): void {
         task,
         pipeline,
         fetchSemaphore,
-        canUpload,
+        () =>
+          !signal.aborted &&
+          taskCache.get(job.task) === task &&
+          taskStates.value.get(job.task) === state &&
+          !!findCurrentJob(job) &&
+          canUpload(),
       );
 
       const segmentTracker = state.getChapterState(chapterId);
@@ -386,7 +472,9 @@ function runProcessLoop(): void {
       activeProcessors--;
       if (activeProcessors === 0) {
         executingTasks.clear();
-        processLoopAbortController = null;
+        if (processLoopAbortController === controller) {
+          processLoopAbortController = null;
+        }
       }
       if (countPendingChapters(jobs.value, taskStates.value) > 0) {
         runProcessLoop();
@@ -447,6 +535,7 @@ const stopWorker = (workerId: string) => {
 
   if ([...workerStates.value.values()].every((s) => !s.running)) {
     abortMetadataTasks();
+    abortPreparationTasks();
     processLoopAbortController?.abort();
     processLoopAbortController = null;
     pipeline.queue.clear();
@@ -474,10 +563,15 @@ const deleteAllJobs = () =>
   filteredJobs.value.forEach((j) => deleteJob(j.task));
 
 const taskCardRefs = ref<InstanceType<typeof PipelineTaskCard>[]>([]);
+function retryTask(task: string): void {
+  preparationErrors.delete(task);
+  runProcessLoop();
+}
+
 function retryTaskCards() {
   let hasFailed = false;
   for (const card of taskCardRefs.value) {
-    if (card?.hasFailedChapters?.()) {
+    if (card?.hasFailedChapters?.() || card?.hasFailedPreparation?.()) {
       card.retryAllFailed();
       hasFailed = true;
     }
@@ -507,6 +601,8 @@ watch(
       ...taskVersions.value.keys(),
       ...initializingTasks.keys(),
       ...metadataTasks.keys(),
+      ...preparationTasks.keys(),
+      ...preparationErrors.keys(),
     ]);
     for (const task of knownTasks) {
       if (!activeTasks.has(task)) clearTaskRuntimeState(task);
@@ -578,11 +674,74 @@ watch(
 
 <template>
   <div class="layout-content">
-    <n-h1>{{ isSakura ? 'Sakura' : 'GPT' }}工作区BETA</n-h1>
+    <n-h1>{{ isSakura ? 'Sakura' : 'GPT' }}工作区</n-h1>
     <bulletin>
       <n-p>
         支持并发和查看章节分块状态的新工作区。目前处于测试阶段，有问题请在群内反馈。
       </n-p>
+      <template v-if="isSakura">
+        <n-flex>
+          <n-a
+            href="https://www.autodl.com/console/instance/list"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            AutoDL 控制台
+          </n-a>
+          /
+          <n-a
+            href="https://monitor.novelia.cc/public-dashboards/be71c46fcc0e40eeaf06d9e7a2e26f95?refresh=auto&from=now-5m&to=now&timezone=browser"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            共享 Sakura 当前负载
+          </n-a>
+        </n-flex>
+        <n-p>允许上传的模型如下，禁止一切试图突破上传检查的操作。</n-p>
+        <n-ul>
+          <n-li v-for="({ repo }, model) in allowModels" :key="model">
+            [
+            <n-a
+              :href="`https://huggingface.co/${repo}/blob/main/${model}.gguf`"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              HF
+            </n-a>
+            /
+            <n-a
+              :href="`https://hf-mirror.com/${repo}/blob/main/${model}.gguf`"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              国内镜像
+            </n-a>
+            ]
+            {{ model }}
+          </n-li>
+        </n-ul>
+      </template>
+      <template v-else>
+        <n-flex>
+          <n-a
+            href="https://chat.deepseek.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            DeepSeek Chat
+          </n-a>
+          /
+          <n-a
+            href="https://platform.deepseek.com/usage"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            DeepSeek API
+          </n-a>
+        </n-flex>
+        <n-p>不再支持GPT web，推荐使用deepseek API，价格很低。</n-p>
+        <n-p>本地小说支持韩语等其他语种，网络小说/文库小说暂时只允许日语。</n-p>
+      </template>
     </bulletin>
 
     <section-header title="翻译器">
@@ -689,8 +848,9 @@ watch(
         :translator-id="translatorId"
         :task-state="taskStates.get(job.task)"
         :task-cache-entry="taskCache.get(job.task)"
+        :preparation-error="preparationErrors.get(job.task)"
         @delete="deleteJob"
-        @retry="(task: string) => runProcessLoop()"
+        @retry="retryTask"
         @top="
           (task: string) =>
             jobStore.topJob(

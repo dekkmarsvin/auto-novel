@@ -22,6 +22,7 @@ const props = defineProps<{
   translatorId: TranslatorId;
   taskState?: TaskState;
   taskCacheEntry?: TranslationTask;
+  preparationError?: string;
 }>();
 
 const emit = defineEmits<{
@@ -69,10 +70,14 @@ const toggleExpand = async () => {
 
 const themeVars = useThemeVars();
 
-const taskStatus = computed<'done' | 'executing' | 'pending'>(() => {
+const taskStatus = computed<'done' | 'executing' | 'pending' | 'error'>(() => {
+  if (props.preparationError) return 'error';
   if (props.job.finishAt) return 'done';
   if (!chapterMetas.value.length)
-    return props.taskCacheEntry?.needsMetadata ? 'pending' : 'done';
+    return props.taskCacheEntry?.needsPreparation ||
+      props.taskCacheEntry?.needsMetadata
+      ? 'pending'
+      : 'done';
   if (chapterMetas.value.some((c) => c.status === 'translating'))
     return 'executing';
   return 'pending';
@@ -93,7 +98,11 @@ function hasFailedChapters(): boolean {
   return chapterMetas.value.some((c) => c.status === 'error');
 }
 
-defineExpose({ retryAllFailed, hasFailedChapters });
+function hasFailedPreparation(): boolean {
+  return Boolean(props.preparationError);
+}
+
+defineExpose({ retryAllFailed, hasFailedChapters, hasFailedPreparation });
 
 function createTask(taskDesc: string): TranslationTask {
   const { desc, params } = TranslateTaskDescriptor.parse(taskDesc);
@@ -181,7 +190,14 @@ const closePreview = () => {
             <job-task-link :task="job.task" class="task-link" />
           </div>
           <n-flex :size="8" align="center" :wrap="false" style="flex-shrink: 0">
-            <n-tag v-if="taskStatus === 'executing'" size="tiny" type="info">
+            <n-tag v-if="taskStatus === 'error'" size="tiny" type="error">
+              准备失败
+            </n-tag>
+            <n-tag
+              v-else-if="taskStatus === 'executing'"
+              size="tiny"
+              type="info"
+            >
               翻译中
             </n-tag>
             <n-tag v-else-if="taskStatus === 'done'" size="tiny" type="success">
@@ -226,7 +242,10 @@ const closePreview = () => {
               </template>
               置底
             </n-tooltip>
-            <n-tooltip v-if="hasFailedChapters()" trigger="hover">
+            <n-tooltip
+              v-if="hasFailedChapters() || hasFailedPreparation()"
+              trigger="hover"
+            >
               <template #trigger>
                 <n-button
                   size="tiny"
@@ -268,6 +287,13 @@ const closePreview = () => {
       </div>
     </template>
 
+    <div
+      v-if="preparationError"
+      role="alert"
+      class="px-3.5 pb-2 text-sm text-danger"
+    >
+      {{ preparationError }}
+    </div>
     <div v-if="expanded && chapterMetas.length">
       <chapter-grid
         :task-state="taskState"
