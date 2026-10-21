@@ -11,6 +11,29 @@ deployment identity, and necessary security/regression fixes. Existing community
 data is retained; the upstream community UI is disabled at a single deployment
 boundary until an installation explicitly configures its own service.
 
+On 2026-10-22 the maintainer approved upstream convergence with an explicit,
+small permanent exception set: ThemeGlossary, NAILAIN, installation configuration
+and necessary security/data-integrity boundaries. General Pipeline, Web Kit,
+Markdown and UI behavior follows upstream. This supersedes the earlier decision
+to defer old GPT and Interactive retirement.
+
+The old GPT page may retire after a bounded, non-overwriting browser worker
+migration to Pipeline. GPT jobs already use the shared queue; original worker
+and history data remains available for recovery. Interactive retires without a
+replacement arbitrary-text tool. Old Sakura follows upstream's retirement
+schedule. Retiring code does not authorize deletion of browser caches, server
+collections, content or backups, and does not promise a replacement history UI.
+
+Web Kit follows Auto-Novel's selected revision without SDK-local patches. The
+independent Auth Web/API follows a compatible upstream release with Kotoban
+domains, exact return/CORS/Turnstile configuration and existing security
+protections. Treat the two repositories as a compatible release set with
+coordinated validation and rollback. Temporary old/new login compatibility is
+limited to a documented transition, rather than a permanent second login path.
+Local/native credential isolation and one-time storage/new-key/logout safety
+remain required. Each new compatibility adapter needs an explicit exit
+condition; do not build new generic frameworks for retired behavior.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.
