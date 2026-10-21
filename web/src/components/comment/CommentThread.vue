@@ -8,10 +8,12 @@ const props = defineProps<{
   site: string;
   comment: Comment;
   canReply: boolean;
+  replyToId?: number;
 }>();
 
 const emit = defineEmits<{
   reply: [Comment];
+  cancelReply: [];
 }>();
 
 const page = ref(1);
@@ -30,42 +32,47 @@ const pageCount = computed(() =>
 </script>
 
 <template>
-  <CommentItem
-    :site="site"
-    :comment="comment"
-    :can-reply="canReply"
-    @reply="emit('reply', $event)"
-  />
+  <section class="min-w-0">
+    <CommentItem
+      :site="site"
+      :comment="comment"
+      :can-reply="canReply"
+      :replying="replyToId === comment.id"
+      @reply="emit('reply', $event)"
+      @cancel-reply="emit('cancelReply')"
+    >
+      <slot v-if="replyToId === comment.id" />
+    </CommentItem>
 
-  <slot />
-
-  <div v-if="comment.replyCount > 0">
-    <template v-if="replyPage">
-      <div
-        v-for="reply in replyPage.items"
-        :key="reply.id"
-        style="margin-top: 12px; margin-left: 32px"
-      >
+    <div v-if="comment.replyCount > 0">
+      <template v-if="replyPage">
         <CommentItem
+          v-for="reply in replyPage.items"
+          :key="reply.id"
+          class="ml-8"
           :site="site"
           :comment="reply"
           :can-reply="canReply"
+          :replying="replyToId === reply.id"
           @reply="emit('reply', $event)"
+          @cancel-reply="emit('cancelReply')"
+        >
+          <slot v-if="replyToId === reply.id" />
+        </CommentItem>
+        <n-pagination
+          v-if="pageCount > 1"
+          v-model:page="page"
+          :page-count="pageCount"
+          :page-slot="7"
         />
-      </div>
-      <n-pagination
-        v-if="pageCount > 1"
-        v-model:page="page"
-        :page-count="pageCount"
-        :page-slot="7"
-        style="margin-top: 12px; margin-left: 32px"
+      </template>
+      <XAsyncContent
+        v-else
+        class="py-4 pl-8"
+        :loading="!error"
+        :error="error?.message ?? ''"
+        error-title="回复加载错误"
       />
-    </template>
-    <XAsyncContent
-      v-else
-      :loading="!error"
-      :error="error?.message ?? ''"
-      error-title="回复加载错误"
-    />
-  </div>
+    </div>
+  </section>
 </template>

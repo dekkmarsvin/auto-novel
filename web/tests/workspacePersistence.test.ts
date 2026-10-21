@@ -8,7 +8,10 @@ vi.mock('../src/util', async (importOriginal) => {
   return importOriginal();
 });
 
-import { useGptPipelineWorkspaceStore } from '../src/stores/useWorkspaceStore';
+import {
+  useGptPipelineWorkspaceStore,
+  useGptWorkspaceStore,
+} from '../src/stores/useWorkspaceStore';
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -52,16 +55,36 @@ describe('workspace persistence after leaving the first page', () => {
     };
     const saved = { workers: [worker], jobs: [], uncompletedJobs: [] };
     storage.setItem('workspace-gpt-pipeline', JSON.stringify(saved));
-    storage.setItem('workspace-gpt', '{"retained":"old workspace"}');
+    const oldWorker = {
+      id: 'legacy',
+      endpoint: '',
+      model: 'gpt-3.5',
+      key: 'synthetic-old-key',
+    };
+    const original = JSON.stringify({
+      workers: [oldWorker],
+      jobs: [{ task: 'local/retained', createAt: 1 }],
+      uncompletedJobs: [{ task: 'local/history', createAt: 2 }],
+    });
+    storage.setItem('workspace-gpt', original);
     const page = Vue.effectScope();
     const store = page.run(() => useGptPipelineWorkspaceStore())!;
+    const imported = {
+      ...oldWorker,
+      endpoint: 'https://api.openai.com',
+      model: 'gpt-3.5-turbo',
+      concurrency: 1,
+      profile: { id: 'openai' },
+    };
+    expect(store.ref.value.workers).toEqual([worker, imported]);
+    expect(useGptWorkspaceStore().ref.value.workers).toEqual([oldWorker]);
     page.stop();
 
     store.addWorker({ ...worker, id: 'added-after-navigation' });
     await Vue.nextTick();
     expect(
       JSON.parse(storage.getItem('workspace-gpt-pipeline')!).workers,
-    ).toEqual([worker, { ...worker, id: 'added-after-navigation' }]);
+    ).toEqual([worker, imported, { ...worker, id: 'added-after-navigation' }]);
     const remote = { ...saved, workers: [{ ...worker, concurrency: 3 }] };
     const raw = JSON.stringify(remote);
     storage.setItem('workspace-gpt-pipeline', raw);
@@ -83,8 +106,6 @@ describe('workspace persistence after leaving the first page', () => {
       ...worker,
       concurrency: 4,
     });
-    expect(storage.getItem('workspace-gpt')).toBe(
-      '{"retained":"old workspace"}',
-    );
+    expect(storage.getItem('workspace-gpt')).toBe(original);
   });
 });

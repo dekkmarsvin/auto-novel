@@ -8,14 +8,9 @@ import Modal from '../src/pages/workspace/components/GptPipelineWorkerModal.vue'
 
 const boundary = vi.hoisted(() => ({
   store: vi.fn(),
-  gptStore: vi.fn(),
-  sakuraStore: vi.fn(),
-  createTranslator: vi.fn(),
 }));
 vi.mock('../src/stores', () => ({
   useGptPipelineWorkspaceStore: boundary.store,
-  useGptWorkspaceStore: boundary.gptStore,
-  useSakuraWorkspaceStore: boundary.sakuraStore,
 }));
 vi.mock('@novelia/web-kit', () => ({
   XDialog: {},
@@ -27,10 +22,6 @@ vi.mock('@novelia/web-kit', () => ({
   },
 }));
 vi.mock('naive-ui', () => ({}));
-vi.mock('../src/domain/translate', () => ({
-  Translator: { create: boundary.createTranslator },
-}));
-vi.mock('../src/components/GlossaryButton.vue', () => ({ default: {} }));
 // Exercise the current registry without requiring a prebuilt translator dist.
 vi.mock(
   '@auto-novel/translator',
@@ -312,54 +303,4 @@ describe('batch GPT worker creation', () => {
       expect(records.value.workers).toEqual([existing]);
     },
   );
-});
-
-describe('interactive translation completion', () => {
-  it('records only successful translation results when Toast handles a rejection', async () => {
-    boundary.gptStore.mockReturnValue({ ref: Vue.ref({ workers: [] }) });
-    boundary.sakuraStore.mockReturnValue({
-      ref: Vue.ref({
-        workers: [{ id: 'offline', endpoint: 'https://sakura.test' }],
-      }),
-    });
-    const translate = vi.fn().mockResolvedValueOnce(['译文']);
-    boundary.createTranslator.mockResolvedValue({ translate });
-    const { default: Interactive } =
-      await import('../src/pages/workspace/Interactive.vue');
-    let controls!: {
-      textJp: Vue.Ref<string>;
-      textZh: Vue.Ref<string>;
-      savedTranslation: Vue.Ref<unknown[]>;
-      translate(): Promise<void>;
-    };
-    const app = renderer.createApp({
-      setup() {
-        controls = Interactive.setup!({}, { expose() {} }) as typeof controls;
-        return () => null;
-      },
-    });
-    app.provide(Vue.ssrContextKey, {});
-    app.mount({});
-    cleanups.push(() => app.unmount());
-    controls.textJp.value = '原文';
-    await Vue.nextTick();
-    await controls.translate();
-    expect(controls.savedTranslation.value).toEqual([
-      {
-        id: 'sakura',
-        workerId: 'offline',
-        endpoint: 'https://sakura.test',
-        jp: '原文',
-        zh: '译文',
-      },
-    ]);
-
-    translate.mockRejectedValueOnce(new Error('provider unavailable'));
-    controls.textJp.value = '失败原文';
-    await Vue.nextTick();
-    await controls.translate();
-    expect(controls.textZh.value).toBe('');
-    expect(controls.savedTranslation.value).toHaveLength(1);
-    expect(translate).toHaveBeenCalledTimes(2);
-  });
 });

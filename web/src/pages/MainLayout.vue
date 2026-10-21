@@ -92,19 +92,9 @@ const navigationOptions = computed<WebKitMenuOption[]>(() => [
         to: '/workspace/sakura-pipeline',
       },
       {
-        key: '/workspace/gpt',
-        label: 'GPT工作区（旧版）',
-        to: '/workspace/gpt',
-      },
-      {
         key: '/workspace/sakura',
-        label: 'Sakura工作区（旧版）',
+        label: 'Sakura工作区（待废弃）',
         to: '/workspace/sakura',
-      },
-      {
-        key: '/workspace/interactive',
-        label: '交互翻译',
-        to: '/workspace/interactive',
       },
     ],
   },

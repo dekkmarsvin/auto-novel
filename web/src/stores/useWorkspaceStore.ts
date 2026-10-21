@@ -10,6 +10,7 @@ import { useLocalStorage } from '@/util';
 
 import { LSKey } from './key';
 import { addWorkspaceJob } from './workspaceJob';
+import { migrateGptWorkers } from './migrateGptWorkers';
 
 interface Workspace<T> {
   workers: T[];
@@ -121,29 +122,23 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
 };
 
 const createGptWorkspaceStore = () =>
-  createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, [], (workspace) => {
-    // 2026-5-14: retire ChatGPT web-backend workers, keep API workers.
-    workspace.value.workers = workspace.value.workers
-      .filter((it) => !('type' in it && it.type === 'web'))
-      .map((it) => {
-        const worker = it as GptWorker & { type?: 'api' };
-        return {
-          id: worker.id,
-          endpoint:
-            worker.endpoint.length > 0
-              ? worker.endpoint
-              : 'https://api.openai.com',
-          model:
-            worker.model === undefined || worker.model === 'gpt-3.5'
-              ? 'gpt-3.5-turbo'
-              : worker.model,
-          key: worker.key,
-        };
-      });
-  });
+  // Jobs remain shared with Pipeline; retain retired worker/history bytes.
+  createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, []);
 
-const createGptPipelineWorkspaceStore = () =>
-  createWorkspaceStore<GptPipelineWorker>(LSKey.WorkspaceGptPipeline, []);
+const createGptPipelineWorkspaceStore = () => {
+  try {
+    if (!migrateGptWorkers(window.localStorage)) {
+      console.warn('旧版 GPT 翻译器设置尚未导入，请刷新页面重试。');
+    }
+  } catch {
+    // Accessing localStorage itself can be denied; retry on the next startup.
+    console.warn('旧版 GPT 翻译器设置尚未导入，请刷新页面重试。');
+  }
+  return createWorkspaceStore<GptPipelineWorker>(
+    LSKey.WorkspaceGptPipeline,
+    [],
+  );
+};
 
 const createSakuraWorkspaceStore = () =>
   createWorkspaceStore<SakuraWorker>(
