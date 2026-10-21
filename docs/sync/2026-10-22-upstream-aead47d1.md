@@ -9,6 +9,7 @@
 - Auto-Novel-selected Web Kit: `9285460e2f48f4685c7994e9717453002aa0392e`.
 - Forum client: `1cc0de616c9d89c5a5043c912f625c04c1515d76` (community remains disabled).
 - Companion Auth upstream target: `9285460e2f48f4685c7994e9717453002aa0392e`, independently fork-adapted from Auth `76434ec856009c5a240e315ec69309f7c2e1fcb7`; see that repository's dated sync manifest for its final release revision.
+- Paired Auth fork revision: `c939cfcc5f8eb86e5b5831115cc5d0f578ee64b6`, [Auth PR #1](https://github.com/dekkmarsvin/auth/pull/1).
 
 For the next upstream sync, start by reviewing new upstream commits after: `aead47d1fdb6494aad05bd14be61fea09ff702a9`.
 
@@ -85,8 +86,29 @@ manifest. Production deployment is not part of this implementation request.
   adapter; safe parsing and the real SDK-parser regression now pass.
 - Auth's own manifest records its full frontend/SDK, Go unit/vet/integration,
   schema/config and Web/API container results, plus independent review.
-- Local Auto-Novel image builds, loopback browser smoke and exact-head CI are
-  recorded at final delivery. No production operation is performed here.
+- Docker-compatible Podman Compose 5.5.1 successfully ran
+  `podman compose --parallel 1 -p codex-auto-novel-sync-20261022 -f docker-compose.dev.yml build web api`.
+  Local Web image: `448c18c7918f23d50f0433701852f6619341b1b9f63e4fab7b2475f2dad156f5`;
+  API image: `caf19825224af2185f2480e444f9bf0e966e20a5adaa1cb81078577f6185eb18`.
+  These are test images, not a production rollout.
+- Actual browser smoke used the real built Auto-Novel/Auth frontends with all
+  network endpoints replaced by loopback fixtures and an external-network CSP.
+  Verified old GPT redirect, both same-named workers with their distinct
+  settings, shared job visibility, no duplicate import after reload, native
+  login, cookie refresh, administrator mode and logout. Registration/reset links
+  rendered their corresponding real Auth forms with app/theme/return parameters;
+  no OTP, registration, password change or model invocation was submitted.
+- Browser inspection confirmed unchanged legacy worker/history values, shared
+  job identity and existing Pipeline fields. Ordinary Pipeline preparation adds
+  `progress` to the shared job, so the entire source JSON is not claimed byte
+  identical after using the app; the importer itself never writes the source.
+- Functional revision `a9b88909645779162d75010c7ffcaf92e7d8834f` passed all four
+  PR checks: workspace-build, admin-sync-authorization, Go API and fork/sync
+  invariants ([Build](https://github.com/dekkmarsvin/auto-novel/actions/runs/39639204744),
+  [Fork Invariants](https://github.com/dekkmarsvin/auto-novel/actions/runs/39639204682)).
+  Paired Auth `c939cfcc` passed [Build](https://github.com/dekkmarsvin/auth/actions/runs/39639155167).
+  The final documentation-only revision's checks are tracked on
+  [Auto-Novel PR #31](https://github.com/dekkmarsvin/auto-novel/pull/31).
 
 Offline/fixture tests do not prove live crawler/model availability, real mail
 delivery or production sign-in. No real OTP, email, glossary or translation
