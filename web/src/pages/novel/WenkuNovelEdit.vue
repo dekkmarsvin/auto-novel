@@ -13,7 +13,7 @@ import { VueDraggable } from 'vue-draggable-plus';
 import { WenkuNovelApi } from '@/api';
 import { prettyCover, smartImport } from '@/domain/smart-import';
 import { WenkuNovelRepo } from '@/repos';
-import coverPlaceholder from '@/image/cover_placeholder.png';
+import { externalImageUrls } from '@/config';
 import type { WenkuNovelOutlineDto, WenkuVolumeDto } from '@/model/WenkuNovel';
 import { presetKeywordsNonR18, presetKeywordsR18 } from '@/model/WenkuNovel';
 import { useIsWideScreen } from '@/pages/util';
@@ -79,6 +79,12 @@ const formRules: FormRules = {
     {
       validator: (_rule: FormItemRule, value: string) => RegexUtil.isUrl(value),
       message: '封面链接必须是有效的URL',
+      trigger: 'input',
+    },
+    {
+      validator: (_rule: FormItemRule, value: string) =>
+        !RegexUtil.isUrl(value) || RegexUtil.isImageUrl(value),
+      message: '封面链接必须是图片链接（.jpg、.png、.webp 等）',
       trigger: 'input',
     },
   ],
@@ -324,7 +330,7 @@ const markAsDuplicate = () => {
   formValue.value = {
     title: '重复，待删除',
     titleZh: '重复，待删除',
-    cover: '',
+    cover: externalImageUrls.wenkuCoverPlaceholder,
     authors: [],
     artists: [],
     level: formValue.value.level,
@@ -391,7 +397,11 @@ const levelOptions = [
       <div v-if="isWideScreen">
         <n-image
           width="160"
-          :src="formValue.cover ? formValue.cover : coverPlaceholder"
+          :src="
+            formValue.cover
+              ? formValue.cover
+              : externalImageUrls.wenkuCoverPlaceholder
+          "
           alt="cover"
         />
       </div>

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-// Exercise the immutable SDK's real wire/storage bridge without mounting its UI.
+// Exercise the immutable SDK's real session without mounting its UI.
 import { createAuthSession } from '../node_modules/@novelia/web-kit/src/auth/session';
-import { createLoginBridge } from '../node_modules/@novelia/web-kit/src/auth/login';
 import { migrateLegacyStorage } from '../src/storageMigration.js';
 import { isCurrentAuthor } from '../src/identity';
 
 const now = 2_000_000_000_000;
-const jwt = (username = 'reader') =>
-  `h.${Buffer.from(JSON.stringify({ uid: 7, sub: username, role: 'member', crat: 0, iat: now / 1000, exp: now / 1000 + 3600 })).toString('base64url')}.s`;
+const jwt = (username = 'reader', uid = 7) =>
+  `h.${Buffer.from(JSON.stringify({ uid, sub: username, role: 'member', crat: 0, iat: now / 1000, exp: now / 1000 + 3600 })).toString('base64url')}.s`;
 let storage: Storage;
+let browser: EventTarget;
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
@@ -27,10 +27,27 @@ beforeEach(() => {
     },
     clear: () => values.clear(),
   };
-  const browser = new EventTarget();
+  browser = new EventTarget();
   Object.assign(browser, { localStorage: storage });
   vi.stubGlobal('window', browser);
 });
+
+function externalSession(token?: string) {
+  if (token) {
+    storage.setItem(
+      'web-kit:session:v1',
+      JSON.stringify({ token, adminMode: false }),
+    );
+  } else {
+    storage.removeItem('web-kit:session:v1');
+  }
+  browser.dispatchEvent(
+    Object.assign(new Event('storage'), {
+      key: 'web-kit:session:v1',
+      storageArea: storage,
+    }),
+  );
+}
 afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
@@ -43,9 +60,9 @@ describe('pinned web-kit session and login compatibility', () => {
     migrateLegacyStorage(storage, now);
     const requestRefresh = vi.fn();
     const session = createAuthSession({
-      app: 'n',
-      requestRefresh,
-      requestLogout: vi.fn(),
+      login: vi.fn(),
+      refresh: requestRefresh,
+      logout: vi.fn().mockResolvedValue(''),
     });
     expect(await session.checkSignedIn()).toBe(true);
     expect(session.whoami.value.user?.id).toBe(7);
@@ -59,39 +76,55 @@ describe('pinned web-kit session and login compatibility', () => {
     migrateLegacyStorage(storage, now);
     expect(storage.getItem('web-kit:session:v1')).toBeNull();
   });
-  it('uses the existing login_success/source/origin protocol and refreshes the Cookie session', async () => {
+  it('recovers a Cookie session with the real SDK and preserves glossary ownership', async () => {
+    const refresh = vi.fn().mockResolvedValue(jwt());
     const session = createAuthSession({
-      app: 'n',
-      requestRefresh: vi.fn().mockResolvedValue(jwt()),
-      requestLogout: vi.fn(),
-    });
-    await session.checkSignedIn();
-    const refresh = vi.fn(() => session.accessToken.refresh());
-    const bridge = createLoginBridge(
-      new URL('https://auth.kotoban.top/'),
-      'n',
+      login: vi.fn(),
       refresh,
-    );
-    const frame = {} as Window;
-    const event = {
-      data: { type: 'login_success' },
-      origin: 'https://auth.kotoban.top',
-      source: frame,
-    } as MessageEvent;
-    expect(
-      bridge.handleLoginMessage(
-        { ...event, origin: 'https://other.test' } as MessageEvent,
-        frame,
-      ),
-    ).toBeUndefined();
-    expect(bridge.handleLoginMessage(event, {} as Window)).toBeUndefined();
-    expect(refresh).not.toHaveBeenCalled();
-    await bridge.handleLoginMessage(event, frame);
+      logout: vi.fn().mockResolvedValue(''),
+    });
+    expect(await session.checkSignedIn()).toBe(true);
     expect(refresh).toHaveBeenCalledOnce();
-    expect(new URL(bridge.createLoginUrl('dark')).searchParams.get('app')).toBe(
-      'n',
+    expect(session.whoami.value.user?.id).toBe(7);
+    expect(isCurrentAuthor(session.whoami.value, 'reader')).toBe(true);
+    expect(JSON.parse(storage.getItem('web-kit:session:v1')!).token).toBe(
+      jwt(),
     );
-    expect(session.whoami.value.isSignedIn).toBe(true);
+  });
+  it('restores the existing new session instead of replacing it with a legacy account', async () => {
+    storage.setItem('auth-v2', JSON.stringify({ token: jwt('legacy') }));
+    storage.setItem(
+      'web-kit:session:v1',
+      JSON.stringify({ token: jwt('current', 8), adminMode: false }),
+    );
+    migrateLegacyStorage(storage, now);
+    const refresh = vi.fn();
+    const session = createAuthSession({
+      login: vi.fn(),
+      refresh,
+      logout: vi.fn().mockResolvedValue(''),
+    });
+    expect(await session.checkSignedIn()).toBe(true);
+    expect(session.whoami.value.user?.id).toBe(8);
+    expect(isCurrentAuthor(session.whoami.value, 'current')).toBe(true);
+    expect(isCurrentAuthor(session.whoami.value, 'legacy')).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(storage.getItem('auth-v2')).toBeNull();
+  });
+  it('does not restore a legacy account when the SDK rejects an existing new key', async () => {
+    storage.setItem('auth-v2', JSON.stringify({ token: jwt('legacy') }));
+    storage.setItem('web-kit:session:v1', 'invalid-current');
+    migrateLegacyStorage(storage, now);
+    const session = createAuthSession({
+      login: vi.fn(),
+      refresh: vi.fn().mockRejectedValue(new Error('offline')),
+      logout: vi.fn().mockResolvedValue(''),
+    });
+    expect(await session.checkSignedIn()).toBe(false);
+    expect(session.whoami.value.user).toBeUndefined();
+    expect(storage.getItem('web-kit:session:v1')).toBeNull();
+    migrateLegacyStorage(storage, now);
+    expect(storage.getItem('web-kit:session:v1')).toBeNull();
   });
   it('ignores a refresh that finishes after logout', async () => {
     storage.setItem('web-kit:session:v1', JSON.stringify({ token: jwt() }));
@@ -100,9 +133,9 @@ describe('pinned web-kit session and login compatibility', () => {
       resolve = done;
     });
     const session = createAuthSession({
-      app: 'n',
-      requestRefresh: () => pending,
-      requestLogout: vi.fn(),
+      login: vi.fn(),
+      refresh: () => pending,
+      logout: vi.fn().mockResolvedValue(''),
     });
     const refresh = session.accessToken.refresh();
     await session.logout();
@@ -111,4 +144,33 @@ describe('pinned web-kit session and login compatibility', () => {
     expect(session.whoami.value.isSignedIn).toBe(false);
     expect(storage.getItem('web-kit:session:v1')).toBeNull();
   });
+  it.each(['logout', 'switch'] as const)(
+    'ignores an old account refresh after another tab performs %s',
+    async (operation) => {
+      storage.setItem('web-kit:session:v1', JSON.stringify({ token: jwt() }));
+      let resolve!: (token: string) => void;
+      const pending = new Promise<string>((done) => {
+        resolve = done;
+      });
+      const session = createAuthSession({
+        login: vi.fn(),
+        refresh: () => pending,
+        logout: vi.fn().mockResolvedValue(''),
+      });
+      const refresh = session.accessToken.refresh();
+      externalSession(operation === 'switch' ? jwt('other', 8) : undefined);
+      resolve(jwt('stale'));
+      await refresh;
+      expect(session.whoami.value.isSignedIn).toBe(operation === 'switch');
+      expect(session.whoami.value.user?.username).toBe(
+        operation === 'switch' ? 'other' : undefined,
+      );
+      expect(isCurrentAuthor(session.whoami.value, 'reader')).toBe(false);
+      expect(storage.getItem('web-kit:session:v1')).toBe(
+        operation === 'switch'
+          ? JSON.stringify({ token: jwt('other', 8), adminMode: false })
+          : null,
+      );
+    },
+  );
 });

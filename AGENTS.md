@@ -69,7 +69,7 @@ The upstream uses `n.novelia.cc`.
 When merging upstream, replace all hardcoded `n.novelia.cc` references with `books.kotoban.top` in:
 
 - `web/vite.config.ts` — `apiUrl` default and `/files-extra` proxy target
-- `web/src/components/markdown/MarkdownView.vue` — `currentHost` fallback
+- `web/src/components/markdown/markdown.ts` — novel-link host fallback
 - `web/src/config.ts` and `web/src/webKit.ts` — auth service must remain `auth.kotoban.top`; the old auth-api wrapper is retired
 
 Exception: `monitor.novelia.cc` is an upstream external service URL — do NOT replace it.
@@ -181,6 +181,37 @@ The maintainer approved retiring the unused built-in forum/comments on 2026-10-1
   preserving binding, merge order, dirty drafts, and route-navigation guards.
 - Retain administrator-only full-index synchronization and its JWT route tests.
 
+### 10. Approved Upstream Convergence (2026-10-22)
+
+The maintainer approved reducing long-term fork maintenance. Follow upstream's
+Pipeline, Web Kit, Markdown, UI and retirement direction, with permanent
+differences limited to ThemeGlossary, NAILAIN and necessary deployment/security
+adaptations. This approval supersedes the deferred old GPT and Interactive
+retirements recorded in the 2026-10-20 sync manifest.
+
+- Preserve NAILAIN's Kotlin/browser providers, public content access,
+  administrator-only password settings, environment fallback and offline tests.
+- Retire the old GPT workspace after a bounded browser-side migration of its
+  endpoint/model/API-key worker settings into Pipeline. Existing Pipeline
+  settings take precedence; repeated startup must not duplicate or overwrite
+  workers. Preserve original browser data and the shared GPT job queue.
+- Retire Interactive and its otherwise-unused legacy adapter. Do not create a
+  replacement arbitrary-text translation UI or a permanent old history UI.
+  Preserve old job/history data for recovery; no collection/cache deletion is
+  authorized. Follow upstream's timing for the still-existing old Sakura page.
+- Adopt Auto-Novel's selected Web Kit revision and a compatible independent
+  Auth revision. Keep the SDK implementation unchanged; adapt installation
+  domains, return URLs, CORS, Turnstile and local/native boundaries outside it.
+- Prepare and verify Auto-Novel Web, Auth Web and Auth API as one compatible
+  release set. Registration/reset deep links, return URLs, OTP actions, login,
+  refresh/logout, existing sessions and administrator mode must work together.
+  Document coordinated switch/rollback; do not keep two login architectures as
+  a permanent fork feature. Production deployment remains a separate action.
+- Keep required safety fixes and focused behavioral regressions. Prefer shared
+  upstream fixes and remove redundant local patches after upstream adoption.
+- New compatibility code must have a documented purpose and exit condition;
+  it must not expand into a second translation/authentication framework.
+
 ## Upstream Merge Checklist
 
 Use this checklist whenever syncing from upstream:
@@ -205,6 +236,8 @@ Use this checklist whenever syncing from upstream:
 ## Architecture Overview
 
 - **web/** — Vue 3 + Vite 8 frontend (Caddy serves static + reverse proxy to API)
+- **apps/admin/** — Vue administration UI served at `/admin/`
+- **apps/api/** — Go banner/admin API with PostgreSQL and R2
 - **server/** — Ktor (Kotlin) backend API
 - **packages/crawler/** — Web novel crawler library (rslib)
 - **packages/translator/** — Translation pipeline library (rslib)

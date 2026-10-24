@@ -136,7 +136,11 @@ Assert-FileContains 'web/src/pages/novel/components/TranslateOptions.vue' 'theme
 Assert-FileContains 'web/src/pages/novel/WenkuNovel.vue' 'theme-glossary-id' 'WenkuNovel ThemeGlossary binding'
 
 Assert-FileContains 'web/vite.config.ts' 'books\.kotoban\.top' 'production domain books.kotoban.top'
-Assert-FileContains 'web/src/components/markdown/MarkdownView.vue' 'books\.kotoban\.top' 'markdown host fallback domain'
+Assert-FileContains 'web/src/components/markdown/markdown.ts' 'books\.kotoban\.top' 'markdown host fallback domain'
+Assert-FileContains 'packages/crawler/src/web/crawler.ts' 'nailain' 'browser NAILAIN provider'
+Assert-FileContains 'server/src/main/kotlin/infra/web/datasource/WebNovelHttpDataSource.kt' 'nailain' 'Kotlin NAILAIN provider'
+Assert-FileExists 'server/src/main/kotlin/api/RouteSiteSetting.kt'
+Assert-FileExists 'packages/crawler/src/web/nailain.ts'
 Assert-FileContains 'web/src/config.ts' 'auth\.kotoban\.top' 'fork authentication domain'
 Assert-FileContains 'web/package.json' '@novelia/web-kit' 'upstream web-kit integration'
 Assert-FileContains 'apps/admin/vite.config.ts' 'books\.kotoban\.top' 'admin production API domain'
@@ -160,7 +164,11 @@ foreach ($RetiredPath in @(
     'web/src/pages/forum/ForumArticle.vue',
     'web/src/pages/forum/ForumArticleEdit.vue',
     'web/src/stores/forum/useBlacklistStore.ts',
-    'web/src/api/auth/session.ts'
+    'web/src/api/auth/session.ts',
+    'web/src/pages/workspace/GptWorkspace.vue',
+    'web/src/pages/workspace/Interactive.vue',
+    'web/src/pages/workspace/components/GptWorkerModal.vue',
+    'web/src/domain/translate/TranslatorOpenAi.ts'
 )) {
     if (Test-Path -LiteralPath (Resolve-RepoPath $RetiredPath) -PathType Leaf) {
         Add-Failure "Retired legacy capability was restored: $RetiredPath"

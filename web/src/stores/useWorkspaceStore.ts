@@ -10,6 +10,9 @@ import { useLocalStorage } from '@/util';
 
 import { LSKey } from './key';
 import { addWorkspaceJob } from './workspaceJob';
+import { migrateGptWorkers } from './migrateGptWorkers';
+import { useGptPipelinePersistence } from './gptPipelinePersistence';
+import { browserWorkspaceLocks } from './workspaceLock';
 
 interface Workspace<T> {
   workers: T[];
@@ -22,12 +25,15 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
   id: string,
   workers: W[],
   migrate?: (ref: Ref<Workspace<W>>) => void,
+  persistence?: ReturnType<typeof useGptPipelinePersistence<Workspace<W>>>,
 ) => {
-  const ref = useLocalStorage<Workspace<W>>(id, {
-    workers,
-    jobs: [],
-    uncompletedJobs: [],
-  });
+  const ref =
+    persistence?.ref ??
+    useLocalStorage<Workspace<W>>(id, {
+      workers,
+      jobs: [],
+      uncompletedJobs: [],
+    });
 
   if (migrate) {
     migrate(ref);
@@ -103,6 +109,10 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
 
   return {
     ref,
+    storageReady: persistence?.ready ?? shallowRef(true),
+    persistenceError: persistence?.error ?? shallowRef<string>(),
+    initialized: persistence?.initialized ?? Promise.resolve(),
+    persisted: persistence?.persisted ?? (() => Promise.resolve(true)),
     //
     addWorker,
     deleteWorker,
@@ -121,29 +131,25 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
 };
 
 const createGptWorkspaceStore = () =>
-  createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, [], (workspace) => {
-    // 2026-5-14: retire ChatGPT web-backend workers, keep API workers.
-    workspace.value.workers = workspace.value.workers
-      .filter((it) => !('type' in it && it.type === 'web'))
-      .map((it) => {
-        const worker = it as GptWorker & { type?: 'api' };
-        return {
-          id: worker.id,
-          endpoint:
-            worker.endpoint.length > 0
-              ? worker.endpoint
-              : 'https://api.openai.com',
-          model:
-            worker.model === undefined || worker.model === 'gpt-3.5'
-              ? 'gpt-3.5-turbo'
-              : worker.model,
-          key: worker.key,
-        };
-      });
-  });
+  // Jobs remain shared with Pipeline; retain retired worker/history bytes.
+  createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, []);
 
-const createGptPipelineWorkspaceStore = () =>
-  createWorkspaceStore<GptPipelineWorker>(LSKey.WorkspaceGptPipeline, []);
+const createGptPipelineWorkspaceStore = () => {
+  const locks = browserWorkspaceLocks();
+  const persistence = useGptPipelinePersistence<Workspace<GptPipelineWorker>>(
+    { workers: [], jobs: [], uncompletedJobs: [] },
+    {
+      locks,
+      initialize: () => migrateGptWorkers(window.localStorage, locks),
+    },
+  );
+  return createWorkspaceStore<GptPipelineWorker>(
+    LSKey.WorkspaceGptPipeline,
+    [],
+    undefined,
+    persistence,
+  );
+};
 
 const createSakuraWorkspaceStore = () =>
   createWorkspaceStore<SakuraWorker>(

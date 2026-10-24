@@ -16,6 +16,7 @@ import {
 } from '@auto-novel/translator';
 import type { TranslatorTracker } from '@auto-novel/translator';
 
+import { siteUrls } from '@/config';
 import { useWorkspaceStore } from '@/stores';
 import { TaskExecutor } from '@/domain/translator/TaskExecutor';
 import { IndexedDbSegmentCache } from '@/domain/translator/IndexedDbSegmentCache';
@@ -690,7 +691,7 @@ watch(
           </n-a>
           /
           <n-a
-            href="https://monitor.novelia.cc/public-dashboards/be71c46fcc0e40eeaf06d9e7a2e26f95?refresh=auto&from=now-5m&to=now&timezone=browser"
+            :href="siteUrls.sakuraMonitor"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -768,8 +769,16 @@ watch(
       </c-action-wrapper>
     </n-flex>
 
+    <n-alert
+      v-if="workerStore.persistenceError?.value"
+      type="warning"
+      class="mb-3"
+    >
+      {{ workerStore.persistenceError.value }}
+    </n-alert>
+    <n-spin v-if="workerStore.storageReady?.value === false" size="small" />
     <n-empty
-      v-if="workerStore.ref.value.workers.length === 0"
+      v-else-if="workerStore.ref.value.workers.length === 0"
       description="没有翻译器"
     />
     <n-list v-else class="worker-list">
