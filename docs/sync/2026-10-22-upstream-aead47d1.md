@@ -116,6 +116,46 @@ mutation is used for tests.
 
 ## Release Boundary
 
+### 2026-10-24 P2 cross-tab settings follow-up
+
+The importer and ordinary GPT Pipeline persistence now share the origin-scoped
+Web Lock `auto-novel:workspace-gpt-pipeline`. The lock covers the entire
+read/merge/write/readback/marker operation. Ordinary writes additionally compare
+their last-adopted storage baseline and remote generation inside that lock, so
+an already-open current-version tab cannot overwrite imported workers or another
+tab's newer key/profile with a stale whole-workspace snapshot. Storage events
+reread the current value instead of trusting a delayed event payload.
+
+Pipeline initialization waits for migration before loading saved workers. Save
+conflicts reload current storage and display a warning; modal success/closing
+waits for confirmed persistence. Missing/rejected browser locks, malformed data
+and storage failures refuse writes, with no migration-complete marker on failed
+imports. Original worker/job/history data remains untouched by the importer.
+This adapter is limited to GPT Pipeline and can be replaced when upstream
+provides equivalent coordinated persistence; other stores and the SDK are not
+modified for this fix.
+
+Deployment must reload/close pre-update Auto-Novel tabs before editing settings:
+old code does not participate in the new lock and cannot be excluded by it.
+Older browsers without Web Locks and non-secure remote HTTP contexts show a
+failed-save warning rather than performing an unsafe unlocked fallback. Use a
+current browser over HTTPS (or localhost) for GPT Pipeline settings.
+
+Follow-up verification: all 235 Web tests across 38 files passed, including 44
+worker migration/persistence/modal integration cases. New regressions force an
+edit in the final-read/write window, a save already holding the lock, concurrent
+importers, a stale ordinary writer after the real importer, delayed events,
+same-tab queued edits, rejected saves and denied browser storage. Full workspace
+build and three built-bootstrap acceptance tests passed. The upstream/SDK/Auth
+targets above are unchanged.
+
+Focused source lint, formatting and fork invariants passed. An in-memory
+negative control of the importer reproduced the overwritten newer key when its
+lock was bypassed; the same forced interleaving retained that key with the
+current implementation. Repository sources were not changed for this control.
+
+### Coordinated release
+
 Treat Auto-Novel Web, Auth Web and Auth API as one compatible release set.
 Verify native login, refresh/logout/session/admin state, registration/reset
 deep links and exact Kotoban return allowlists, OTP actions and local/native

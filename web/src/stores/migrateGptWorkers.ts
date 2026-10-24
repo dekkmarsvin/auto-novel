@@ -1,5 +1,10 @@
 import type { GptPipelineWorker } from '@/model/Translator';
 import { LSKey } from './key';
+import {
+  browserWorkspaceLocks,
+  withGptPipelineLock,
+  type WorkspaceLocks,
+} from './workspaceLock';
 
 export const gptWorkerMigrationKey = 'auto-novel:gpt-workers-migration:v1';
 
@@ -58,7 +63,18 @@ function legacyWorker(value: unknown): GptPipelineWorker | undefined {
  * can retire once supported browser profiles have imported their old workers;
  * it is not a general workspace/storage migration layer.
  */
-export function migrateGptWorkers(storage: BrowserStorage): boolean {
+export async function migrateGptWorkers(
+  storage: BrowserStorage,
+  locks: WorkspaceLocks | undefined = browserWorkspaceLocks(),
+): Promise<boolean> {
+  try {
+    return await withGptPipelineLock(storage, locks, importLockedWorkers);
+  } catch {
+    return false;
+  }
+}
+
+function importLockedWorkers(storage: BrowserStorage): boolean {
   try {
     if (storage.getItem(gptWorkerMigrationKey) === '1') return true;
     const sourceRaw = storage.getItem(LSKey.WorkspaceGpt);

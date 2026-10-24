@@ -419,6 +419,7 @@ const addWorkers = () => {
 };
 
 const submit = async () => {
+  await workspace.initialized;
   if (props.worker === undefined) {
     if (!(await doValidate())) return;
     const idError = validateIds();
@@ -427,6 +428,7 @@ const submit = async () => {
       return;
     }
     addWorkers();
+    if (!(await workspace.persisted())) return;
     Toast.success(`已添加 ${generatedWorkers.value.length} 个翻译器`);
     emit('update:show', false);
   } else {
@@ -448,12 +450,14 @@ const submit = async () => {
       (w) => w.id === props.worker?.id,
     );
     workspaceRef.value.workers[index] = worker;
+    if (!(await workspace.persisted())) return;
     Toast.success(`已更新翻译器「${worker.id}」`);
     emit('update:show', false);
   }
 };
 
 const submitAndContinue = async () => {
+  await workspace.initialized;
   if (!(await doValidate())) return;
   const idError = validateIds();
   if (idError) {
@@ -461,6 +465,7 @@ const submitAndContinue = async () => {
     return;
   }
   addWorkers();
+  if (!(await workspace.persisted())) return;
   Toast.success(`已添加 ${generatedWorkers.value.length} 个翻译器`);
 };
 
@@ -474,6 +479,13 @@ const verb = computed(() => (props.worker === undefined ? '添加' : '更新'));
     :title="verb + '翻译器'"
     style="width: min(750px, calc(100% - 16px))"
   >
+    <n-alert
+      v-if="workspace.persistenceError.value"
+      type="warning"
+      class="mb-3"
+    >
+      {{ workspace.persistenceError.value }}
+    </n-alert>
     <n-form
       ref="form"
       :model="props.worker === undefined ? addFormValue : formValue"

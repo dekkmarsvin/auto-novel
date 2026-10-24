@@ -769,8 +769,16 @@ watch(
       </c-action-wrapper>
     </n-flex>
 
+    <n-alert
+      v-if="workerStore.persistenceError?.value"
+      type="warning"
+      class="mb-3"
+    >
+      {{ workerStore.persistenceError.value }}
+    </n-alert>
+    <n-spin v-if="workerStore.storageReady?.value === false" size="small" />
     <n-empty
-      v-if="workerStore.ref.value.workers.length === 0"
+      v-else-if="workerStore.ref.value.workers.length === 0"
       description="没有翻译器"
     />
     <n-list v-else class="worker-list">

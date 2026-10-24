@@ -12,6 +12,7 @@ import {
   useGptPipelineWorkspaceStore,
   useGptWorkspaceStore,
 } from '../src/stores/useWorkspaceStore';
+import type { WorkspaceLocks } from '../src/stores/workspaceLock';
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -38,10 +39,47 @@ class MemoryStorage implements Storage {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('workspace persistence after leaving the first page', () => {
+  it('shows a failed-save state instead of crashing when the browser denies storage access', async () => {
+    const browser = new EventTarget();
+    Object.defineProperty(browser, 'localStorage', {
+      get() {
+        throw new DOMException('Storage access denied', 'SecurityError');
+      },
+    });
+    vi.stubGlobal('window', browser);
+    vi.stubGlobal('navigator', {
+      locks: {
+        request: async (_name: string, action: () => unknown) => action(),
+      },
+    });
+    vi.resetModules();
+    const { useGptPipelineWorkspaceStore: useFreshStore } =
+      await import('../src/stores/useWorkspaceStore');
+    const page = Vue.effectScope();
+    const store = page.run(() => useFreshStore())!;
+    await store.initialized;
+    expect(store.storageReady.value).toBe(true);
+    expect(store.persistenceError.value).toBeTruthy();
+    expect(await store.persisted()).toBe(false);
+    page.stop();
+  });
+
   it('keeps saving workers and receiving storage events after the page scope is disposed', async () => {
     const storage = new MemoryStorage();
     const browser = Object.assign(new EventTarget(), { localStorage: storage });
     vi.stubGlobal('window', browser);
+    let pending = Promise.resolve();
+    const locks: WorkspaceLocks = {
+      request<T>(_name: string, action: () => T | Promise<T>) {
+        const result = pending.then(action);
+        pending = result.then(
+          () => undefined,
+          () => undefined,
+        );
+        return result;
+      },
+    };
+    vi.stubGlobal('navigator', { locks });
     const worker = {
       id: 'saved',
       model: 'model',
@@ -69,6 +107,7 @@ describe('workspace persistence after leaving the first page', () => {
     storage.setItem('workspace-gpt', original);
     const page = Vue.effectScope();
     const store = page.run(() => useGptPipelineWorkspaceStore())!;
+    await store.initialized;
     const imported = {
       ...oldWorker,
       endpoint: 'https://api.openai.com',
@@ -81,7 +120,7 @@ describe('workspace persistence after leaving the first page', () => {
     page.stop();
 
     store.addWorker({ ...worker, id: 'added-after-navigation' });
-    await Vue.nextTick();
+    expect(await store.persisted()).toBe(true);
     expect(
       JSON.parse(storage.getItem('workspace-gpt-pipeline')!).workers,
     ).toEqual([worker, imported, { ...worker, id: 'added-after-navigation' }]);
@@ -96,10 +135,11 @@ describe('workspace persistence after leaving the first page', () => {
     });
     browser.dispatchEvent(event);
     await Vue.nextTick();
+    await locks.request('barrier', () => undefined);
     expect(useGptPipelineWorkspaceStore()).toBe(store);
     expect(store.ref.value).toEqual(remote);
     store.ref.value.workers[0].concurrency = 4;
-    await Vue.nextTick();
+    expect(await store.persisted()).toBe(true);
     expect(
       JSON.parse(storage.getItem('workspace-gpt-pipeline')!).workers[0],
     ).toEqual({

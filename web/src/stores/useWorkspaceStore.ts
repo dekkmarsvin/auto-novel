@@ -11,6 +11,8 @@ import { useLocalStorage } from '@/util';
 import { LSKey } from './key';
 import { addWorkspaceJob } from './workspaceJob';
 import { migrateGptWorkers } from './migrateGptWorkers';
+import { useGptPipelinePersistence } from './gptPipelinePersistence';
+import { browserWorkspaceLocks } from './workspaceLock';
 
 interface Workspace<T> {
   workers: T[];
@@ -23,12 +25,15 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
   id: string,
   workers: W[],
   migrate?: (ref: Ref<Workspace<W>>) => void,
+  persistence?: ReturnType<typeof useGptPipelinePersistence<Workspace<W>>>,
 ) => {
-  const ref = useLocalStorage<Workspace<W>>(id, {
-    workers,
-    jobs: [],
-    uncompletedJobs: [],
-  });
+  const ref =
+    persistence?.ref ??
+    useLocalStorage<Workspace<W>>(id, {
+      workers,
+      jobs: [],
+      uncompletedJobs: [],
+    });
 
   if (migrate) {
     migrate(ref);
@@ -104,6 +109,10 @@ const createWorkspaceStore = <W extends GptWorker | SakuraWorker>(
 
   return {
     ref,
+    storageReady: persistence?.ready ?? shallowRef(true),
+    persistenceError: persistence?.error ?? shallowRef<string>(),
+    initialized: persistence?.initialized ?? Promise.resolve(),
+    persisted: persistence?.persisted ?? (() => Promise.resolve(true)),
     //
     addWorker,
     deleteWorker,
@@ -126,17 +135,19 @@ const createGptWorkspaceStore = () =>
   createWorkspaceStore<GptWorker>(LSKey.WorkspaceGpt, []);
 
 const createGptPipelineWorkspaceStore = () => {
-  try {
-    if (!migrateGptWorkers(window.localStorage)) {
-      console.warn('旧版 GPT 翻译器设置尚未导入，请刷新页面重试。');
-    }
-  } catch {
-    // Accessing localStorage itself can be denied; retry on the next startup.
-    console.warn('旧版 GPT 翻译器设置尚未导入，请刷新页面重试。');
-  }
+  const locks = browserWorkspaceLocks();
+  const persistence = useGptPipelinePersistence<Workspace<GptPipelineWorker>>(
+    { workers: [], jobs: [], uncompletedJobs: [] },
+    {
+      locks,
+      initialize: () => migrateGptWorkers(window.localStorage, locks),
+    },
+  );
   return createWorkspaceStore<GptPipelineWorker>(
     LSKey.WorkspaceGptPipeline,
     [],
+    undefined,
+    persistence,
   );
 };
 

@@ -84,8 +84,13 @@ async function modal(
   const records = Vue.ref({
     workers: worker ? [structuredClone(worker)] : structuredClone(existing),
   });
+  const persisted = vi.fn().mockResolvedValue(true);
+  const emit = vi.fn();
   boundary.store.mockReturnValue({
     ref: records,
+    initialized: Promise.resolve(),
+    persistenceError: Vue.ref<string>(),
+    persisted,
     addWorker(value: GptPipelineWorker) {
       records.value.workers.push(value);
     },
@@ -106,7 +111,7 @@ async function modal(
   });
   const app = renderer.createApp({
     setup() {
-      controls = Modal.setup!(props, { expose() {}, emit() {} }) as Controls;
+      controls = Modal.setup!(props, { expose() {}, emit }) as Controls;
       return () => Vue.h(form, { ref: 'form' });
     },
   });
@@ -114,7 +119,7 @@ async function modal(
   app.mount({});
   cleanups.push(() => app.unmount());
   await Vue.nextTick();
-  return { controls, records, props };
+  return { controls, records, props, persisted, emit };
 }
 
 const storedWorker = (
@@ -129,6 +134,16 @@ const storedWorker = (
 });
 
 describe('GPT worker profile compatibility', () => {
+  it('keeps the modal open and does not report success when saving is rejected', async () => {
+    const { controls, persisted, emit } = await modal(storedWorker());
+    controls.formValue.value.key = 'synthetic-edited-key';
+    persisted.mockResolvedValue(false);
+    await controls.submit();
+    expect(persisted).toHaveBeenCalledOnce();
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
   it('keeps an existing unprofiled worker on Chat Completions and its own endpoint when changing protocol', async () => {
     const worker = storedWorker();
     const { controls, records } = await modal(worker);
