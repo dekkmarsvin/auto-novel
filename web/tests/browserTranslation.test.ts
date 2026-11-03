@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TranslateTaskParams } from '../src/model/Translator';
-import type { TaskExecutionContext } from '../src/domain/translator/TranslationTask/types';
+import type { TaskExecutionContext } from '../src/domain/translator/tasks/task';
 
 const boundary = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('../src/external', () => ({
 vi.mock('../src/stores', () => ({
   useWhoamiStore: () => ({ whoami: { isAdmin: true } }),
 }));
-// Query-cache invalidation is not part of this HTTP mutation/cancellation contract.
+// Keep actual HTTP requests; query-cache invalidation is a separate contract.
 vi.mock('../src/repos', async () => {
   const { WebNovelApi } = await import('../src/api/WebNovelApi');
   return {
@@ -43,7 +43,13 @@ vi.mock('../src/repos', async () => {
   };
 });
 
-import { WebTranslationTask } from '../src/domain/translator/TranslationTask/WebTranslationTask';
+import { WorkPreparer } from '../src/domain/translator/prepare-work';
+import { TaskLifecycle } from '../src/domain/translator/task-lifecycle';
+import {
+  TaskState,
+  type UnitStatus,
+} from '../src/domain/translator/task-state';
+import { WebTranslationTask } from '../src/domain/translator/tasks/web-task';
 
 const params: TranslateTaskParams = {
   level: 'sync',
@@ -76,21 +82,30 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+type StopReason = 'stopped' | 'replaced' | 'permission-revoked';
 
 describe('pipeline browser crawler and HTTP boundary', () => {
   let requests: Request[];
   let directoryUpdated: boolean;
-  let eligible: boolean;
-  let controller: AbortController;
+  let execution: AbortController;
+  let permission: AbortController;
+  let lifecycle: TaskLifecycle;
   let context: TaskExecutionContext;
+  const stop = (reason: StopReason) => {
+    if (reason === 'replaced') lifecycle.abort();
+    else if (reason === 'permission-revoked') permission.abort();
+    else execution.abort();
+  };
   beforeEach(() => {
     requests = [];
     directoryUpdated = false;
-    eligible = true;
-    controller = new AbortController();
+    execution = new AbortController();
+    permission = new AbortController();
+    lifecycle = new TaskLifecycle(1);
     context = {
-      signal: controller.signal,
-      canUpload: () => eligible,
+      signal: lifecycle.signalFor(
+        AbortSignal.any([execution.signal, permission.signal]),
+      ),
       onLog: vi.fn(),
     };
     boundary.metadata.mockReset().mockResolvedValue(sourceMetadata);
@@ -103,7 +118,7 @@ describe('pipeline browser crawler and HTTP boundary', () => {
       const url = new URL(request.url);
       if (
         request.method === 'GET' &&
-        url.pathname.endsWith('/translate-v2/gpt')
+        /\/translate-v2\/gpt$/.test(url.pathname)
       ) {
         return Response.json({
           titleJp: 'Title',
@@ -113,7 +128,7 @@ describe('pipeline browser crawler and HTTP boundary', () => {
           toc: directoryUpdated ? refreshedToc : initialToc,
         });
       }
-      if (request.method === 'GET') {
+      if (request.method === 'GET')
         return Response.json({
           titleJp: 'Title',
           authors: [],
@@ -123,7 +138,6 @@ describe('pipeline browser crawler and HTTP boundary', () => {
           introductionJp: '',
           toc: initialToc,
         });
-      }
       if (
         request.method === 'PUT' &&
         url.pathname === '/api/novel/pixiv/fixture'
@@ -131,51 +145,69 @@ describe('pipeline browser crawler and HTTP boundary', () => {
         directoryUpdated = true;
         return new Response(null, { status: 204 });
       }
-      if (url.pathname.endsWith('/chapter-task/1')) {
+      if (url.pathname.endsWith('/chapter-task/1'))
         return Response.json({
           paragraphJp: ['source from server task'],
           glossary: combinedGlossary,
           glossaryId: 'merged-id',
           oldGlossary: {},
         });
-      }
       if (url.pathname.endsWith('/translate-v2/gpt/chapter/1'))
         return Response.json({ jp: 1, zh: 1 });
       return new Response(null, { status: 204 });
     });
   });
 
-  it('keeps browser crawling out of previews, refreshes chapters on execution and takes the merged glossary from the site API', async () => {
+  it('crawls only when execution initializes, refreshes before its snapshot and passes the site glossary to shared work', async () => {
     const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', params);
-    await task.initMeta();
-    await task.fetchChapter('1');
+    await Promise.resolve();
+    expect(requests).toEqual([]);
     expect(boundary.metadata).not.toHaveBeenCalled();
     expect(boundary.chapter).not.toHaveBeenCalled();
-    await task.prepareExecution(context);
-    expect(task.needsPreparation).toBe(false);
+    await task.initialize(context);
+    expect(task.initialized).toBe(true);
     expect(task.chapters.map((chapter) => chapter.chapterId)).toEqual([
       '1',
       '2',
     ]);
-    expect(task.glossary).toEqual(combinedGlossary);
-    const detail = await task.fetchChapter('1', context);
-    expect(detail.paragraphs).toEqual(['source from server task']);
-    expect(detail.glossary).toEqual(combinedGlossary);
+    const sourceWrite = requests.findIndex(
+      (request) => request.method === 'PUT',
+    );
+    const snapshot = requests.findIndex((request) =>
+      request.url.endsWith('/translate-v2/gpt'),
+    );
+    expect(sourceWrite).toBeGreaterThan(0);
+    expect(snapshot).toBeGreaterThan(sourceWrite);
+    const state = new TaskState();
+    state.initialize(task.chapters, task.metadataUnit);
+    const tracker = {
+      onUnitStatus: (id: string, status: UnitStatus) =>
+        state.updateStatus(id, status),
+      onLog: context.onLog,
+    };
+    const work = await new WorkPreparer(task).prepareUnit(
+      state.chapters[0],
+      tracker,
+      context.signal,
+    );
+    expect(work).toMatchObject({
+      lines: ['source from server task'],
+      glossary: combinedGlossary,
+      trustedOnly: true,
+    });
+    expect(boundary.chapter).toHaveBeenCalledOnce();
     const chapterTasks = requests.filter((request) =>
       request.url.includes('/chapter-task/'),
     );
-    expect(
-      chapterTasks.map((request) =>
-        new URL(request.url).searchParams.get('sync'),
-      ),
-    ).toEqual(['true', 'false']);
+    expect(chapterTasks).toHaveLength(1);
+    expect(new URL(chapterTasks[0].url).searchParams.get('sync')).toBe('false');
     expect(
       requests.some(
         (request) =>
           request.method === 'PUT' && request.url.endsWith('/chapter/1'),
       ),
     ).toBe(true);
-    await task.uploadChapter('1', detail.glossaryId, ['translated'], context);
+    await work!.onComplete({ lines: ['translated'], failed: [] });
     const upload = requests.find((request) =>
       request.url.endsWith('/translate-v2/gpt/chapter/1'),
     )!;
@@ -183,58 +215,93 @@ describe('pipeline browser crawler and HTTP boundary', () => {
       glossaryId: 'merged-id',
       paragraphsZh: ['translated'],
     });
+    expect(state.chapters[0].status).toBe('done');
     expect(upload.signal.aborted).toBe(false);
-    controller.abort();
+    execution.abort();
     expect(upload.signal.aborted).toBe(true);
   });
 
-  it.each(['stopped', 'replaced'] as const)(
-    'does not mutate a novel when crawler metadata returns after its job is %s',
+  it('keeps server sync enabled when browser crawling is disabled', async () => {
+    const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', {
+      ...params,
+      useBrowserCrawler: false,
+    });
+    await task.initialize(context);
+    const prepared = await task.prepareUnit(
+      { kind: 'chapter', chapterId: '1' },
+      context,
+    );
+    expect(prepared.glossary).toEqual(combinedGlossary);
+    const chapterTask = requests.find((request) =>
+      request.url.includes('/chapter-task/'),
+    )!;
+    expect(new URL(chapterTask.url).searchParams.get('sync')).toBe('true');
+    expect(boundary.metadata).not.toHaveBeenCalled();
+    expect(boundary.chapter).not.toHaveBeenCalled();
+  });
+
+  it.each<StopReason>(['stopped', 'replaced', 'permission-revoked'])(
+    'does not mutate source metadata or load a translation snapshot after %s',
     async (reason) => {
       const metadata = deferred<typeof sourceMetadata>();
       boundary.metadata.mockReturnValue(metadata.promise);
       const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', params);
-      await task.initMeta();
-      const operation = task.prepareExecution(context);
+      const operation = task.initialize(context);
+      const rejected = expect(operation).rejects.toMatchObject({
+        name: 'AbortError',
+      });
       await vi.waitFor(() => expect(boundary.metadata).toHaveBeenCalledOnce());
-      if (reason === 'stopped') controller.abort();
-      else eligible = false;
+      stop(reason);
       metadata.resolve(sourceMetadata);
-      await expect(operation).rejects.toMatchObject({ name: 'AbortError' });
+      await rejected;
       expect(requests.every((request) => request.method === 'GET')).toBe(true);
-      expect(task.needsPreparation).toBe(true);
+      expect(
+        requests.some((request) => request.url.includes('/translate-v2/')),
+      ).toBe(false);
+      expect(task.initialized).toBe(false);
     },
   );
 
-  it('does not create a chapter or request a translation task after a late crawler chapter returns to a stopped run', async () => {
-    const chapter = deferred<{ paragraphs: string[] }>();
-    boundary.chapter.mockReturnValue(chapter.promise);
-    const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', params);
-    await task.initMeta();
-    const operation = task.fetchChapter('1', context);
-    await vi.waitFor(() => expect(boundary.chapter).toHaveBeenCalledOnce());
-    controller.abort();
-    chapter.resolve({ paragraphs: ['late source'] });
-    await expect(operation).rejects.toMatchObject({ name: 'AbortError' });
-    expect(requests.every((request) => request.method === 'GET')).toBe(true);
-  });
+  it.each<StopReason>(['stopped', 'replaced', 'permission-revoked'])(
+    'does not create a chapter or fetch translation work when source crawling finishes after %s',
+    async (reason) => {
+      const chapter = deferred<{ paragraphs: string[] }>();
+      boundary.chapter.mockReturnValue(chapter.promise);
+      const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', params);
+      await task.initialize(context);
+      requests = [];
+      const operation = task.prepareUnit(
+        { kind: 'chapter', chapterId: '1' },
+        context,
+      );
+      const rejected = expect(operation).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await vi.waitFor(() => expect(boundary.chapter).toHaveBeenCalledOnce());
+      stop(reason);
+      chapter.resolve({ paragraphs: ['late source'] });
+      await rejected;
+      expect(requests).toEqual([]);
+    },
+  );
 
-  it('does not fall back from a missing chapter update to creation after permission is revoked', async () => {
+  it('does not fall back from a missing source-chapter update to creation after permission is revoked', async () => {
     const fallback = boundary.fetch.getMockImplementation()!;
     boundary.fetch.mockImplementation(async (input, init) => {
       const request = new Request(input, init);
       if (request.method === 'PUT' && request.url.endsWith('/chapter/1')) {
         requests.push(request);
-        eligible = false;
+        permission.abort();
         return new Response('章节不存在', { status: 404 });
       }
       return fallback(input, init);
     });
     const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', params);
-    await task.initMeta();
-    await expect(task.fetchChapter('1', context)).rejects.toMatchObject({
-      name: 'AbortError',
-    });
-    expect(requests.map((request) => request.method)).toEqual(['GET', 'PUT']);
+    await task.initialize(context);
+    requests = [];
+    await expect(
+      task.prepareUnit({ kind: 'chapter', chapterId: '1' }, context),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(requests.map((request) => request.method)).toEqual(['PUT']);
   });
 });

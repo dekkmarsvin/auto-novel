@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { XAsyncContent } from '@novelia/web-kit';
+import NovelGridSkeleton from '@/components/NovelGridSkeleton.vue';
+import { XEmpty, XError, XPagination, XSeparator } from '@novelia/web-kit';
 import { PlusOutlined } from '@vicons/material';
 
 import { WenkuNovelRepo } from '@/repos';
@@ -19,7 +20,9 @@ const { whoami } = storeToRefs(whoamiStore);
 const favoredStore = FavoredRepo.useFavoredStore();
 const { favoreds } = storeToRefs(favoredStore);
 
-const listOptions = getWenkuListOptions(whoami.value.hasNsfwAccess);
+const listOptions = computed(() =>
+  getWenkuListOptions(whoami.value.hasNsfwAccess),
+);
 
 const listValue = computed(
   () =>
@@ -37,6 +40,11 @@ const { data: novelPage, error } = WenkuNovelRepo.useWenkuNovelList(
   }),
 );
 
+// 翻页加载期间保留总页数，避免上下分页被卸载。
+const pageCount = computed<number>(
+  (previous) => novelPage.value?.pageNumber ?? previous ?? 1,
+);
+
 watch(novelPage, (novelPage) => {
   if (novelPage) {
     const favoredIds = favoreds.value.wenku.map((it) => it.id);
@@ -50,7 +58,7 @@ watch(novelPage, (novelPage) => {
 </script>
 
 <template>
-  <div class="layout-content">
+  <div role="region" aria-label="文库小说列表" class="layout-content">
     <n-h1>文库小说</n-h1>
 
     <router-link v-if="whoami.hasNovelAccess" to="/wenku-edit">
@@ -67,25 +75,42 @@ watch(novelPage, (novelPage) => {
       @update:value="onUpdateListValue(listOptions, $event)"
     />
 
-    <CPage
+    <XPagination
+      v-if="pageCount > 1"
+      class="mt-6"
+      :ui="{ root: 'border-t-0 p-0 sm:px-0' }"
       :page="page"
-      :page-number="novelPage?.pageNumber"
+      :total-pages="pageCount"
       @update:page="onUpdatePage"
-    >
-      <template v-if="novelPage">
-        <n-divider />
-        <NovelListWenku :items="novelPage.items" />
-        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
-        <n-divider />
-      </template>
+    />
 
-      <XAsyncContent
-        v-else
-        :loading="!error"
-        :error="error?.message ?? ''"
-        error-title="加载错误"
-      />
-    </CPage>
+    <XSeparator
+      :style="{ margin: pageCount > 1 ? '12px 0 12px' : '24px 0 12px' }"
+    />
+
+    <NovelGridSkeleton v-if="!novelPage && !error" />
+    <XError
+      v-else-if="!novelPage && error"
+      title="加载错误"
+      :description="error.message"
+    />
+    <XEmpty
+      v-else-if="novelPage && novelPage.items.length === 0"
+      title="空列表"
+      size="compact"
+    />
+    <template v-else-if="novelPage">
+      <NovelListWenku :items="novelPage.items" />
+    </template>
+
+    <XPagination
+      v-if="pageCount > 1"
+      class="mt-3"
+      :page="page"
+      :total-pages="pageCount"
+      keyboard="window"
+      @update:page="onUpdatePage"
+    />
   </div>
 </template>
 

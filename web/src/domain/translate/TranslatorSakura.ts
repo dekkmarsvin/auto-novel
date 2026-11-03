@@ -36,16 +36,26 @@ export class SakuraTranslator implements SegmentTranslator {
     return this.translator.model;
   }
 
-  allowUpload() {
-    if (this.segLength !== 500) {
-      this.log('分段长度不是500');
-      return false;
-    }
-    return this.translator.allowUpload();
+  get trusted(): boolean {
+    return this.segLength === 500 && this.translator.trusted;
   }
 
-  translate(seg: string[], { glossary, prevSegs, signal }: SegmentContext) {
-    return this.translator.translate(seg, { glossary, prevSegs }, signal);
+  get untrustedReason(): string | undefined {
+    return this.segLength !== 500
+      ? '分段长度不是500'
+      : this.translator.untrustedReason;
+  }
+
+  translate(
+    seg: string[],
+    { glossary, previousSource, signal }: SegmentContext,
+  ) {
+    return this.translator.translate({
+      lines: seg,
+      context: { glossary, previousSource },
+      signal,
+      attempt: 0,
+    });
   }
 }
 

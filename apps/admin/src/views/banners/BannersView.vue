@@ -471,7 +471,7 @@ onMounted(load);
   margin-bottom: 24px;
   padding: 4px;
   border-radius: 10px;
-  background: var(--color-embedded);
+  background: var(--color-neutral-soft);
 }
 .banner-tabs button {
   min-width: 88px;

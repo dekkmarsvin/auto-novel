@@ -184,3 +184,36 @@ it('cancels an in-flight image preload and its timeout when leaving the page', a
   expect(storedId()).toBe(1);
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it('applies a background list refresh after initially displaying its expired cached image', async () => {
+  store.set(
+    storageKey,
+    JSON.stringify({
+      list: { banners, expiresAt: -1 },
+      selection: { bannerId: 1, expiresAt: 1000 },
+    }),
+  );
+  let finish!: (value: typeof banners) => void;
+  list.mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const { controls } = await mount();
+  await flush();
+  expect(controls.imageUrl.value).toBe(banners[0].imageUrl);
+
+  const refreshed = banners.map((banner) => ({
+    ...banner,
+    imageUrl:
+      banner.id === 1
+        ? 'https://images.example/refreshed.webp'
+        : banner.imageUrl,
+  }));
+  finish(refreshed);
+  await flush();
+  await flush();
+  expect(controls.imageUrl.value).toBe(refreshed[0].imageUrl);
+  expect(storedId()).toBe(1);
+  expect(controls.switching.value).toBe(false);
+});

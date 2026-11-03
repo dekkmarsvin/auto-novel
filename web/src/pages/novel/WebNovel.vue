@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { XAsyncContent } from '@novelia/web-kit';
+import { XError } from '@novelia/web-kit';
 import { computedAsync } from '@vueuse/core';
 
 import { formatError } from '@/api';
@@ -7,6 +7,7 @@ import { CrawlerService } from '@/domain/crawler';
 import { useIsWideScreen } from '@/pages/util';
 import { WebNovelRepo } from '@/repos';
 import { useWhoamiStore } from '@/stores';
+import NovelDetailSkeleton from './components/NovelDetailSkeleton.vue';
 
 const { providerId, novelId } = defineProps<{
   providerId: string;
@@ -59,7 +60,13 @@ watch(formatedError, async (errorMessage) => {
 
 <template>
   <div class="layout-content">
-    <template v-if="novel">
+    <NovelDetailSkeleton :wide="isWideScreen" v-if="!novel && !formatedError" />
+    <XError
+      v-else-if="!novel && formatedError"
+      title="加载错误"
+      :description="formatedError"
+    />
+    <template v-else-if="novel">
       <web-novel-wide
         v-if="isWideScreen"
         :provider-id="providerId"
@@ -73,12 +80,5 @@ watch(formatedError, async (errorMessage) => {
         :novel="novel"
       />
     </template>
-
-    <XAsyncContent
-      v-else
-      :loading="!formatedError"
-      :error="formatedError"
-      error-title="加载错误"
-    />
   </div>
 </template>

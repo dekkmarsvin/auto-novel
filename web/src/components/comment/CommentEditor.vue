@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Comment } from '@novelia/forum-api';
+import type { Comment } from '@novelia/web-kit';
 import { Toast, XButton } from '@novelia/web-kit';
 
 import { CommentRepo } from '@/repos';
@@ -43,21 +43,18 @@ const reply = async () => {
   if (!canSubmit.value) return;
   submitting.value = true;
   const viewer = whoami.value.user?.id;
-  try {
-    await Toast.promise(
-      CommentRepo.createComment(props.site, {
-        content: content.value.trim(),
-        ...(props.parent === undefined ? {} : { rootId: props.parent }),
-      }).then(() => {
-        if (viewer !== whoami.value.user?.id) return;
-        content.value = '';
-        emit('replied');
-      }),
-      { success: '回复发布成功', error: '回复发布失败' },
-    );
-  } finally {
-    submitting.value = false;
-  }
+  await Toast.promise(
+    CommentRepo.createComment(props.site, {
+      content: content.value.trim(),
+      ...(props.parent === undefined ? {} : { rootId: props.parent }),
+    }).then(() => {
+      if (viewer !== whoami.value.user?.id) return;
+      content.value = '';
+      emit('replied');
+    }),
+    { success: '回复发布成功', error: '回复发布失败' },
+  );
+  submitting.value = false;
 };
 </script>
 
@@ -66,7 +63,6 @@ const reply = async () => {
     <CommentRulesNotice class="mb-3" />
     <MarkdownEditor
       :disabled="submitting || disabled"
-      mode="comment"
       :draft-id="draftId"
       v-model:value="content"
       :placeholder="placeholder"
@@ -78,6 +74,7 @@ const reply = async () => {
       <MarkdownHelpDialog />
       <div class="flex items-center gap-2">
         <XButton
+          color="neutral"
           variant="outline"
           :disabled="submitting"
           @click="emit('cancel')"

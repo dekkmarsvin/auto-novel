@@ -1,15 +1,17 @@
 <script lang="ts" setup>
-import { Toast, XDialog, XAsyncContent } from '@novelia/web-kit';
+import { Toast, XDialog, XError } from '@novelia/web-kit';
 import { EditNoteOutlined, LanguageOutlined } from '@vicons/material';
 import { createReusableTemplate } from '@vueuse/core';
 
 import { externalImageUrls } from '@/config';
+import { subjectKeys } from '@/api/commentSubject';
 import { GenericNovelId } from '@/model/Common';
 import type { VolumeJpDto } from '@/model/WenkuNovel';
 import NovelBottomTabs from '@/pages/novel/components/NovelBottomTabs.vue';
 import { useIsWideScreen } from '@/pages/util';
 import { WenkuNovelRepo } from '@/repos';
 import { useSettingStore, useWhoamiStore } from '@/stores';
+import NovelDetailSkeleton from './components/NovelDetailSkeleton.vue';
 
 const { novelId } = defineProps<{ novelId: string }>();
 
@@ -143,7 +145,13 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
   </div>
 
   <div class="layout-content">
-    <template v-if="novel">
+    <NovelDetailSkeleton wenku v-if="!novel && !error" />
+    <XError
+      v-else-if="!novel && error"
+      title="加载错误"
+      :description="error.message"
+    />
+    <template v-else-if="novel">
       <n-flex>
         <router-link
           v-if="whoami.hasNovelAccess"
@@ -225,6 +233,17 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         :hide-comment="setting.hideCommmentWenkuNovel"
         :locked="false"
       >
+        <template #commentNotice>
+          <n-alert
+            type="warning"
+            :bordered="false"
+            title="公告"
+            style="margin-bottom: 12px"
+          >
+            近期有人在评论区到处冒充文库本的上传者，请勿相信此类评论（世界很奇妙吧，啥人都有）
+          </n-alert>
+        </template>
+
         <template #wenkuToc>
           <template v-if="whoami.isSignedIn">
             <br />
@@ -299,12 +318,5 @@ function sortJpVolumes(volumeJp: VolumeJpDto[]) {
         </template>
       </NovelBottomTabs>
     </template>
-
-    <XAsyncContent
-      v-else
-      :loading="!error"
-      :error="error?.message ?? ''"
-      error-title="加载错误"
-    />
   </div>
 </template>

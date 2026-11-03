@@ -5,6 +5,7 @@ import {
   useSettingStore,
   useWorkspaceStore,
 } from '@/stores';
+import type { LocalVolumeImportPhase } from '@/stores/local/CreateVolume';
 import { downloadFile, querySearch } from '@/util';
 
 type BookshelfLocalStore = {
@@ -22,9 +23,13 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
       this.volumes = await repo.listVolume();
       return this.volumes;
     },
-    async addVolume(file: File, favoredId: string) {
+    async addVolume(
+      file: File,
+      favoredId: string,
+      onPhase?: (phase: LocalVolumeImportPhase) => void,
+    ) {
       const repo = await useLocalVolumeStore();
-      await repo.createVolume(file, favoredId);
+      await repo.createVolume(file, favoredId, onPhase);
       await this.loadVolumes();
     },
     async deleteVolume(id: string) {
@@ -58,9 +63,8 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
 
       const repo = await useLocalVolumeStore();
 
-      const { BlobReader, BlobWriter, ZipWriter } = await import(
-        '@zip.js/zip.js'
-      );
+      const { BlobReader, BlobWriter, ZipWriter } =
+        await import('@zip.js/zip.js');
       const zipBlobWriter = new BlobWriter();
       const writer = new ZipWriter(zipBlobWriter);
 
@@ -92,9 +96,8 @@ export const useBookshelfLocalStore = defineStore('BookshelfLocal', {
     async downloadRawVolumes(ids: string[]) {
       const repo = await useLocalVolumeStore();
 
-      const { BlobReader, BlobWriter, ZipWriter } = await import(
-        '@zip.js/zip.js'
-      );
+      const { BlobReader, BlobWriter, ZipWriter } =
+        await import('@zip.js/zip.js');
       const zipBlobWriter = new BlobWriter();
       const writer = new ZipWriter(zipBlobWriter);
 
