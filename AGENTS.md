@@ -212,6 +212,29 @@ retirements recorded in the 2026-10-20 sync manifest.
 - New compatibility code must have a documented purpose and exit condition;
   it must not expand into a second translation/authentication framework.
 
+### 11. Approved November Integration (2026-11-03)
+
+- The maintainer approved implementing and deploying the reviewed range
+  `aead47d1..65f40dc0` together with compatible Auth changes through `cdc91ef1`.
+  Keep the translation library, Web task lifecycle, workspace runtime and new
+  isolated segment cache as one integration group.
+- Auto-Novel consumes the unmodified independent Web Kit `9c479ae7`; Auth Admin
+  follows its own upstream-selected `b6277d5`. Their authentication wire contract
+  is unchanged. Do not force both consumers to the same incompatible UI exports.
+- Preserve the scoped GPT Pipeline Web Lock, conflict baseline, worker importer,
+  original browser data and confirmed-save UI behavior when moving to the new
+  workspace components. The new IndexedDB transaction is not a settings lock.
+- Keep the old Sakura route archived for this evaluated snapshot; do not delete
+  its data or cache. Do not mount the new arbitrary-text trial dialog or restore
+  the retired Interactive feature.
+- Keep ThemeGlossary management reachable from the relocated process/toolbox
+  page, and keep NAILAIN on the shared provider/task path. Do not add a second
+  translation or SDK framework for these capabilities.
+- Adapt deployment links and admin navigation outside the SDK, including the
+  Kotoban Addon release link. Never mount upstream-only forum/admin destinations.
+- Verify the source, CI and image revisions separately; preserve rollback images
+  and production mounts before replacing application containers on the NAS.
+
 ## Upstream Merge Checklist
 
 Use this checklist whenever syncing from upstream:

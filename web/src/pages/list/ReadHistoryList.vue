@@ -1,5 +1,12 @@
 <script lang="ts" setup>
-import { Toast, XAsyncContent } from '@novelia/web-kit';
+import NovelListSkeleton from '@/components/NovelListSkeleton.vue';
+import {
+  Toast,
+  XEmpty,
+  XError,
+  XPagination,
+  XSeparator,
+} from '@novelia/web-kit';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { ReadHistoryApi } from '@/api';
@@ -29,6 +36,11 @@ const { data: novelPage, error } = WebNovelRepo.useWebNovelHistoryList(
   () => props.page,
 );
 
+// 翻页加载期间保留总页数，避免上下分页被卸载。
+const pageCount = computed<number>(
+  (previous) => novelPage.value?.pageNumber ?? previous ?? 1,
+);
+
 const clearHistory = () =>
   Toast.promise(
     ReadHistoryApi.clearReadHistoryWeb().then(() => {
@@ -47,10 +59,10 @@ const deleteHistory = (providerId: string, novelId: string) =>
 </script>
 
 <template>
-  <div class="layout-content">
+  <div role="region" aria-label="阅读历史列表" class="layout-content">
     <n-h1>阅读历史</n-h1>
 
-    <n-flex style="margin-bottom: 24px">
+    <n-flex>
       <c-button-confirm
         hint="真的要清空记录吗？"
         label="清空记录"
@@ -69,37 +81,52 @@ const deleteHistory = (providerId: string, novelId: string) =>
       />
     </n-flex>
 
-    <n-text v-if="readHistoryPaused" type="warning">
+    <n-text v-if="readHistoryPaused" type="warning" class="mt-4 block">
       注意：历史功能已暂停
     </n-text>
 
-    <CPage
+    <XPagination
+      v-if="pageCount > 1"
+      class="mt-6"
+      :ui="{ root: 'border-t-0 p-0 sm:px-0' }"
       :page="page"
-      :page-number="novelPage?.pageNumber"
+      :total-pages="pageCount"
       @update:page="onUpdatePage"
-    >
-      <template v-if="novelPage">
-        <n-divider />
-        <NovelListWeb :items="novelPage.items" :option="[]" simple>
-          <template #action="item">
-            <c-button
-              size="tiny"
-              label="删除"
-              style="margin-top: 2px"
-              @action="deleteHistory(item.providerId, item.novelId)"
-            />
-          </template>
-        </NovelListWeb>
-        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
-        <n-divider />
-      </template>
+    />
 
-      <XAsyncContent
-        v-else
-        :loading="!error"
-        :error="error?.message ?? ''"
-        error-title="加载错误"
-      />
-    </CPage>
+    <XSeparator :style="{ margin: pageCount > 1 ? '12px 0 0' : '24px 0 0' }" />
+
+    <NovelListSkeleton v-if="!novelPage && !error" simple />
+    <XError
+      v-else-if="!novelPage && error"
+      title="加载错误"
+      :description="error.message"
+    />
+    <XEmpty
+      v-else-if="novelPage && novelPage.items.length === 0"
+      class="mt-3"
+      title="空列表"
+      size="compact"
+    />
+    <template v-else-if="novelPage">
+      <NovelListWeb :items="novelPage.items" :option="[]" simple>
+        <template #action="item">
+          <c-button
+            size="tiny"
+            label="删除"
+            style="margin-top: 2px"
+            @action="deleteHistory(item.providerId, item.novelId)"
+          />
+        </template>
+      </NovelListWeb>
+    </template>
+
+    <XPagination
+      v-if="pageCount > 1"
+      :page="page"
+      :total-pages="pageCount"
+      keyboard="window"
+      @update:page="onUpdatePage"
+    />
   </div>
 </template>

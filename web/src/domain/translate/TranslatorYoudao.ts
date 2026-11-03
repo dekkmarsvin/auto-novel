@@ -1,26 +1,28 @@
-import { YoudaoTranslator as PackageYoudaoTranslator } from '@auto-novel/translator';
+import type { Translator } from '@auto-novel/translator';
 import type { Logger, SegmentContext, SegmentTranslator } from './Common';
-import { createGlossaryWrapper, createLengthSegmentor } from './Common';
+import { createLengthSegmentor } from './Common';
 import { createYoudaoTranslator } from '@/external';
 
 export class YoudaoTranslator implements SegmentTranslator {
   id = <const>'youdao';
   log: Logger;
   segmentor = createLengthSegmentor(3500);
-  private translator: PackageYoudaoTranslator;
+  private translator: Translator;
 
-  constructor(log: Logger, translator: PackageYoudaoTranslator) {
+  constructor(log: Logger, translator: Translator) {
     this.log = log;
     this.translator = translator;
   }
 
-  async translate(
-    seg: string[],
-    { glossary, signal }: SegmentContext,
-  ): Promise<string[]> {
-    return createGlossaryWrapper(glossary)(seg, (encodedSeg) =>
-      this.translator.translate(encodedSeg, { glossary }, signal),
-    );
+  async translate(seg: string[], { glossary, signal }: SegmentContext) {
+    // 术语保护、特殊行与行校验都由翻译包与流水线负责。
+    const lines = await this.translator.translate({
+      lines: seg,
+      context: { glossary },
+      signal,
+      attempt: 0,
+    });
+    return [...lines];
   }
 }
 

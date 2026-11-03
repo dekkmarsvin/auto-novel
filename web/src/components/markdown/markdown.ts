@@ -1,7 +1,4 @@
 import { createMarkdown } from '@novelia/web-kit';
-import anchor from 'markdown-it-anchor';
-
-export type MarkdownMode = 'article' | 'comment';
 
 function createNovelMarkdown() {
   const markdown = createMarkdown();
@@ -46,11 +43,7 @@ function createNovelMarkdown() {
   return markdown;
 }
 
-const article = createNovelMarkdown().use(anchor, {
-  // 保持中文片段链接与已有文章锚点兼容。
-  slugify: (title: string) => title.trim().toLowerCase().replace(/\s+/g, '-'),
-});
-const comment = createNovelMarkdown().disable([
+export const markdown = createNovelMarkdown().disable([
   'blockquote',
   'code',
   'fence',
@@ -61,5 +54,3 @@ const comment = createNovelMarkdown().disable([
   'reference',
   'table',
 ]);
-
-export const markdownByMode = { article, comment };

@@ -4,7 +4,7 @@ import { Toast } from '@novelia/web-kit';
 import type { GptPipelineWorker } from '../src/model/Translator';
 // Compile before a case installs its mutable worker store, so a cold import
 // cannot outlive that case's timeout and resume against the next case's store.
-import Modal from '../src/pages/workspace/components/GptPipelineWorkerModal.vue';
+import Modal from '../src/pages/workspace/worker/GptWorkerDialog.vue';
 
 const boundary = vi.hoisted(() => ({
   store: vi.fn(),
@@ -25,8 +25,7 @@ vi.mock('naive-ui', () => ({}));
 // Exercise the current registry without requiring a prebuilt translator dist.
 vi.mock(
   '@auto-novel/translator',
-  async () =>
-    import('../../packages/translator/src/translator/profiles/openai'),
+  async () => import('../../packages/translator/src/translator/llm-profiles'),
 );
 
 const renderer = Vue.createRenderer<object, object>({
@@ -74,11 +73,13 @@ interface Controls {
   onProfileChange(id: string): void;
   onEndpointInput(value: string): void;
   submit(): Promise<void>;
+  submitAndContinue(): Promise<void>;
 }
 
 async function modal(
   worker?: GptPipelineWorker,
   existing: GptPipelineWorker[] = [],
+  initialized = Promise.resolve(),
 ) {
   const props = Vue.reactive({ show: true, worker });
   const records = Vue.ref({
@@ -88,7 +89,7 @@ async function modal(
   const emit = vi.fn();
   boundary.store.mockReturnValue({
     ref: records,
-    initialized: Promise.resolve(),
+    initialized,
     persistenceError: Vue.ref<string>(),
     persisted,
     addWorker(value: GptPipelineWorker) {
@@ -134,6 +135,28 @@ const storedWorker = (
 });
 
 describe('GPT worker profile compatibility', () => {
+  it('waits for store initialization before applying or confirming an edit', async () => {
+    let initialize!: () => void;
+    const initialized = new Promise<void>((resolve) => {
+      initialize = resolve;
+    });
+    const worker = storedWorker();
+    const { controls, records, persisted } = await modal(
+      worker,
+      [],
+      initialized,
+    );
+    controls.formValue.value.key = 'synthetic-edited-key';
+    const submit = controls.submit();
+    await Vue.nextTick();
+    expect(records.value.workers[0]).toEqual(worker);
+    expect(persisted).not.toHaveBeenCalled();
+    initialize();
+    await submit;
+    expect(records.value.workers[0].key).toBe('synthetic-edited-key');
+    expect(persisted).toHaveBeenCalledOnce();
+  });
+
   it('keeps the modal open and does not report success when saving is rejected', async () => {
     const { controls, persisted, emit } = await modal(storedWorker());
     controls.formValue.value.key = 'synthetic-edited-key';
@@ -142,6 +165,51 @@ describe('GPT worker profile compatibility', () => {
     expect(persisted).toHaveBeenCalledOnce();
     expect(Toast.success).not.toHaveBeenCalled();
     expect(emit).not.toHaveBeenCalled();
+  });
+
+  it.each(['submit', 'submitAndContinue'] as const)(
+    'does not report batch creation success before %s persistence is confirmed',
+    async (action) => {
+      const { controls, persisted, emit } = await modal();
+      controls.keyText.value = 'synthetic-new-key';
+      controls.modelText.value = 'new-model';
+      persisted.mockResolvedValue(false);
+      await controls[action]();
+      expect(persisted).toHaveBeenCalledOnce();
+      expect(Toast.success).not.toHaveBeenCalled();
+      expect(emit).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects an edit when another tab has removed the worker', async () => {
+    const { controls, records, persisted } = await modal(storedWorker());
+    records.value.workers = [];
+    await controls.submit();
+    expect(records.value.workers).toEqual([]);
+    expect(persisted).not.toHaveBeenCalled();
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(Toast.warning).toHaveBeenCalledWith(
+      '翻译器已被其他标签页移除，请重新打开设置',
+    );
+  });
+
+  it('repairs an invalid profile only in the draft until the user saves', async () => {
+    const worker = storedWorker({
+      profile: {
+        id: 'gemini',
+        values: { reasoning_effort: 'invalid' },
+      } as never,
+    });
+    const { controls, records, persisted } = await modal(worker);
+    expect(controls.formValue.value.profileId).toBe('gemini');
+    expect(controls.formValue.value.profileValues.reasoning_effort).toBe(
+      '__default__',
+    );
+    expect(records.value.workers[0]).toEqual(worker);
+    expect(persisted).not.toHaveBeenCalled();
+    expect(Toast.warning).toHaveBeenCalledWith(
+      '已保存的模型配置参数无效，已恢复默认参数，请确认后保存',
+    );
   });
 
   it('keeps an existing unprofiled worker on Chat Completions and its own endpoint when changing protocol', async () => {
@@ -179,6 +247,9 @@ describe('GPT worker profile compatibility', () => {
     expect(field.options.some((option) => option.value === 'minimal')).toBe(
       false,
     );
+    expect(controls.formValue.value.profileValues.reasoning_effort).toBe(
+      'minimal',
+    );
     await controls.submit();
     expect(records.value.workers[0]).toEqual(worker);
 
@@ -189,7 +260,10 @@ describe('GPT worker profile compatibility', () => {
       profile: { id: 'gemini', values: { reasoning_effort: 'none' } },
     });
     records.value.workers.push(other);
+    props.show = false;
+    await Vue.nextTick();
     props.worker = other;
+    props.show = true;
     await Vue.nextTick();
     expect(controls.formValue.value.profileValues.reasoning_effort).toBe(
       'none',

@@ -1,691 +1,238 @@
-import * as Vue from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { effectScope, nextTick, ref, type EffectScope } from 'vue';
+import type { TranslateRequest } from '@auto-novel/translator';
 import type {
-  ChapterMeta,
-  TaskState,
-} from '../src/domain/translator/TaskState';
-import type { TaskExecutionContext } from '../src/domain/translator/TranslationTask/types';
-// Compile the SFC during collection, before any case installs its mutable
-// store fixtures. A cold dynamic import inside workspace() can outlive a test
-// timeout and resume after the next case has replaced those shared mocks.
-import Workspace from '../src/pages/workspace/GptPipelineWorkspace.vue';
+  PreparedUnit,
+  TranslationTask,
+} from '../src/domain/translator/tasks/task';
+import { useWorkspaceRuntime } from '../src/pages/workspace/useWorkspaceRuntime';
 
 const boundary = vi.hoisted(() => ({
-  store: vi.fn(),
-  task: vi.fn(),
-  execute: vi.fn(),
-  createSakura: vi.fn(),
-  translate: vi.fn(),
+  workerStore: null as unknown,
+  jobStore: null as unknown,
+  tasks: new Map<string, TranslationTask>(),
+  createTranslator: vi.fn(),
 }));
-vi.mock('../src/stores', () => ({ useWorkspaceStore: boundary.store }));
-vi.mock(
-  '../src/domain/translator/TranslationTask/createTranslationTask',
-  () => ({
-    createTranslationTask: boundary.task,
-  }),
-);
-vi.mock('../src/domain/translator/TaskExecutor', () => ({
-  TaskExecutor: class {
-    constructor(private task: { id: string }) {}
-    executeChapter(...args: unknown[]) {
-      return boundary.execute(this.task.id, ...args);
-    }
-  },
+vi.mock('vue', async (original) => {
+  const vue = await original<typeof import('vue')>();
+  return { ...vue, onUnmounted: vue.onScopeDispose };
+});
+vi.mock('@/stores', () => ({
+  useWorkspaceStore: (id: string) =>
+    id === 'gpt-pipeline' ? boundary.workerStore : boundary.jobStore,
 }));
-vi.mock('../src/domain/translator/IndexedDbSegmentCache', () => ({
+vi.mock('@novelia/web-kit', () => ({ Toast: { error: vi.fn() } }));
+vi.mock('@/pages/workspace/useWorkspaceLog', () => ({
+  useWorkspaceLog: () => ({ logs: [], appendLog: vi.fn(), clearLogs: vi.fn() }),
+}));
+vi.mock('@/domain/translator/tasks/create-task', () => ({
+  createTranslationTask: (desc: { volumeId: string }) =>
+    boundary.tasks.get(desc.volumeId),
+}));
+vi.mock('@/domain/translator/segment-cache', () => ({
   IndexedDbSegmentCache: class {},
 }));
-vi.mock('@auto-novel/translator', () => ({
-  allowModels: {},
-  Semaphore: class {},
-  OpenAiTranslator: class {},
-  SakuraTranslator: class {
-    constructor(private allowed: boolean) {}
-    static async create() {
-      return new this(await boundary.createSakura());
-    }
-    allowUpload() {
-      return this.allowed;
-    }
-  },
-  TranslationPipeline: class {
-    queue = { clear() {} };
-    registerTranslator() {}
-    unregisterTranslator() {}
-    clearLoops() {}
-    translate(...args: unknown[]) {
-      return boundary.translate(...args);
-    }
-  },
-}));
-vi.mock('vue-draggable-plus', () => ({ VueDraggable: {} }));
-vi.mock('@vicons/material', () => ({
-  BookOutlined: {},
-  DeleteOutlineOutlined: {},
-  PlusOutlined: {},
-  RefreshOutlined: {},
-}));
-vi.mock('@novelia/web-kit', () => ({
-  Toast: { error: vi.fn(), info: vi.fn(), promise: vi.fn() },
-}));
-vi.mock('../src/pages/workspace/components/PipelineTaskCard.vue', () => ({
-  default: {},
-}));
-vi.mock('../src/pages/workspace/components/PipelineWorkerCard.vue', () => ({
-  default: {},
-}));
-vi.mock(
-  '../src/pages/workspace/components/LocalVolumeListSpecificTranslation.vue',
-  () => ({ default: {} }),
-);
-vi.mock('../src/pages/workspace/components/SakuraWorkerModal.vue', () => ({
-  default: {},
-}));
-vi.mock('../src/pages/workspace/components/GptPipelineWorkerModal.vue', () => ({
-  default: {},
+// Keep the real queue, cancellation and settlement implementation. Only model
+// creation crosses a boundary; no model request or browser database is used.
+vi.mock('@auto-novel/translator', async (original) => ({
+  ...(await original<typeof import('@auto-novel/translator')>()),
+  createTranslator: boundary.createTranslator,
 }));
 
-const renderer = Vue.createRenderer<object, object>({
-  createElement: () => ({}),
-  createText: () => ({}),
-  createComment: () => ({}),
-  setText() {},
-  setElementText() {},
-  patchProp() {},
-  insert() {},
-  remove() {},
-  parentNode: () => null,
-  nextSibling: () => null,
-});
-const flush = async () => {
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  await Vue.nextTick();
-};
-const deferred = () => {
-  let resolve!: () => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<void>((done, fail) => {
-    resolve = done;
-    reject = fail;
-  });
-  return { promise, resolve, reject };
-};
-interface Controls {
-  startAllWorkers(): void;
-  stopAllWorkers(): void;
-  runProcessLoop(): void;
-  deleteJob(task: string): void;
-  retryTask(task: string): void;
-  preparationErrors: Map<string, string>;
-  taskStates: Vue.Ref<Map<string, TaskState>>;
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => (resolve = done));
+  return { promise, resolve };
 }
-interface Execution {
-  id: string;
-  chapter: string;
-  signal: AbortSignal;
-  finished: boolean;
-  finish(status?: 'done' | 'error' | 'pending'): void;
-  progress(finished: number, error: number, total: number): void;
+
+function task(id: string, chapterCount = 1) {
+  const saves = vi.fn();
+  const value = {
+    type: 'local' as const,
+    initialized: false,
+    chapters: Array.from({ length: chapterCount }, (_, order) => ({
+      kind: 'chapter' as const,
+      chapterId: String(order),
+      title: String(order),
+      order,
+      completed: false,
+    })),
+    initialize: vi.fn(async () => {
+      value.initialized = true;
+    }),
+    prepareUnit: vi.fn<TranslationTask['prepareUnit']>(async (unit) => {
+      const chapterId = unit.kind === 'chapter' ? unit.chapterId : 'metadata';
+      return {
+        lines: [`${id}/${chapterId} 共通 人名`],
+        glossary: { 共通: '主題術語', 人名: '小說覆寫' },
+        save: async (translated) => {
+          saves(chapterId, translated);
+        },
+      };
+    }),
+    saves,
+  } satisfies TranslationTask & { saves: typeof saves };
+  return value;
 }
-interface MetadataCall {
-  id: string;
-  signal: AbortSignal;
-  canUpload(): boolean;
-  translate(texts: string[]): Promise<string[]>;
-  resolve(): void;
-  reject(error: Error): void;
-}
-const cleanups: (() => void)[] = [];
+
+const scopes: EffectScope[] = [];
 afterEach(async () => {
-  cleanups.splice(0).forEach((cleanup) => cleanup());
-  await flush();
+  scopes.splice(0).forEach((scope) => scope.stop());
+  await nextTick();
   vi.clearAllMocks();
 });
 
-async function workspace(translatorId: 'gpt' | 'sakura' = 'gpt') {
-  const jobs = Vue.ref<
-    { task: string; description: string; createAt: number; finishAt?: number }[]
-  >([]);
-  const records = Vue.ref({
-    workers: [{ id: 'offline', concurrency: 1 }],
-    jobs: [],
-  });
-  let storeCalls = 0;
-  boundary.store.mockImplementation(() =>
-    storeCalls++ === 0
-      ? { ref: records }
-      : {
-          ref: Vue.computed(() => ({ jobs: jobs.value })),
-          deleteJob(task: string) {
-            jobs.value = jobs.value.filter((job) => job.task !== task);
-          },
+function workspace(
+  tasks: Record<string, TranslationTask>,
+  initialized = Promise.resolve(),
+) {
+  boundary.tasks = new Map(Object.entries(tasks));
+  const workerStore = {
+    initialized,
+    storageReady: ref(false),
+    persistenceError: ref<string>(),
+    ref: ref({
+      workers: [
+        {
+          id: 'offline',
+          concurrency: 2,
+          endpoint: 'https://model.test',
+          key: 'synthetic-key',
+          model: 'fixture',
         },
-  );
-  boundary.createSakura.mockResolvedValue(true);
-  boundary.translate.mockResolvedValue('标题译文\n简介译文\n第二行\n目录译文');
-  const metadataCalls: MetadataCall[] = [];
-  const tasks = new Map<
-    string,
-    {
-      id: string;
-      initialized: boolean;
-      chapters: ChapterMeta[];
-      initMeta(): Promise<void>;
-      needsMetadata?: boolean;
-      needsPreparation?: boolean;
-      prepareExecution?(context: TaskExecutionContext): Promise<void>;
-      glossary: Record<string, string>;
-      translateMetadata?(
-        translate: MetadataCall['translate'],
-        signal: AbortSignal,
-        canUpload: MetadataCall['canUpload'],
-      ): Promise<void>;
-    }
-  >();
-  boundary.task.mockImplementation(
-    ({ volumeId, novelId }: { volumeId?: string; novelId?: string }) => {
-      const task = tasks.get(volumeId ?? novelId!);
-      // Like the production factory, every creation owns a fresh chapter list.
-      return (
-        task && {
-          ...task,
-          chapters: task.chapters.map((chapter) => ({ ...chapter })),
-        }
-      );
-    },
-  );
-  const calls: Execution[] = [];
-  boundary.execute.mockImplementation(
-    (
-      id: string,
-      chapter: string,
-      tracker: {
-        onChapterStatus(id: string, status: string): void;
-        onProgress(finished: number, error: number, total: number): void;
-      },
-      signal: AbortSignal,
-    ) =>
-      new Promise<void>((resolve) => {
-        const call: Execution = {
-          id,
-          chapter,
-          signal,
-          finished: false,
-          finish(status = 'done') {
-            if (call.finished) return;
-            call.finished = true;
-            tracker.onChapterStatus(chapter, status);
-            resolve();
-          },
-          progress(finished, error, total) {
-            tracker.onProgress(finished, error, total);
-          },
-        };
-        calls.push(call);
-      }),
-  );
-  let controls!: Controls;
-  const app = renderer.createApp({
-    setup() {
-      // Run the production SFC setup, including its watchers and lifecycle hooks.
-      // Rendering controls adds no coverage to this scheduling contract.
-      controls = Workspace.setup!(
-        { translatorId },
-        { expose() {} },
-      ) as Controls;
-      return () => null;
-    },
-  });
-  app.provide(Vue.ssrContextKey, {});
-  app.mount({});
-  let mounted = true;
-  const unmount = () => {
-    if (mounted) {
-      mounted = false;
-      app.unmount();
-    }
+      ],
+    }),
   };
-  cleanups.push(() => {
-    unmount();
-    calls.forEach((call) => call.finish('pending'));
-    metadataCalls.forEach((call) => call.resolve());
-  });
-  let version = 0;
-  const add = (
-    id: string,
-    count = 1,
-    meta = Promise.resolve(),
-    needsMetadata = false,
-    preparation?: (context: TaskExecutionContext) => Promise<void>,
-  ) => {
-    const task = {
-      id,
-      initialized: false,
-      glossary: { 人名: '译名' },
-      needsMetadata,
-      needsPreparation: Boolean(preparation),
-      async prepareExecution(context: TaskExecutionContext) {
-        await preparation?.(context);
-        context.signal.throwIfAborted();
-        if (context.canUpload?.() === false)
-          throw new DOMException('Stopped', 'AbortError');
-        this.needsPreparation = false;
-      },
-      chapters: Array.from({ length: count }, (_, order) => ({
-        chapterId: String(order),
-        title: String(order),
-        order,
-        status: 'pending' as const,
+  const jobStore = {
+    ref: ref({
+      jobs: Object.keys(tasks).map((id) => ({
+        task: `local/${id}`,
+        description: id,
+        createAt: 1,
+        finishAt: undefined as number | undefined,
       })),
-      async initMeta() {
-        await meta;
-        this.initialized = true;
-      },
-      translateMetadata: needsMetadata
-        ? (
-            translate: MetadataCall['translate'],
-            signal: AbortSignal,
-            canUpload: MetadataCall['canUpload'],
-          ) =>
-            new Promise<void>((resolve, reject) => {
-              metadataCalls.push({
-                id,
-                translate,
-                signal,
-                canUpload,
-                resolve,
-                reject,
-              });
-            })
-        : undefined,
-    };
-    tasks.set(id, task);
-    jobs.value.push({
-      task: needsMetadata || preparation ? `web/offline/${id}` : `local/${id}`,
-      description: id,
-      createAt: ++version,
-    });
-    return task;
+    }),
   };
-  return {
-    add,
-    calls,
-    jobs,
-    workers: records.value.workers,
-    metadataCalls,
-    controls,
-    unmount,
-    active: () => calls.filter((call) => !call.finished),
-  };
+  boundary.workerStore = workerStore;
+  boundary.jobStore = jobStore;
+  const calls: { request: TranslateRequest; complete(): void }[] = [];
+  boundary.createTranslator.mockResolvedValue({
+    trusted: true,
+    translate: (request: TranslateRequest) =>
+      new Promise<readonly string[]>((resolve, reject) => {
+        const signal = request.signal!;
+        signal.throwIfAborted();
+        const abort = () => reject(signal.reason);
+        signal.addEventListener('abort', abort, { once: true });
+        calls.push({
+          request,
+          complete() {
+            signal.removeEventListener('abort', abort);
+            resolve(request.lines.map((line) => `译文:${line}`));
+          },
+        });
+      }),
+  });
+  const scope = effectScope();
+  scopes.push(scope);
+  const runtime = scope.run(() => useWorkspaceRuntime('gpt'))!;
+  return { runtime, workerStore, jobStore, calls, scope };
 }
 
-describe('pipeline workspace scheduling', () => {
-  it('shows preparation failures and retries explicitly without stopping workers or looping automatically', async () => {
-    const ws = await workspace();
-    const prepare = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('任务快照加载失败'))
-      .mockResolvedValue(undefined);
-    ws.add('browser', 2, Promise.resolve(), false, prepare);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(prepare).toHaveBeenCalledTimes(1);
-    expect(ws.calls).toHaveLength(0);
-    expect(ws.controls.preparationErrors.get('web/offline/browser')).toBe(
-      '任务快照加载失败',
-    );
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-    ws.controls.runProcessLoop();
-    await flush();
-    expect(prepare).toHaveBeenCalledTimes(1);
-
-    ws.controls.retryTask('web/offline/browser');
-    await flush();
-    expect(prepare).toHaveBeenCalledTimes(2);
-    expect(ws.controls.preparationErrors.size).toBe(0);
-    expect(ws.active()).toHaveLength(2);
-    ws.active().forEach((call) => call.finish());
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+describe('pipeline workspace integration', () => {
+  it('waits for migration before starting workers and exposes persistence state', async () => {
+    const initialization = deferred<void>();
+    const active = task('active');
+    const ws = workspace({ active }, initialization.promise);
+    const start = ws.runtime.startAllWorkers();
+    await nextTick();
+    expect(boundary.createTranslator).not.toHaveBeenCalled();
+    expect(active.initialize).not.toHaveBeenCalled();
+    expect(ws.runtime.storageReady).toBe(ws.workerStore.storageReady);
+    expect(ws.runtime.persistenceError).toBe(ws.workerStore.persistenceError);
+    initialization.resolve();
+    await start;
+    await vi.waitFor(() => expect(ws.calls).toHaveLength(1));
+    ws.calls[0].complete();
+    await vi.waitFor(() => expect(active.saves).toHaveBeenCalledOnce());
   });
 
-  it('retains preparation cancellation and ignores a late failure after a job is replaced', async () => {
-    const ws = await workspace();
-    const old = deferred();
-    const restarted = deferred();
-    const contexts: TaskExecutionContext[] = [];
-    const prepare = vi
-      .fn()
-      .mockImplementationOnce((context) => {
-        contexts.push(context);
-        return old.promise;
-      })
-      .mockImplementationOnce((context) => {
-        contexts.push(context);
-        return restarted.promise;
-      });
-    ws.add('browser', 1, Promise.resolve(), false, prepare);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    ws.controls.stopAllWorkers();
-    expect(contexts[0].signal.aborted).toBe(true);
-    expect(contexts[0].canUpload?.()).toBe(false);
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(prepare).toHaveBeenCalledTimes(1);
-    old.resolve();
-    await flush();
-    expect(prepare).toHaveBeenCalledTimes(2);
-    expect(contexts[1].canUpload?.()).toBe(true);
-    ws.jobs.value = [];
-    ws.add('browser', 1, Promise.resolve(), false, async () => {});
-    await flush();
-    expect(contexts[1].signal.aborted).toBe(true);
-    expect(contexts[1].canUpload?.()).toBe(false);
-    restarted.reject(new Error('旧准备任务迟到的错误'));
-    await flush();
-    expect(ws.controls.preparationErrors.size).toBe(0);
-    expect(ws.active()).toHaveLength(1);
-    ws.calls[0].finish();
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
+  it('does not start a worker after unmount while migration is pending', async () => {
+    const initialization = deferred<void>();
+    const ws = workspace({ active: task('active') }, initialization.promise);
+    const start = ws.runtime.startAllWorkers();
+    ws.scope.stop();
+    initialization.resolve();
+    await start;
+    expect(boundary.createTranslator).not.toHaveBeenCalled();
+    expect(ws.runtime.workerStates.value.size).toBe(0);
   });
 
-  it('runs metadata without pending chapters after model detection, and rejects an unapproved model', async () => {
-    const ws = await workspace('sakura');
-    ws.add('translated', 0, Promise.resolve(), true);
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-    const detection = deferred();
-    boundary.createSakura.mockImplementation(async () => {
-      await detection.promise;
-      return true;
+  it('uses pipeline backpressure and preserves the merged glossary through settlement', async () => {
+    const active = task('active', 20);
+    const ws = workspace({ active });
+    await ws.runtime.startWorker('offline');
+    await vi.waitFor(() => expect(ws.calls).toHaveLength(2));
+    // The new queue follows worker concurrency rather than the retired fixed
+    // 66-chapter window. Blocked models must not eagerly prepare all chapters.
+    expect(active.prepareUnit.mock.calls.length).toBeLessThan(20);
+    expect(ws.calls[0].request.context?.glossary).toEqual({
+      共通: '主題術語',
+      人名: '小說覆寫',
     });
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.metadataCalls).toHaveLength(0);
-    detection.resolve();
-    await flush();
-    expect(ws.metadataCalls).toHaveLength(1);
-    expect(ws.calls).toHaveLength(0);
-    const metadata = ws.metadataCalls[0];
-    expect(metadata.canUpload()).toBe(true);
-    const otherDetection = deferred();
-    boundary.createSakura.mockImplementationOnce(async () => {
-      await otherDetection.promise;
-      return true;
-    });
-    ws.workers.push({ id: 'detecting', concurrency: 1 });
-    ws.controls.startAllWorkers();
-    await flush();
-    // The pending candidate is not registered; the approved worker can continue.
-    expect(metadata.canUpload()).toBe(true);
-    otherDetection.resolve();
-    await flush();
-    await expect(
-      metadata.translate(['题名', '简介\n第二行', '目录']),
-    ).resolves.toEqual(['标题译文', '简介译文\n第二行', '目录译文']);
-    expect(boundary.translate).toHaveBeenCalledWith(
-      '题名\n简介\n第二行\n目录',
-      { 人名: '译名' },
-      undefined,
-      metadata.signal,
-      expect.objectContaining({ onSegError: expect.any(Function) }),
+    ws.calls[0].complete();
+    await vi.waitFor(() => expect(ws.calls).toHaveLength(3));
+    expect(active.saves).toHaveBeenCalledExactlyOnceWith('0', [
+      '译文:active/0 共通 人名',
+    ]);
+    ws.scope.stop();
+    expect(ws.calls.every(({ request }) => request.signal!.aborted)).toBe(true);
+    ws.calls.forEach((call) => call.complete());
+    await nextTick();
+    expect(active.saves).toHaveBeenCalledOnce();
+  });
+
+  it('finishes the current stored job after another tab replaces its objects', async () => {
+    const active = task('active');
+    const ws = workspace({ active });
+    await ws.runtime.startWorker('offline');
+    await vi.waitFor(() => expect(ws.calls).toHaveLength(1));
+    const oldJob = ws.jobStore.ref.value.jobs[0];
+    ws.jobStore.ref.value.jobs = ws.jobStore.ref.value.jobs.map((job) => ({
+      ...job,
+    }));
+    ws.calls[0].complete();
+    await vi.waitFor(() =>
+      expect(ws.jobStore.ref.value.jobs[0].finishAt).toEqual(
+        expect.any(Number),
+      ),
     );
-    boundary.translate.mockImplementationOnce(
-      async (text, _glossary, _history, _signal, tracker) => {
-        tracker.onSegError(0, new Error('Model failed'));
-        return text;
-      },
-    );
-    await expect(metadata.translate(['原文'])).rejects.toThrow('分段翻译失败');
-    metadata.resolve();
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
-    ws.controls.runProcessLoop();
-    expect(ws.metadataCalls).toHaveLength(1);
-
-    ws.controls.stopAllWorkers();
-    ws.add('blocked', 0, Promise.resolve(), true);
-    await flush();
-    boundary.createSakura.mockResolvedValue(false);
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.metadataCalls).toHaveLength(1);
-    expect(ws.jobs.value[1].finishAt).toBeUndefined();
+    expect(oldJob.finishAt).toBeUndefined();
+    expect(active.initialize).toHaveBeenCalledOnce();
+    expect(active.saves).toHaveBeenCalledOnce();
   });
 
-  it('retains metadata cancellation after chapters finish, including restart and unmount', async () => {
-    const ws = await workspace('sakura');
-    ws.add('slow-metadata', 1, Promise.resolve(), true);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    const first = ws.metadataCalls[0];
-    ws.calls[0].finish();
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-    ws.controls.stopAllWorkers();
-    expect(first.signal.aborted).toBe(true);
-    expect(first.canUpload()).toBe(false);
-    first.resolve();
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.metadataCalls).toHaveLength(2);
-    const second = ws.metadataCalls[1];
-    expect(second.signal.aborted).toBe(false);
-    const lateMeta = deferred();
-    ws.add('unmounted-initialization', 0, lateMeta.promise, true);
-    await flush();
-    ws.unmount();
-    expect(second.signal.aborted).toBe(true);
-    expect(second.canUpload()).toBe(false);
-    lateMeta.resolve();
-    second.resolve();
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-    expect(ws.jobs.value[1].finishAt).toBeUndefined();
+  it('cancels a replaced task synchronously and ignores a late source result', async () => {
+    const old = task('old');
+    const replacement = task('replacement');
+    const source = deferred<PreparedUnit>();
+    old.prepareUnit.mockReturnValueOnce(source.promise);
+    const ws = workspace({ active: old });
+    await ws.runtime.startWorker('offline');
+    await vi.waitFor(() => expect(old.prepareUnit).toHaveBeenCalledOnce());
+    const signal = old.prepareUnit.mock.calls[0][1].signal;
+    boundary.tasks.set('active', replacement);
+    ws.jobStore.ref.value.jobs[0].createAt = 2;
+    expect(signal.aborted).toBe(true);
+    await vi.waitFor(() => expect(ws.calls).toHaveLength(1));
+    ws.calls[0].complete();
+    await vi.waitFor(() => expect(replacement.saves).toHaveBeenCalledOnce());
+    source.resolve({ lines: ['late'], glossary: {}, save: old.saves });
+    await source.promise;
+    await nextTick();
+    expect(old.saves).not.toHaveBeenCalled();
     expect(
-      ws.controls.taskStates.value.has('web/offline/unmounted-initialization'),
-    ).toBe(false);
-    expect(ws.metadataCalls).toHaveLength(2);
-  });
-
-  it('keeps a replacement job metadata attempt when an older promise rejects', async () => {
-    const ws = await workspace('sakura');
-    ws.add('same', 1, Promise.resolve(), true);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    const old = ws.metadataCalls[0];
-    ws.calls[0].finish();
-    await flush();
-    ws.controls.deleteJob('web/offline/same');
-    ws.add('same', 2, Promise.resolve(), true);
-    await flush();
-    expect(ws.metadataCalls).toHaveLength(2);
-    const current = ws.metadataCalls[1];
-    old.reject(new Error('Old translation finished late'));
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-
-    ws.calls[1].finish('error');
-    await flush();
-    ws.controls.taskStates.value
-      .get('web/offline/same')!
-      .updateStatus('0', 'pending');
-    ws.controls.runProcessLoop();
-    await flush();
-    expect(ws.metadataCalls).toHaveLength(2);
-    expect(ws.calls).toHaveLength(4);
-    expect(old.signal.aborted).toBe(true);
-    expect(current.signal.aborted).toBe(false);
-    expect(current.canUpload()).toBe(true);
-    current.resolve();
-    ws.active().forEach((call) => call.finish());
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
-  });
-
-  it('fills free chapter slots when a newly added task finishes delayed initialization', async () => {
-    const ws = await workspace();
-    ws.add('first');
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.calls.map((call) => call.id)).toEqual(['first']);
-    const meta = deferred();
-    ws.add('late', 1, meta.promise);
-    await flush();
-    expect(ws.calls).toHaveLength(1);
-    meta.resolve();
-    await flush();
-    expect(ws.active().map((call) => call.id)).toEqual(['first', 'late']);
-  });
-
-  it('marks the current job finished after another tab replaces the job objects', async () => {
-    const ws = await workspace();
-    ws.add('synced', 2);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.active()).toHaveLength(2);
-
-    // localStorage 的 storage 事件会用反序列化的新对象整体替换 jobs
-    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
-    await flush();
-
-    ws.calls[0].progress(1, 0, 2);
-    expect(ws.jobs.value[0]).toMatchObject({
-      progress: { finished: 1, error: 0, total: 2 },
-    });
-    ws.active().forEach((call) => call.finish());
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
-  });
-
-  it('keeps one initialization when another tab replaces or extends a pending queue', async () => {
-    const ws = await workspace();
-    const meta = deferred();
-    const repeatedMeta = deferred();
-    const task = ws.add('initializing', 2, meta.promise);
-    const originalInit = task.initMeta;
-    const initMeta = vi
-      .spyOn(task, 'initMeta')
-      .mockImplementationOnce(originalInit)
-      .mockImplementation(async function (this: typeof task) {
-        await repeatedMeta.promise;
-        this.initialized = true;
-      });
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
-    await flush();
-    ws.add('other');
-    await flush();
-
-    // A duplicate fetch can finish first; its older sibling must not reset the
-    // chapter list after execution starts and submit the same chapters again.
-    repeatedMeta.resolve();
-    await flush();
-    meta.resolve();
-    await flush();
-    expect(
-      ws.active().filter((call) => call.id === 'initializing'),
-    ).toHaveLength(2);
-    expect(
-      new Set(ws.active().map((call) => `${call.id}/${call.chapter}`)).size,
-    ).toBe(3);
-    expect(initMeta).toHaveBeenCalledTimes(1);
-    ws.active().forEach((call) => call.finish());
-    await flush();
-    expect(ws.jobs.value.every((job) => job.finishAt !== undefined)).toBe(true);
-  });
-
-  it('ignores a removed job initialization without clearing its replacement attempt', async () => {
-    const ws = await workspace();
-    const oldMeta = deferred();
-    ws.add('same-initialization', 1, oldMeta.promise);
-    await flush();
-    ws.jobs.value = [];
-    const currentMeta = deferred();
-    const currentTask = ws.add('same-initialization', 1, currentMeta.promise);
-    const currentInit = vi.spyOn(currentTask, 'initMeta');
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    oldMeta.resolve();
-    await flush();
-    expect(ws.calls).toHaveLength(0);
-    expect(ws.jobs.value[0].finishAt).toBeUndefined();
-
-    ws.jobs.value = JSON.parse(JSON.stringify(ws.jobs.value));
-    await flush();
-    expect(currentInit).toHaveBeenCalledTimes(1);
-    currentMeta.resolve();
-    await flush();
-    expect(ws.active()).toHaveLength(1);
-    ws.calls[0].finish();
-    await flush();
-    expect(ws.jobs.value[0].finishAt).toEqual(expect.any(Number));
-  });
-
-  it('keeps the 66-chapter limit when retrying failures and appending more work', async () => {
-    const ws = await workspace();
-    ws.add('original', 66);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.active()).toHaveLength(66);
-    ws.calls[0].finish('error');
-    await flush();
-    const state = ws.controls.taskStates.value.get('local/original')!;
-    state.updateStatus('0', 'pending');
-    ws.controls.runProcessLoop();
-    await flush();
-    expect(ws.active()).toHaveLength(66);
-    ws.add('appended', 40);
-    await flush();
-    expect(ws.active()).toHaveLength(66);
-    expect(ws.calls.filter((call) => call.id === 'appended')).toHaveLength(0);
-    ws.active()
-      .slice(0, 6)
-      .forEach((call) => call.finish());
-    await flush();
-    expect(ws.active()).toHaveLength(66);
-    expect(ws.calls.filter((call) => call.id === 'appended')).toHaveLength(6);
-    expect(
-      new Set(ws.active().map((call) => `${call.id}/${call.chapter}`)).size,
-    ).toBe(66);
-  });
-
-  it('counts retiring processors across restart and stops taking work after unmount', async () => {
-    const ws = await workspace();
-    ws.add('restart', 67);
-    await flush();
-    ws.controls.startAllWorkers();
-    await flush();
-    const old = [...ws.active()];
-    ws.controls.stopAllWorkers();
-    expect(old.every((call) => call.signal.aborted)).toBe(true);
-    ws.controls.startAllWorkers();
-    await flush();
-    expect(ws.calls).toHaveLength(66);
-    old[0].finish('pending');
-    await flush();
-    expect(ws.active()).toHaveLength(66);
-    expect(ws.calls).toHaveLength(67);
-    expect(ws.calls[66].signal.aborted).toBe(false);
-    ws.unmount();
-    expect(ws.active().every((call) => call.signal.aborted)).toBe(true);
-    ws.active().forEach((call) => call.finish('pending'));
-    await flush();
-    expect(ws.calls).toHaveLength(67);
+      ws.runtime.taskStates.value.get('local/active')?.chapters[0].status,
+    ).toBe('done');
   });
 });

@@ -34,6 +34,24 @@ Local/native credential isolation and one-time storage/new-key/logout safety
 remain required. Each new compatibility adapter needs an explicit exit
 condition; do not build new generic frameworks for retired behavior.
 
+The 2026-11-03 approval integrates the reviewed translation-library, task-lifecycle,
+workspace and cache changes through `65f40dc0` as one coherent implementation.
+The isolated segment cache may cold-start without deleting old browser data.
+GPT Pipeline settings retain their existing importer, Web Lock, conflict checks
+and confirmed-save behavior in the new UI. ThemeGlossary remains on the server's
+merged glossary contract and the relocated toolbox retains its management UI.
+NAILAIN uses the same provider and task factory as other sources.
+
+Web Kit is now an independent upstream dependency. Auto-Novel uses `9c479ae7`
+while the compatible Auth Admin uses `b6277d5`, matching each consumer's upstream
+selection. The unchanged authentication protocol does not require another
+iframe/native transition or forced API deployment. Shared SDK code stays
+unmodified; installation links, disabled community and navigation remain host
+adaptations. The new free-text trial dialog stays unmounted under the existing
+Interactive retirement policy. The archived Sakura route and all original data
+are retained in this snapshot. Deployment is authorized after full validation,
+exact-head CI, published-image provenance and recoverable NAS rollout checks.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.

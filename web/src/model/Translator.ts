@@ -1,7 +1,13 @@
 import type { Glossary } from './Glossary';
-import type { openAiProfileId, ProfileValues } from '@auto-novel/translator';
+import type {
+  OpenAiProfileSelection,
+  TranslatorConfig,
+} from '@auto-novel/translator';
 
 export type TranslatorId = 'sakura' | 'youdao' | 'gpt';
+
+/** 当前工作区支持的翻译器；有道仍使用独立入口。 */
+export type WorkspaceTranslatorId = Exclude<TranslatorId, 'youdao'>;
 
 export interface GptWorker {
   id: string;
@@ -13,7 +19,7 @@ export interface GptWorker {
 
 export interface GptPipelineWorker extends GptWorker {
   concurrency: number;
-  profile?: { id: openAiProfileId; values?: ProfileValues };
+  profile?: OpenAiProfileSelection;
 }
 
 export interface SakuraWorker {
@@ -22,6 +28,24 @@ export interface SakuraWorker {
   concurrency?: number;
   segLength?: number;
   prevSegLength?: number;
+}
+
+/** 将工作区配置转换为 package 配置，不负责创建或探测翻译器。 */
+export function toTranslatorConfig(
+  translatorId: WorkspaceTranslatorId,
+  worker: GptPipelineWorker | SakuraWorker,
+): TranslatorConfig {
+  if (translatorId === 'sakura') {
+    return { kind: 'sakura', endpoint: worker.endpoint, prevSegLength: 500 };
+  }
+  const gpt = worker as GptPipelineWorker;
+  return {
+    kind: 'openai',
+    endpoint: gpt.endpoint,
+    key: gpt.key,
+    model: gpt.model,
+    profile: gpt.profile,
+  };
 }
 
 export interface TranslateJob {
@@ -63,9 +87,7 @@ export type LocalTranslateTaskDesc = {
 };
 
 export type TranslateTaskDesc =
-  | WebTranslateTaskDesc
-  | WenkuTranslateTaskDesc
-  | LocalTranslateTaskDesc;
+  WebTranslateTaskDesc | WenkuTranslateTaskDesc | LocalTranslateTaskDesc;
 
 export type TranslateTaskParams = {
   level: 'normal' | 'expire' | 'all' | 'sync'; // 翻译等级
@@ -79,7 +101,7 @@ export type TranslateTaskCallback = {
   onStart: (total: number) => void;
   onChapterSuccess: (state: { jp?: number; zh?: number }) => void;
   onChapterFailure: () => void;
-  log: (message: string, detail?: string[]) => void;
+  log: (message: string, detail?: readonly string[]) => void;
 };
 
 type TranslateTaskDescriptor = string;

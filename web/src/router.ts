@@ -1,4 +1,4 @@
-import { MyStrikeListView } from '@novelia/web-kit';
+import { MyStrikeListView, restoreScrollPosition } from '@novelia/web-kit';
 import type { LocationQuery } from 'vue-router';
 import { createRouter, createWebHistory } from 'vue-router';
 import { authReturnPath } from './authReturnPath';
@@ -189,26 +189,26 @@ const router = createRouter({
             {
               path: 'sakura',
               meta: { title: 'Sakura工作区（待废弃）' },
-              component: () => import('./pages/workspace/SakuraWorkspace.vue'),
+              component: () =>
+                import('./pages/workspace/legacy/SakuraWorkspace.vue'),
             },
             {
               path: 'gpt-pipeline',
               meta: { title: 'GPT工作区' },
-              component: () =>
-                import('./pages/workspace/GptPipelineWorkspace.vue'),
+              component: () => import('./pages/workspace/WorkspaceView.vue'),
               props: { translatorId: 'gpt', key: 'gpt-pipeline' },
             },
             {
               path: 'sakura-pipeline',
               meta: { title: 'Sakura工作区' },
-              component: () =>
-                import('./pages/workspace/GptPipelineWorkspace.vue'),
+              component: () => import('./pages/workspace/WorkspaceView.vue'),
               props: { translatorId: 'sakura', key: 'sakura-pipeline' },
             },
             {
               path: 'toolbox',
-              meta: { title: '小说工具箱' },
-              component: () => import('./pages/workspace/Toolbox.vue'),
+              meta: { title: '处理' },
+              component: () =>
+                import('./pages/toolbox/process/ProcessView.vue'),
             },
           ],
         },
@@ -245,7 +245,13 @@ const router = createRouter({
         return { top };
       }
     }
-    return { top: savedPosition?.top ?? 0 };
+    if (savedPosition) {
+      return restoreScrollPosition(
+        savedPosition,
+        () => router.currentRoute.value === to,
+      );
+    }
+    return { top: 0 };
   },
 });
 

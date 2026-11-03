@@ -1,6 +1,7 @@
 <script lang="ts" setup>
+import NovelGridSkeleton from '@/components/NovelGridSkeleton.vue';
 import { ChecklistOutlined } from '@vicons/material';
-import { XAsyncContent } from '@novelia/web-kit';
+import { XEmpty, XError, XPagination, XSeparator } from '@novelia/web-kit';
 
 import { useIsWideScreen } from '@/pages/util';
 import { WenkuNovelRepo } from '@/repos';
@@ -42,6 +43,11 @@ const { data: novelPage, error } = WenkuNovelRepo.useWenkuNovelFavoredList(
   }),
 );
 
+// 翻页加载期间保留总页数，避免上下分页被卸载。
+const pageCount = computed<number>(
+  (previous) => novelPage.value?.pageNumber ?? previous ?? 1,
+);
+
 const showControlPanel = ref(false);
 
 const novelListRef = useTemplateRef('novelList');
@@ -49,56 +55,78 @@ const novelListRef = useTemplateRef('novelList');
 
 <template>
   <bookshelf-layout :menu-key="`wenku/${favoredId}`">
-    <n-flex style="margin-bottom: 24px">
-      <c-button
-        label="选择"
-        :icon="ChecklistOutlined"
-        @action="showControlPanel = !showControlPanel"
-      />
-      <bookshelf-list-button
-        v-if="!isWideScreen"
-        :menu-key="`wenku/${favoredId}`"
-      />
-    </n-flex>
+    <div role="region" aria-label="文库小说收藏列表">
+      <n-flex style="margin-bottom: 24px">
+        <c-button
+          label="选择"
+          :icon="ChecklistOutlined"
+          @action="showControlPanel = !showControlPanel"
+        />
+        <bookshelf-list-button
+          v-if="!isWideScreen"
+          :menu-key="`wenku/${favoredId}`"
+        />
+      </n-flex>
 
-    <n-collapse-transition :show="showControlPanel" style="margin-bottom: 16px">
-      <bookshelf-wenku-control
-        :selected-novels="novelListRef?.selectedNovels ?? []"
-        :favored-id="favoredId"
-        @select-all="novelListRef?.selectAll()"
-        @invert-selection="novelListRef?.invertSelection()"
+      <n-collapse-transition
+        :show="showControlPanel"
+        style="margin-bottom: 16px"
+      >
+        <bookshelf-wenku-control
+          :selected-novels="novelListRef?.selectedNovels ?? []"
+          :favored-id="favoredId"
+          @select-all="novelListRef?.selectAll()"
+          @invert-selection="novelListRef?.invertSelection()"
+        />
+      </n-collapse-transition>
+
+      <ListFilter
+        :options="listOptions"
+        :value="listValue"
+        @update:value="onUpdateListValue(listOptions, $event)"
       />
-    </n-collapse-transition>
 
-    <ListFilter
-      :options="listOptions"
-      :value="listValue"
-      @update:value="onUpdateListValue(listOptions, $event)"
-    />
+      <XPagination
+        v-if="pageCount > 1"
+        class="mt-6"
+        :ui="{ root: 'border-t-0 p-0 sm:px-0' }"
+        :page="page"
+        :total-pages="pageCount"
+        @update:page="onUpdatePage"
+      />
 
-    <CPage
-      :page="page"
-      :page-number="novelPage?.pageNumber"
-      @update:page="onUpdatePage"
-    >
-      <template v-if="novelPage">
-        <n-divider />
+      <XSeparator
+        :style="{ margin: pageCount > 1 ? '12px 0 12px' : '24px 0 12px' }"
+      />
+
+      <NovelGridSkeleton v-if="!novelPage && !error" />
+      <XError
+        v-else-if="!novelPage && error"
+        title="加载错误"
+        :description="error.message"
+      />
+      <XEmpty
+        v-else-if="novelPage && novelPage.items.length === 0"
+        title="空列表"
+        size="compact"
+      />
+      <template v-else-if="novelPage">
         <NovelListWenku
           ref="novelList"
           :items="novelPage.items"
           :selectable="showControlPanel"
           simple
         />
-        <n-empty v-if="novelPage.items.length === 0" description="空列表" />
-        <n-divider />
       </template>
 
-      <XAsyncContent
-        v-else
-        :loading="!error"
-        :error="error?.message ?? ''"
-        error-title="加载错误"
+      <XPagination
+        v-if="pageCount > 1"
+        class="mt-3"
+        :page="page"
+        :total-pages="pageCount"
+        keyboard="window"
+        @update:page="onUpdatePage"
       />
-    </CPage>
+    </div>
   </bookshelf-layout>
 </template>

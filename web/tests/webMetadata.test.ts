@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TranslationPipeline, type Translator } from '@auto-novel/translator';
 import type {
   TranslateTaskParams,
   WebTranslateTask,
@@ -22,7 +23,13 @@ vi.mock('../src/domain/crawler', () => ({
   CrawlerService: { updateWebNovel: vi.fn(), updateWebNovelChapter: vi.fn() },
 }));
 
-import { WebTranslationTask } from '../src/domain/translator/TranslationTask/WebTranslationTask';
+import { WorkPreparer } from '../src/domain/translator/prepare-work';
+import { TaskLifecycle } from '../src/domain/translator/task-lifecycle';
+import {
+  TaskState,
+  type UnitStatus,
+} from '../src/domain/translator/task-state';
+import { WebTranslationTask } from '../src/domain/translator/tasks/web-task';
 
 const params: TranslateTaskParams = {
   level: 'normal',
@@ -51,6 +58,7 @@ function deferred<T>() {
 describe('Sakura web metadata HTTP boundary', () => {
   let source: WebTranslateTask;
   let posts: { request: Request; body: unknown }[];
+  const pipelines: TranslationPipeline[] = [];
   beforeEach(() => {
     source = fixture();
     posts = [];
@@ -61,6 +69,9 @@ describe('Sakura web metadata HTTP boundary', () => {
       return new Response('ok');
     });
   });
+  afterEach(() =>
+    pipelines.splice(0).forEach((pipeline) => pipeline.dispose()),
+  );
 
   async function task(
     forceMetadata = false,
@@ -70,20 +81,59 @@ describe('Sakura web metadata HTTP boundary', () => {
       ...params,
       forceMetadata,
     });
-    await task.initMeta();
+    await task.initialize({
+      signal: new AbortController().signal,
+      onLog: vi.fn(),
+    });
     return task;
   }
+  async function metadataWork(
+    current: WebTranslationTask,
+    signal: AbortSignal,
+  ) {
+    const state = new TaskState();
+    state.initialize(current.chapters, current.metadataUnit);
+    const tracker = {
+      onUnitStatus: (id: string, status: UnitStatus) =>
+        state.updateStatus(id, status),
+      onLog: vi.fn(),
+    };
+    const work = await new WorkPreparer(current).prepareUnit(
+      state.metadataUnit!,
+      tracker,
+      signal,
+    );
+    return { work, state, tracker };
+  }
+  function pipeline(translator: Translator) {
+    const pipeline = new TranslationPipeline();
+    pipelines.push(pipeline);
+    pipeline.registerTranslator(translator);
+    return pipeline;
+  }
 
-  it('uploads title, multiline introduction and deduplicated TOC using the active run signal', async () => {
+  it('translates physical metadata lines once, restores multiline fields and deduplicated TOC, and binds the active run signal', async () => {
     const current = await task();
     const run = new AbortController();
-    const translate = vi.fn(async (texts: string[]) => {
-      expect(texts).toEqual(['ウマ娘の物語', '最初の行\n\n最後の行', '出会い']);
-      return ['賽馬娘的故事', '第一行\n\n最後一行', '相遇'];
-    });
-
-    await current.translateMetadata(translate, run.signal, () => true);
-
+    const { work, state } = await metadataWork(current, run.signal);
+    expect(work?.lines).toEqual([
+      'ウマ娘の物語',
+      '最初の行',
+      '最後の行',
+      '出会い',
+    ]);
+    expect(work?.glossary).toEqual(source.glossary);
+    const translate = vi.fn<Translator['translate']>(
+      async ({ lines, context }) => {
+        expect(lines).toEqual(work!.lines);
+        expect(context?.glossary).toEqual(source.glossary);
+        return ['賽馬娘的故事', '第一行', '最後一行', '相遇'];
+      },
+    );
+    const running = pipeline({ trusted: true, translate });
+    await running.submit(work!, run.signal);
+    await running.drain();
+    expect(translate).toHaveBeenCalledOnce();
     expect(posts).toHaveLength(1);
     expect(posts[0].request.url).toBe(
       'https://books.test/api/novel/syosetu/n1/translate-v2/sakura/metadata',
@@ -97,11 +147,13 @@ describe('Sakura web metadata HTTP boundary', () => {
         閑話: '闲话',
       },
     });
+    expect(state.metadataUnit?.status).toBe('done');
+    expect(state.progress.finished).toBe(0);
     run.abort();
     expect(posts[0].request.signal.aborted).toBe(true);
   });
 
-  it('retranslates deterministic TOC on an already translated novel without a model call or replacing title/introduction', async () => {
+  it('saves deterministic forced TOC without producing model work or replacing an existing title and introduction', async () => {
     source.titleZh = '既有標題';
     source.introductionZh = '既有簡介';
     source.toc = [
@@ -114,71 +166,117 @@ describe('Sakura web metadata HTTP boundary', () => {
       { titleJp: '幕間', titleZh: '舊分組' },
     ];
     const current = await task(true);
-    const translate = vi.fn();
     expect(current.chapters).toEqual([]);
-    expect(current.needsMetadata).toBe(true);
-
-    await current.translateMetadata(translate, undefined, () => true);
-
-    expect(translate).not.toHaveBeenCalled();
+    expect(current.metadataUnit).toBeDefined();
+    const { work, state } = await metadataWork(
+      current,
+      new AbortController().signal,
+    );
+    expect(work).toBeUndefined();
+    expect(state.metadataUnit?.status).toBe('done');
     expect(posts.map(({ body }) => body)).toEqual([
       { toc: { 第1話: '第1话', 幕間: '幕间' } },
     ]);
-    expect((await task(true, 'gpt')).needsMetadata).toBe(false);
+    expect((await task(true, 'gpt')).metadataUnit).toBeUndefined();
   });
 
-  it('does not upload a result that completes after the run is stopped', async () => {
+  it.each(['stopped', 'replaced', 'permission-revoked'] as const)(
+    'does not upload metadata returned after its execution is %s',
+    async (reason) => {
+      const current = await task();
+      const run = new AbortController();
+      const permission = new AbortController();
+      const lifecycle = new TaskLifecycle(1);
+      const signal = lifecycle.signalFor(
+        AbortSignal.any([run.signal, permission.signal]),
+      );
+      const { work, state } = await metadataWork(current, signal);
+      const translated = deferred<string[]>();
+      const translate = vi.fn<Translator['translate']>(
+        async () => translated.promise,
+      );
+      const running = pipeline({ trusted: true, translate });
+      await running.submit(work!, signal);
+      await vi.waitFor(() => expect(translate).toHaveBeenCalledOnce());
+      if (reason === 'replaced') lifecycle.abort();
+      else if (reason === 'permission-revoked') permission.abort();
+      else run.abort();
+      translated.resolve(['標題', '簡介', '結尾', '相遇']);
+      await running.drain();
+      // Reject a direct late settlement as well: the save closure is guarded.
+      await expect(
+        work!.onComplete({
+          lines: ['標題', '簡介', '結尾', '相遇'],
+          failed: [],
+        }),
+      ).rejects.toMatchObject({ name: 'AbortError' });
+      expect(state.metadataUnit?.status).toBe('pending');
+      expect(posts).toEqual([]);
+    },
+  );
+
+  it('does not hand remote metadata to an ineligible model before translation', async () => {
     const current = await task();
     const run = new AbortController();
-    const translated = deferred<string[]>();
-    const operation = current.translateMetadata(
-      () => translated.promise,
-      run.signal,
-      () => true,
-    );
-    const rejected = expect(operation).rejects.toMatchObject({
-      name: 'AbortError',
-    });
-
-    run.abort();
-    translated.resolve(['標題', '簡介\n\n結尾', '相遇']);
-
-    await rejected;
-    expect(posts).toEqual([]);
-  });
-
-  it('checks model eligibility before translation and again before upload', async () => {
-    const current = await task();
-    const translate = vi.fn(async () => ['標題', '簡介\n\n結尾', '相遇']);
-    await expect(
-      current.translateMetadata(translate, undefined, () => false),
-    ).rejects.toThrow('上传检查');
+    const { work, state } = await metadataWork(current, run.signal);
+    expect(work?.trustedOnly).toBe(true);
+    const translate = vi.fn<Translator['translate']>(async () => [
+      '標題',
+      '簡介',
+      '結尾',
+      '相遇',
+    ]);
+    const running = pipeline({ trusted: false, translate });
+    await running.submit(work!, run.signal);
+    await Promise.resolve();
     expect(translate).not.toHaveBeenCalled();
-
-    let eligible = true;
-    const translated = deferred<string[]>();
-    const operation = current.translateMetadata(
-      () => translated.promise,
-      undefined,
-      () => eligible,
-    );
-    const rejected = expect(operation).rejects.toThrow('上传检查');
-    eligible = false;
-    translated.resolve(['標題', '簡介\n\n結尾', '相遇']);
-
-    await rejected;
+    run.abort();
+    await running.drain();
+    expect(state.metadataUnit?.status).toBe('pending');
     expect(posts).toEqual([]);
   });
 
-  it('rejects an incomplete translation instead of uploading misplaced metadata', async () => {
+  it('rejects incomplete metadata rather than uploading a misplaced result', async () => {
     const current = await task();
+    const { work } = await metadataWork(current, new AbortController().signal);
     await expect(
-      current.translateMetadata(
-        async () => ['標題'],
-        undefined,
-        () => true,
-      ),
+      work!.onComplete({ lines: ['標題'], failed: [] }),
     ).rejects.toThrow('数量不匹配');
     expect(posts).toEqual([]);
+  });
+
+  it('keeps partial model failures retryable without uploading original-text fallbacks', async () => {
+    const current = await task();
+    const { work, state, tracker } = await metadataWork(
+      current,
+      new AbortController().signal,
+    );
+    const running = new TranslationPipeline({
+      segmenter: {
+        segment: () => [
+          { start: 0, end: 2 },
+          { start: 2, end: 4 },
+        ],
+      },
+    });
+    pipelines.push(running);
+    const translate = vi.fn<Translator['translate']>(async ({ lines }) => {
+      if (lines[0] === 'ウマ娘の物語') return ['已成功的標題', '已成功的簡介'];
+      throw new Error('provider rejected second segment');
+    });
+    running.registerTranslator({
+      trusted: true,
+      translate,
+    });
+    await running.submit(work!);
+    await running.drain();
+    expect(translate).toHaveBeenCalledTimes(2);
+    expect(tracker.onLog).toHaveBeenCalledWith(
+      expect.stringContaining('1 个分段翻译失败'),
+    );
+    expect(state.metadataUnit?.status).toBe('error');
+    expect(posts).toEqual([]);
+    expect(state.resetFailedUnits()).toBe(true);
+    expect(state.metadataUnit?.status).toBe('pending');
   });
 });

@@ -195,7 +195,7 @@ const showQQModal = ref(false);
   >
     <p class="my-4 first:mt-0 last:mb-0">
       交流群：
-      <n-a :href="siteUrls.qqGroup" target="_blank">819513328</n-a>
+      <n-a :href="siteUrls.qqGroup" target="_blank">1131569744</n-a>
       ，验证答案是“绿色”。
       <br />
       <n-qr-code :size="150" :value="siteUrls.qqGroup" />
