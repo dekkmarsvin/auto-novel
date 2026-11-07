@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranslationPipeline, type Translator } from '@auto-novel/translator';
-import type {
-  TranslateTaskParams,
-  WebTranslateTask,
-} from '../src/model/Translator';
+import type { WebTranslateTask } from '../src/model/Translator';
+import type { TranslateTaskParams } from '../src/domain/translator/tasks/task-descriptor';
 
 const transport = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock('../src/api/client', async () => {
@@ -112,7 +110,7 @@ describe('Sakura web metadata HTTP boundary', () => {
     return pipeline;
   }
 
-  it('translates physical metadata lines once, restores multiline fields and deduplicated TOC, and binds the active run signal', async () => {
+  it('translates physical metadata lines once, restores multiline fields and deduplicated TOC, and releases completed cancellation listeners', async () => {
     const current = await task();
     const run = new AbortController();
     const { work, state } = await metadataWork(current, run.signal);
@@ -150,7 +148,39 @@ describe('Sakura web metadata HTTP boundary', () => {
     expect(state.metadataUnit?.status).toBe('done');
     expect(state.progress.finished).toBe(0);
     run.abort();
-    expect(posts[0].request.signal.aborted).toBe(true);
+    expect(posts[0].request.signal.aborted).toBe(false);
+  });
+
+  it('keeps the active run signal attached until the actual metadata upload settles', async () => {
+    const current = await task();
+    const run = new AbortController();
+    const { work, state } = await metadataWork(current, run.signal);
+    const uploadStarted = deferred<Request>();
+    transport.fetch.mockImplementation(async (input, init) => {
+      const request = new Request(input, init);
+      uploadStarted.resolve(request);
+      return new Promise<Response>((_resolve, reject) => {
+        request.signal.addEventListener(
+          'abort',
+          () => reject(request.signal.reason),
+          { once: true },
+        );
+      });
+    });
+    const saving = work!.onComplete({
+      lines: ['標題', '簡介', '結尾', '相遇'],
+      failed: [],
+    });
+    const rejected = expect(saving).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    const request = await uploadStarted.promise;
+    expect(request.url).toContain('/translate-v2/sakura/metadata');
+    expect(request.signal.aborted).toBe(false);
+    run.abort();
+    await rejected;
+    expect(request.signal.aborted).toBe(true);
+    expect(state.metadataUnit?.status).not.toBe('done');
   });
 
   it('saves deterministic forced TOC without producing model work or replacing an existing title and introduction', async () => {

@@ -1,4 +1,11 @@
-import { computed, onUnmounted, reactive, ref, watch } from 'vue';
+import {
+  computed,
+  onUnmounted,
+  reactive,
+  ref,
+  shallowReactive,
+  watch,
+} from 'vue';
 import { Toast } from '@novelia/web-kit';
 import { createTranslator, TranslationPipeline } from '@auto-novel/translator';
 import type { TranslationWork } from '@auto-novel/translator';
@@ -10,6 +17,8 @@ import {
   IndexedDbSegmentCache,
   createTranslationTask,
   TaskState,
+  TranslateTaskDescriptor,
+  awaitWithSignal,
 } from '@/domain/translator';
 import type { TranslationTask, UnitStatus } from '@/domain/translator';
 import { toTranslatorConfig } from '@/model/Translator';
@@ -18,9 +27,14 @@ import type {
   TranslateJobRecord,
   WorkspaceTranslatorId,
 } from '@/model/Translator';
-import { TranslateTaskDescriptor } from '@/model/Translator';
 
 import { useWorkspaceLog } from './useWorkspaceLog';
+
+/** 初始化超时；大于接口客户端的 60s 超时，让普通请求先报出自己的原因。 */
+const INITIALIZATION_TIMEOUT_MS = 120_000;
+
+const describeError = (error: unknown) =>
+  (error instanceof Error ? error.message : String(error)).trim() || '未知错误';
 
 /** 每个工作区页面持有独立的执行状态，并在页面卸载时停止执行。 */
 export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
@@ -51,12 +65,31 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
 
   // ========== 任务状态管理 ==========
 
-  const taskStates = ref(new Map<string, TaskState>());
-  const taskCache = new Map<string, TranslationTask>();
-  const taskLifecycles = new Map<string, TaskLifecycle>();
-  /** 同一版本只初始化一次；跨标签页替换对象不能重建执行状态。 */
-  const initializingTasks = new Map<string, AbortController>();
-  const initializationErrors = new Set<string>();
+  interface TaskRuntime {
+    lifecycle: TaskLifecycle;
+    task?: TranslationTask;
+    state?: TaskState;
+    initializing?: AbortController;
+    initializationError?: string;
+  }
+
+  /** 每个任务版本只有一个运行时；浅响应式保留任务和控制器的原始身份。 */
+  const taskRuntimes = shallowReactive(new Map<string, TaskRuntime>());
+  const taskStates = computed(() => {
+    const states = new Map<string, TaskState>();
+    for (const [key, runtime] of taskRuntimes) {
+      if (runtime.state) states.set(key, runtime.state);
+    }
+    return states;
+  });
+  const taskErrors = computed(() => {
+    const errors = new Map<string, string>();
+    for (const [key, runtime] of taskRuntimes) {
+      if (runtime.initializationError !== undefined)
+        errors.set(key, runtime.initializationError);
+    }
+    return errors;
+  });
 
   interface WorkerState {
     running: boolean;
@@ -82,39 +115,43 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
   });
   let trustedInputsController = new AbortController();
 
+  // 目录窗口包含当前任务；原文槽位同时计入加载中和已就绪的输入。
+  const taskPrefetchWindow = 3;
+  const unitPrefetchLimit = 3;
+  let refillPrefetch: (() => void) | undefined;
   let processLoopAbortController: AbortController | null = null;
   let disposed = false;
 
   onUnmounted(() => {
     disposed = true;
-    for (const lifecycle of taskLifecycles.values()) lifecycle.abort();
-    taskLifecycles.clear();
-    abortInitializations();
+    for (const key of taskRuntimes.keys()) clearTaskRuntimeState(key);
     processLoopAbortController?.abort();
     pipeline.dispose();
     workerStates.value.clear();
   });
 
-  function getOrCreateTask(taskDesc: string): TranslationTask {
-    let task = taskCache.get(taskDesc);
-    if (!task) {
+  function getOrCreateTask(
+    taskDesc: string,
+    runtime: TaskRuntime,
+  ): TranslationTask {
+    if (!runtime.task) {
       const { desc, params } = TranslateTaskDescriptor.parse(taskDesc);
-      task = createTranslationTask(desc, translatorId, params);
-      taskCache.set(taskDesc, task);
+      runtime.task = createTranslationTask(desc, translatorId, params);
     }
-    return task;
+    return runtime.task;
   }
 
   /** 只枚举，不修改状态；取任务和判断是否还有任务共用同一筛选。 */
   function* schedulableUnits() {
     for (const job of jobs.value) {
       if (job.finishAt) continue;
-      const task = taskCache.get(job.task);
-      if (!task || !task.initialized || !canRunTask(task)) continue;
-      const state = taskStates.value.get(job.task);
-      if (!state) continue;
+      const runtime = taskRuntimes.get(job.task);
+      if (!runtime) continue;
+      const { task, state } = runtime;
+      if (!task?.initialized || !state || !canRunTask(task)) continue;
       for (const unit of state.units) {
-        if (unit.status === 'pending') yield { job, unit, state };
+        if (unit.status === 'pending')
+          yield { job, unit, state, task, runtime };
       }
     }
   }
@@ -134,54 +171,58 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
   }
 
   function abortInitializations(remoteOnly = false): void {
-    for (const [key, controller] of initializingTasks) {
-      if (remoteOnly && taskCache.get(key)?.type === 'local') continue;
-      controller.abort();
-      initializingTasks.delete(key);
+    for (const runtime of taskRuntimes.values()) {
+      if (!runtime.initializing) continue;
+      if (remoteOnly && runtime.task?.type === 'local') continue;
+      runtime.initializing.abort();
+      runtime.initializing = undefined;
       // 不复用可能仍在等待插件返回的旧初始化快照。
-      taskCache.delete(key);
+      runtime.task = undefined;
     }
   }
 
-  /** 仅加载即将执行的任务；上一任务还有待处理/在途单元时不预取目录。 */
+  /** 串行加载目录，但允许当前任务之外保留两个待执行任务的快照。 */
   function initializeNextTask(): void {
-    if (initializingTasks.size) return;
+    if ([...taskRuntimes.values()].some((runtime) => runtime.initializing))
+      return;
+    // 先统计所有可执行快照，队列重排也不能不断额外加载目录。
+    const activeTasks = jobs.value.filter((job) => {
+      const runtime = taskRuntimes.get(job.task);
+      return (
+        !job.finishAt &&
+        runtime?.task &&
+        canRunTask(runtime.task) &&
+        runtime.state?.units.some(
+          (unit) => unit.status === 'pending' || unit.status === 'translating',
+        )
+      );
+    }).length;
+    if (activeTasks >= taskPrefetchWindow) return;
     for (const job of jobs.value) {
-      if (job.finishAt || initializationErrors.has(job.task)) continue;
+      const runtime = taskRuntimes.get(job.task);
+      if (!runtime || job.finishAt || runtime.initializationError !== undefined)
+        continue;
       let task: TranslationTask;
       try {
-        task = getOrCreateTask(job.task);
+        task = getOrCreateTask(job.task, runtime);
       } catch (error) {
-        reportInitializationError(job, error);
+        reportInitializationError(job, runtime, error);
         continue;
       }
       if (!canRunTask(task)) continue;
-      const state = taskStates.value.get(job.task);
-      if (state?.initialized) {
-        if (
-          state.units.some(
-            (unit) =>
-              unit.status === 'pending' || unit.status === 'translating',
-          )
-        )
-          return;
-        continue;
-      }
+      if (runtime.state?.initialized) continue;
       const controller = new AbortController();
-      initializingTasks.set(job.task, controller);
-      void initializeTask(job, taskLifecycles.get(job.task)!, controller);
+      runtime.initializing = controller;
+      void initializeTask(job, runtime, controller);
       return;
     }
   }
 
   function clearTaskRuntimeState(task: string): void {
-    taskLifecycles.get(task)?.abort();
-    taskLifecycles.delete(task);
-    initializingTasks.get(task)?.abort();
-    initializingTasks.delete(task);
-    initializationErrors.delete(task);
-    taskStates.value.delete(task);
-    taskCache.delete(task);
+    const runtime = taskRuntimes.get(task);
+    runtime?.lifecycle.abort();
+    runtime?.initializing?.abort();
+    taskRuntimes.delete(task);
   }
 
   // ========== 全局处理循环 ==========
@@ -198,14 +239,15 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
 
   function updateJobCompletion(
     job: TranslateJob,
-    task: TranslationTask,
+    runtime: TaskRuntime,
     state: TaskState,
   ): void {
     const currentJob = findCurrentJob(job);
     if (
+      disposed ||
       !currentJob ||
-      taskCache.get(job.task) !== task ||
-      taskStates.value.get(job.task) !== state
+      taskRuntimes.get(job.task) !== runtime ||
+      runtime.state !== state
     ) {
       return;
     }
@@ -224,7 +266,10 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
     initializeNextTask();
 
     // 停止后也必须等旧 run 退出，防止重新启动时重复拉取或覆盖章节状态。
-    if (processLoopAbortController) return;
+    if (processLoopAbortController) {
+      refillPrefetch?.();
+      return;
+    }
     if (schedulableUnits().next().done) return;
     const controller = new AbortController();
     processLoopAbortController = controller;
@@ -247,14 +292,12 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
         const item = schedulableUnits().next().value;
         if (!item) return undefined;
 
-        const { job, unit, state } = item;
+        const { job, unit, state, task, runtime } = item;
         const { chapterId } = unit;
         state.updateStatus(chapterId, 'translating');
-        const task = getOrCreateTask(job.task);
         const isCurrentTask = () =>
           !disposed &&
-          taskCache.get(job.task) === task &&
-          taskStates.value.get(job.task) === state &&
+          taskRuntimes.get(job.task) === runtime &&
           !!findCurrentJob(job);
         if (!isCurrentTask()) continue;
         if (signal.aborted || !canRunTask(task)) {
@@ -266,11 +309,9 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
         if (task.type !== 'local' && trustedInputsController.signal.aborted) {
           trustedInputsController = new AbortController();
         }
-        const inputSignal = taskLifecycles
-          .get(job.task)!
-          .signalFor(
-            task.type === 'local' ? signal : trustedInputsController.signal,
-          );
+        const inputSignal = runtime.lifecycle.signalFor(
+          task.type === 'local' ? signal : trustedInputsController.signal,
+        );
         const preparer = new WorkPreparer(task);
         const segmentTracker = state.getUnitDetails(chapterId);
         if (!segmentTracker) continue;
@@ -290,7 +331,7 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
           inputSignal,
         );
         if (!work) {
-          if (isCurrentTask()) updateJobCompletion(job, task, state);
+          if (isCurrentTask()) updateJobCompletion(job, runtime, state);
           continue;
         }
         return {
@@ -299,15 +340,15 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
             ...work,
             onComplete: async (result) => {
               await work.onComplete(result);
-              if (isCurrentTask()) updateJobCompletion(job, task, state);
+              if (isCurrentTask()) updateJobCompletion(job, runtime, state);
             },
             onError: async (error) => {
               await work.onError(error);
-              if (isCurrentTask()) updateJobCompletion(job, task, state);
+              if (isCurrentTask()) updateJobCompletion(job, runtime, state);
             },
             onAbort: async () => {
               await work.onAbort();
-              if (isCurrentTask()) updateJobCompletion(job, task, state);
+              if (isCurrentTask()) updateJobCompletion(job, runtime, state);
             },
           },
         };
@@ -315,35 +356,145 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
       return undefined;
     };
 
+    type PrefetchedInput = Awaited<ReturnType<typeof nextWork>>;
+    type Preparation = Promise<
+      | { input: PrefetchedInput; error?: never }
+      | { input?: never; error: unknown }
+    >;
+    const prefetched = new Set<Preparation>();
+    const ready: { preparation: Preparation; result: Awaited<Preparation> }[] =
+      [];
+    let wakePrefetch: (() => void) | undefined;
+    const fillPrefetch = () => {
+      while (
+        !signal.aborted &&
+        hasRunningWorker() &&
+        prefetched.size < unitPrefetchLimit &&
+        !schedulableUnits().next().done
+      ) {
+        // nextWork 同步认领单元，避免并发加载同一章；提前接住异常防止悬空拒绝。
+        const preparation: Preparation = nextWork().then(
+          (input) => ({ input }),
+          (error: unknown) => ({ error }),
+        );
+        prefetched.add(preparation);
+        // 每次准备仅注册一个通知，慢请求不会积累其他章节的等待回调。
+        void preparation.then((result) => {
+          ready.push({ preparation, result });
+          wakePrefetch?.();
+        });
+        wakePrefetch?.();
+      }
+    };
+    const waitForPrefetch = () =>
+      new Promise<undefined>((resolve) => {
+        wakePrefetch = () => resolve(undefined);
+      });
+    refillPrefetch = fillPrefetch;
+    type Settlement = {
+      version: number;
+      result?: { error?: never } | { error: unknown };
+    };
+    let submissionVersion = 0;
+    let draining: Settlement | undefined;
+
     void (async () => {
       try {
-        // 推模型：投递一个翻译单元再取下一个，队列满时 submit 自己等待。
         for (;;) {
-          const input = await nextWork();
-          if (!input) break;
+          fillPrefetch();
+          if (signal.aborted) break;
+          if (draining?.result && 'error' in draining.result)
+            throw draining.result.error;
+          if (prefetched.size === 0) {
+            // 旧等待可能已检查空队列，但完成通知晚于新投递；此时必须重新结算。
+            if (draining?.result && draining.version !== submissionVersion)
+              draining = undefined;
+            // 同时只保留一个结算等待，避免慢保存积累重复 drain 监听。
+            if (!draining) {
+              const settlement: Settlement = {
+                version: submissionVersion,
+              };
+              draining = settlement;
+              void pipeline.drain().then(
+                () => {
+                  settlement.result = {};
+                  wakePrefetch?.();
+                },
+                (error: unknown) => {
+                  settlement.result = { error };
+                  wakePrefetch?.();
+                },
+              );
+            }
+            if (draining.result) break;
+            // 旧输入还在翻译/保存时，新加载的任务仍可唤醒消费者。
+            await waitForPrefetch();
+            wakePrefetch = undefined;
+            continue;
+          }
+          // 完成通知按就绪顺序入队，不等待队首慢请求。
+          const selected = ready.shift();
+          if (!selected) {
+            await waitForPrefetch();
+            wakePrefetch = undefined;
+            continue;
+          }
+          const { preparation, result } = selected;
           try {
-            await pipeline.submit(input.work, input.signal);
-          } catch (error) {
-            // 唯一可信翻译器停止只取消受限输入，不能连带中断本地章节。
-            if (!input.signal.aborted || signal.aborted) throw error;
+            if ('error' in result) throw result.error;
+            const input = result.input;
+            if (!input) continue;
+            if (input.signal.aborted) {
+              await input.work.onAbort();
+              continue;
+            }
+            try {
+              // 在投递前更新代际，不依赖旧 drain 的完成通知是否已经到达。
+              submissionVersion++;
+              // 投递仍串行，保留分段队列的背压；等待期间可准备其他槽位。
+              await pipeline.submit(input.work, input.signal);
+            } catch (error) {
+              // 唯一可信翻译器停止只取消受限输入，不能连带中断本地章节。
+              if (!input.signal.aborted || signal.aborted) throw error;
+            }
+          } finally {
+            prefetched.delete(preparation);
           }
         }
-        await pipeline.drain();
-      } finally {
-        // 出错或取消时停掉在途输入，并等待结算回调收尾。
-        controller.abort();
-        await pipeline.drain().catch(() => {});
-      }
-    })()
-      .catch((error) => {
+      } catch (error) {
+        // 此刻 finally 尚未 abort：signal 只反映外部停止，主动停止不记错误。
         if (!signal.aborted) {
-          appendLog('工作区', `翻译流水线失败：${error}`, 'warn');
+          appendLog(
+            '工作区',
+            `翻译流水线失败：${describeError(error)}`,
+            'warn',
+          );
           console.warn('翻译流水线失败', error);
         }
+      } finally {
+        // 未投递的原文也必须结算取消，不能遗留 translating 状态。
+        controller.abort();
+        await Promise.all(
+          [...prefetched].map(async (preparation) => {
+            const result = await preparation;
+            await result.input?.work.onAbort();
+          }),
+        );
+        await pipeline.drain();
+      }
+    })()
+      .catch((error: unknown) => {
+        appendLog(
+          '工作区',
+          `翻译流水线收尾失败：${describeError(error)}`,
+          'warn',
+        );
+        console.warn('翻译流水线收尾失败', error);
       })
       .finally(() => {
         if (processLoopAbortController !== controller) return;
         processLoopAbortController = null;
+        refillPrefetch = undefined;
         // 本轮没有更多可做的章节，但任务可能新增或重试章节。
         runProcessLoop();
       });
@@ -367,7 +518,9 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
       currentConcurrency: 0,
     });
     workerStates.value.set(workerId, state);
-    initializationErrors.clear();
+    for (const runtime of taskRuntimes.values()) {
+      runtime.initializationError = undefined;
+    }
 
     try {
       const secrets = 'key' in w ? [w.key] : [];
@@ -396,7 +549,7 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
       runProcessLoop();
     } catch (e) {
       if (workerStates.value.get(workerId) !== state) return;
-      stopWorker(workerId);
+      stopWorker(workerId, '启动失败');
       appendLog(
         w.id,
         `翻译器启动失败：${e}`,
@@ -407,12 +560,12 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
     }
   };
 
-  const stopWorker = (workerId: string) => {
+  const stopWorker = (workerId: string, reason = '手动停止') => {
     const state = workerStates.value.get(workerId);
     if (!state?.running) return;
 
     pipeline.unregisterTranslator(workerId);
-    appendLog(workerId, '翻译器已停止');
+    appendLog(workerId, `翻译器已停止（${reason}）`);
 
     workerStates.value.set(workerId, { ...state, running: false });
 
@@ -460,47 +613,88 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
     clearTaskRuntimeState(task);
   };
 
-  function reportInitializationError(job: TranslateJob, error: unknown): void {
-    initializationErrors.add(job.task);
-    logTask(job.task, `任务初始化失败：${error}`, true);
+  /** 不传 task 时重试所有失败任务。 */
+  const retryTask = (task?: string) => {
+    if (!hasRunningWorker()) {
+      Toast.info('请先启动翻译器后再重试');
+      return;
+    }
+    for (const job of jobs.value) {
+      if (task !== undefined && job.task !== task) continue;
+      const runtime = taskRuntimes.get(job.task);
+      if (!runtime) continue;
+      const state = runtime.state;
+      if (state?.resetFailedUnits()) {
+        delete job.finishAt;
+        (job as TranslateJobRecord).progress = state.progress;
+      }
+      runtime.initializationError = undefined;
+    }
+    runProcessLoop();
+  };
+
+  function reportInitializationError(
+    job: TranslateJob,
+    runtime: TaskRuntime,
+    error: unknown,
+  ): void {
+    runtime.initializationError = describeError(error);
+    // 丢弃可能只初始化了一半的实例，重试时重新创建。
+    runtime.task = undefined;
+    logTask(job.task, `任务初始化失败：${runtime.initializationError}`, true);
     console.warn('任务初始化失败', job.task, error);
   }
 
   async function initializeTask(
     job: TranslateJob,
-    lifecycle: TaskLifecycle,
+    runtime: TaskRuntime,
     controller: AbortController,
   ): Promise<void> {
-    const signal = lifecycle.signalFor(controller.signal);
+    const signal = runtime.lifecycle.signalFor(controller.signal);
+    const isCurrentInitialization = () =>
+      !disposed &&
+      taskRuntimes.get(job.task) === runtime &&
+      runtime.initializing === controller;
+    // 底层 Promise 可能不响应 abort，超时必须能结束这里的 await。
+    const timer = setTimeout(
+      () =>
+        controller.abort(
+          new DOMException(
+            `任务初始化超时（${INITIALIZATION_TIMEOUT_MS / 1000} 秒）`,
+            'TimeoutError',
+          ),
+        ),
+      INITIALIZATION_TIMEOUT_MS,
+    );
     try {
-      const task = getOrCreateTask(job.task);
+      const task = getOrCreateTask(job.task, runtime);
       signal.throwIfAborted();
-      await task.initialize({
+      await awaitWithSignal(
+        task.initialize({
+          signal,
+          onLog: (message) => {
+            if (!signal.aborted) logTask(job.task, message);
+          },
+        }),
         signal,
-        onLog: (message) => {
-          if (!signal.aborted) logTask(job.task, message);
-        },
-      });
-      if (
-        signal.aborted ||
-        initializingTasks.get(job.task) !== controller ||
-        taskCache.get(job.task) !== task
-      ) {
-        return;
-      }
+      );
+      if (signal.aborted || !isCurrentInitialization()) return;
       const currentJob = findCurrentJob(job);
       if (!currentJob) return;
       const state = reactive(new TaskState()) as TaskState;
       state.initialize(task.chapters, task.metadataUnit);
-      taskStates.value.set(job.task, state);
+      runtime.state = state;
+      runtime.initializationError = undefined;
       currentJob.progress = state.progress;
-      updateJobCompletion(job, task, state);
+      updateJobCompletion(job, runtime, state);
     } catch (e) {
-      if (!signal.aborted) reportInitializationError(job, e);
+      // 停止、删除、卸载会先清掉 initializing；剩下的失败必须上报。
+      if (isCurrentInitialization()) reportInitializationError(job, runtime, e);
     } finally {
-      if (initializingTasks.get(job.task) === controller) {
-        initializingTasks.delete(job.task);
-        // 当前任务加载完成后才推进队列，不在页面挂载时批量请求目录。
+      clearTimeout(timer);
+      if (isCurrentInitialization()) {
+        runtime.initializing = undefined;
+        // 启动后按窗口补齐目录和原文；页面挂载时不批量请求。
         runProcessLoop();
       }
     }
@@ -512,23 +706,20 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
       if (disposed) return;
       const workspaceJobs = [...jobs.value];
       const activeTasks = new Set(workspaceJobs.map((job) => job.task));
-      const knownTasks = new Set([
-        ...taskStates.value.keys(),
-        ...taskCache.keys(),
-        ...taskLifecycles.keys(),
-        ...initializingTasks.keys(),
-        ...initializationErrors,
-      ]);
-      for (const task of knownTasks) {
+      for (const task of taskRuntimes.keys()) {
         if (!activeTasks.has(task)) clearTaskRuntimeState(task);
       }
 
       for (const job of workspaceJobs) {
-        let lifecycle = taskLifecycles.get(job.task);
-        if (!lifecycle || lifecycle.createAt !== job.createAt) {
+        const runtime = taskRuntimes.get(job.task);
+        if (!runtime || runtime.lifecycle.createAt !== job.createAt) {
           clearTaskRuntimeState(job.task);
-          lifecycle = new TaskLifecycle(job.createAt);
-          taskLifecycles.set(job.task, lifecycle);
+          taskRuntimes.set(
+            job.task,
+            shallowReactive<TaskRuntime>({
+              lifecycle: new TaskLifecycle(job.createAt),
+            }),
+          );
         }
       }
       runProcessLoop();
@@ -555,6 +746,7 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
     jobs,
     clearTranslationCache,
     taskStates,
+    taskErrors,
     workerStates,
     workerErrors,
     startWorker,
@@ -562,6 +754,7 @@ export function useWorkspaceRuntime(translatorId: WorkspaceTranslatorId) {
     startAllWorkers,
     stopAllWorkers,
     deleteJob,
+    retryTask,
     topJob,
     bottomJob,
     runProcessLoop,

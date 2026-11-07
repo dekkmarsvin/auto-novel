@@ -1,7 +1,12 @@
 <script lang="ts" setup>
 import { isCurrentAuthor } from '@/identity';
 import { onMounted, ref } from 'vue';
-import { copyToClipboard, Toast, XDialog } from '@novelia/web-kit';
+import {
+  copyToClipboard,
+  getApiErrorMessage,
+  Toast,
+  XDialog,
+} from '@novelia/web-kit';
 import { DeleteOutlineOutlined } from '@vicons/material';
 
 import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
@@ -111,8 +116,8 @@ const clearTerm = () => {
 const exportGlossary = () =>
   Toast.promise(copyToClipboard(Glossary.toText(glossary.value)), {
     success: '导出成功：已复制到剪贴板',
-    error: '导出失败',
-  });
+    error: (reason) => getApiErrorMessage(reason, '导出失败'),
+  }).catch(() => {});
 
 const importGlossary = () => {
   const importedGlossary = Glossary.fromText(importGlossaryRaw.value);

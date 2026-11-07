@@ -7,7 +7,7 @@ vi.mock('../src/api', async (original) => ({
   useBannerApi: () => boundary,
 }));
 vi.mock('@novelia/web-kit', () => ({
-  Toast: { promise: (value: Promise<unknown>) => value.catch(() => undefined) },
+  Toast: { promise: (value: Promise<unknown>) => value },
   XDialog: {},
   uploadFile: vi.fn(),
   getApiErrorMessage: (error: Error) => error.message,
@@ -58,8 +58,9 @@ interface Controls {
   saveEdit(): Promise<void>;
 }
 async function mount() {
-  const { default: View } =
-    await import('../src/views/banners/BannersView.vue');
+  const { default: View } = await import(
+    '../src/views/banners/BannersView.vue'
+  );
   let controls!: Controls;
   const app = renderer.createApp({
     setup() {

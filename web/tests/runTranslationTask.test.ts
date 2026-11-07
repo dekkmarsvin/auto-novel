@@ -11,7 +11,7 @@ import type {
 import type {
   TranslateTaskDesc,
   TranslateTaskParams,
-} from '../src/model/Translator';
+} from '../src/domain/translator/tasks/task-descriptor';
 
 const mocks = vi.hoisted(() => ({
   createTranslator: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('@auto-novel/translator', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@auto-novel/translator')>()),
   createTranslator: mocks.createTranslator,
 }));
-vi.mock('@/external/translator', () => ({
+vi.mock('@/external/youdao', () => ({
   createYoudaoTranslator: mocks.createTranslator,
 }));
 vi.mock('@/domain/translator/tasks/create-task', () => ({

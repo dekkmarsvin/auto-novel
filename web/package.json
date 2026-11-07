@@ -53,7 +53,6 @@
     "@vue/tsconfig": "^0.8.1",
     "@vueuse/core": "^14.4.0",
     "@zip.js/zip.js": "^2.7.73",
-    "crypto-es": "^2.1.0",
     "idb": "^8.0.3",
     "ky": "^2.1.0",
     "lodash-es": "^4.18.1",
@@ -73,7 +72,7 @@
     "vue-draggable-plus": "^0.5.6",
     "vue-router": "^5.2.0",
     "vue-tsc": "^2.2.12",
-    "@novelia/web-kit": "github:auto-novel/web-kit#9c479ae742335830fc4383f1fdb451809a4d56d0",
+    "@novelia/web-kit": "github:auto-novel/web-kit#7af98d68fe97ad1a35add10761b86697e634cef3",
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3"
   }

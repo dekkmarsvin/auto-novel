@@ -125,6 +125,53 @@ describe('novel glossary editor shared-theme binding', () => {
     expect(draft.isGlossaryChanged()).toBe(false);
   });
 
+  it('protects unadded inputs during refresh/save and discards them only explicitly or for another novel', async () => {
+    const source = reactive({
+      glossary: { 猫: '貓' },
+      themeGlossaryId: 'first',
+    });
+    const novel = reactive({ id: 'first-novel' });
+    const draft = scope.run(() =>
+      useGlossaryDraft(
+        () => source,
+        () => novel.id,
+      ),
+    )!;
+    draft.termsToAdd.value = ['  ', '\t'];
+    expect(draft.isGlossaryChanged()).toBe(false);
+    for (const terms of [
+      ['新語', ''],
+      ['', '新詞'],
+    ] as [string, string][]) {
+      draft.termsToAdd.value = terms;
+      expect(draft.isGlossaryChanged()).toBe(true);
+    }
+
+    source.glossary = { 猫: '伺服器更新' };
+    await nextTick();
+    expect(draft.glossary.value).toEqual({ 猫: '貓' });
+    expect(draft.termsToAdd.value).toEqual(['', '新詞']);
+
+    const persist = vi.fn().mockResolvedValue(undefined);
+    await draft.submit(persist, vi.fn());
+    expect(persist).toHaveBeenCalledWith({
+      glossary: { 猫: '貓' },
+      themeGlossaryId: 'first',
+    });
+    expect(draft.termsToAdd.value).toEqual(['', '新詞']);
+    expect(draft.isGlossaryChanged()).toBe(true);
+
+    draft.resetState();
+    expect(draft.termsToAdd.value).toEqual(['', '']);
+    expect(draft.glossary.value).toEqual({ 猫: '伺服器更新' });
+    expect(draft.isGlossaryChanged()).toBe(false);
+    draft.termsToAdd.value = ['舊小說輸入', ''];
+    novel.id = 'next-novel';
+    await nextTick();
+    expect(draft.termsToAdd.value).toEqual(['', '']);
+    expect(draft.isGlossaryChanged()).toBe(false);
+  });
+
   it('save completion marks only its snapshot and preserves input made while pending', async () => {
     const source = reactive({
       glossary: { 猫: '貓' },

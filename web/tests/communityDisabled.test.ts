@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { commentsAvailable, community } from '../src/config';
 import { lazyCommunityApi } from '../src/community';
 import { renderToString } from 'vue/server-renderer';
+// Collect the immutable SDK's component graph before a timed behavioral case.
+import { CommentApi } from '../src/api/CommentApi';
 
 const runtime = vi.hoisted(() => ({ createClient: vi.fn() }));
 const mounts = vi.hoisted(() => ({ comment: vi.fn() }));
@@ -29,7 +31,6 @@ vi.mock('../src/webKit', async () => {
 
 describe('community deployment disabled', () => {
   it('overrides either user preference and never constructs an external client', async () => {
-    const { CommentApi } = await import('../src/api/CommentApi');
     expect(community.enabled).toBe(false);
     expect(community.url).toBe('');
     expect(commentsAvailable(false)).toBe(false);

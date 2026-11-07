@@ -17,6 +17,7 @@ export function useGlossaryDraft(
 ) {
   const glossary = ref<Glossary>({});
   const themeGlossaryId = ref<string | null>(null);
+  const termsToAdd = ref<[string, string]>(['', '']);
   let original: GlossaryDraft | undefined;
   let currentIdentity: string | undefined;
   let generation = 0;
@@ -31,10 +32,12 @@ export function useGlossaryDraft(
     const value = source();
     glossary.value = { ...value.glossary };
     themeGlossaryId.value = value.themeGlossaryId || null;
+    termsToAdd.value = ['', ''];
     original = snapshot();
   };
 
   const isGlossaryChanged = () => {
+    if (termsToAdd.value.some((term) => term.trim() !== '')) return true;
     const saved = original;
     if (!saved) return false;
     const current = snapshot();
@@ -90,6 +93,7 @@ export function useGlossaryDraft(
   return {
     glossary,
     themeGlossaryId,
+    termsToAdd,
     snapshot,
     resetState,
     isGlossaryChanged,

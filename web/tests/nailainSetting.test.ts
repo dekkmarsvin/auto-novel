@@ -12,6 +12,13 @@ vi.mock('../src/api', () => ({ SiteSettingApi: api }));
 vi.mock('@vicons/material', () => ({ InfoOutlined: {} }));
 vi.mock('@novelia/web-kit', () => ({
   Toast: { success: vi.fn(), error: vi.fn() },
+  XPage: Vue.defineComponent({
+    setup:
+      (_props, { slots }) =>
+      () =>
+        Vue.h('div', slots.default?.()),
+  }),
+  XPageHeader: { render: () => null },
   useWebKit: () => ({
     theme: { preference: Vue.ref('light'), setPreference: vi.fn() },
   }),
@@ -181,6 +188,8 @@ describe('NAILAIN Setting.vue input and save integration', () => {
       'n-input-group',
       'c-radio-group',
       'translator-check',
+      'XPage',
+      'XPageHeader',
     ])
       app.component(name, pass);
     app.component(

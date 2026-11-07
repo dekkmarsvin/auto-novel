@@ -8,8 +8,8 @@ export type { SingleTaskTranslatorConfig } from './translate-lines';
 
 import type {
   TranslateTaskDesc,
-  TranslateTaskParams,
-} from '@/model/Translator';
+  TranslateTaskOptions,
+} from './tasks/task-descriptor';
 import { WorkPreparer } from './prepare-work';
 import { IndexedDbSegmentCache } from './segment-cache';
 import { TaskState } from './task-state';
@@ -29,7 +29,7 @@ interface TaskCallbacks {
 /** 独立入口一次执行一个任务，逐单元结算，不引入工作区调度与持久状态。 */
 export async function runTranslationTask(
   desc: TranslateTaskDesc,
-  params: TranslateTaskParams,
+  params: TranslateTaskOptions,
   config: SingleTaskTranslatorConfig,
   callbacks: TaskCallbacks,
   signal = new AbortController().signal,
@@ -38,7 +38,7 @@ export async function runTranslationTask(
   try {
     signal.throwIfAborted();
     const segmentLength =
-      config.id === 'sakura' ? (config.segLength ?? 500) : 3500;
+      config.id === 'sakura' ? config.segLength ?? 500 : 3500;
     const translator = await createSingleTaskTranslator(config, callbacks.log);
     signal.throwIfAborted();
     if (desc.type !== 'local') {
@@ -49,7 +49,7 @@ export async function runTranslationTask(
         callbacks.log(
           config.id === 'sakura' && segmentLength !== 500
             ? '分段长度不是500'
-            : (translator.untrustedReason ?? '翻译器不可信，无法上传译文'),
+            : translator.untrustedReason ?? '翻译器不可信，无法上传译文',
         );
         return 'uncomplete';
       }

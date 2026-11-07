@@ -2,7 +2,12 @@
 import { isCurrentAuthor } from '@/identity';
 import { useEventListener } from '@vueuse/core';
 import { DeleteOutlineOutlined, EditOutlined } from '@vicons/material';
-import { copyToClipboard, Toast, XConfirmDialog } from '@novelia/web-kit';
+import {
+  copyToClipboard,
+  Toast,
+  XConfirmDialog,
+  getApiErrorMessage,
+} from '@novelia/web-kit';
 
 import { useQueryCache } from '@pinia/colada';
 import { ThemeGlossaryApi } from '@/api/novel/ThemeGlossaryApi';
@@ -83,6 +88,7 @@ const themeGlossaries = ref<ThemeGlossaryDto[]>([]);
 const {
   glossary,
   themeGlossaryId: localThemeGlossaryId,
+  termsToAdd,
   resetState,
   isGlossaryChanged,
   submit,
@@ -156,12 +162,14 @@ const submitGlossary = () => {
         }
       },
     ),
-    { success: '术语表提交成功', error: '术语表提交失败' },
-  );
+    {
+      success: '术语表提交成功',
+      error: (reason) => getApiErrorMessage(reason, '术语表提交失败'),
+    },
+  ).catch(() => {});
 };
 
 const importGlossaryRaw = ref('');
-const termsToAdd = ref<[string, string]>(['', '']);
 
 const deletedTerms = ref<[string, string][]>([]);
 
@@ -258,8 +266,8 @@ const addTerm = () => {
 const exportGlossary = () =>
   Toast.promise(copyToClipboard(Glossary.toText(glossary.value)), {
     success: '导出成功：已复制到剪贴板',
-    error: '导出失败',
-  });
+    error: (reason) => getApiErrorMessage(reason, '导出失败'),
+  }).catch(() => {});
 
 const importGlossary = () => {
   const importedGlossary = Glossary.fromText(importGlossaryRaw.value);

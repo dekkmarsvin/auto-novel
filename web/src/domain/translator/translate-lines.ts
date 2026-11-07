@@ -5,7 +5,7 @@ import {
   type SakuraTranslatorConfig,
 } from '@auto-novel/translator';
 
-/** 保持独立入口的配置形状，与旧工作区调用兼容。 */
+/** 工具页与单任务翻译入口使用的配置。 */
 export type SingleTaskTranslatorConfig =
   | { id: 'youdao' }
   | ({ id: 'sakura'; segLength?: number } & SakuraTranslatorConfig);
@@ -16,7 +16,7 @@ export async function createSingleTaskTranslator(
 ) {
   // 有道沿用插件客户端；按需加载，避免其他入口提前初始化浏览器依赖。
   return config.id === 'youdao'
-    ? (await import('@/external/translator')).createYoudaoTranslator(log)
+    ? (await import('@/external/youdao')).createYoudaoTranslator(log)
     : createTranslator({ ...config, kind: 'sakura', log });
 }
 
@@ -31,7 +31,7 @@ export async function translateLines(
   const translator = await createSingleTaskTranslator(config);
   signal?.throwIfAborted();
   const pipeline = new TranslationPipeline({
-    segmentLength: config.id === 'sakura' ? (config.segLength ?? 500) : 3500,
+    segmentLength: config.id === 'sakura' ? config.segLength ?? 500 : 3500,
   });
   try {
     pipeline.registerTranslator(translator);

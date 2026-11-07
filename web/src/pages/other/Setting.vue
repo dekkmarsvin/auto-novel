@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Toast, useWebKit } from '@novelia/web-kit';
+import { Toast, useWebKit, XPage, XPageHeader } from '@novelia/web-kit';
 import { SiteSettingApi } from '@/api';
 import { community } from '@/config';
 import SoundAllTaskCompleted from '@/sound/all_task_completed.mp3';
@@ -51,8 +51,8 @@ const saveNailainPassword = nailainDraft.save;
 </script>
 
 <template>
-  <div class="layout-content">
-    <n-h1>设置</n-h1>
+  <XPage>
+    <XPageHeader title="设置" />
 
     <n-list bordered>
       <n-list-item>
@@ -235,5 +235,5 @@ const saveNailainPassword = nailainDraft.save;
         </n-flex>
       </n-list-item>
     </n-list>
-  </div>
+  </XPage>
 </template>

@@ -52,6 +52,20 @@ Interactive retirement policy. The archived Sakura route and all original data
 are retained in this snapshot. Deployment is authorized after full validation,
 exact-head CI, published-image provenance and recoverable NAS rollout checks.
 
+The 2026-11-07 approval follows upstream through `0aa0d238` and its unmodified
+Web Kit `7af98d68`, including the matching host error-handling/UI changes.
+Auth remains at fork `4aa104ef` / upstream `cdc91ef1` with SDK `b6277d5`:
+the unchanged authentication wire contract requires paired compatibility checks,
+not a forced Auth upgrade. Retire the old Sakura UI and legacy translation
+adapters now that upstream has done so. Redirect its URLs to Pipeline and retain
+the shared `workspace-sakura` workers/jobs plus all original history/cache data.
+Keep pending term inputs inside existing ThemeGlossary draft/navigation safety.
+Preserve scoped GPT Pipeline storage locks, importer and confirmed-save behavior
+while accepting the shared runtime/timeout/retry improvements. The release may
+be merged and deployed after local verification, exact-head CI, image provenance
+and a recoverable rollout of changed Auto-Novel services; Auth/data services stay
+at their verified current identities.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.
