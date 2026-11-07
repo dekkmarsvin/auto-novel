@@ -40,11 +40,12 @@ vi.mock('@vicons/material', () => ({
 vi.mock('@novelia/web-kit', () => ({
   XConfirmDialog: { render: () => null },
   copyToClipboard: vi.fn().mockResolvedValue(undefined),
+  getApiErrorMessage: (_error: unknown, fallback: string) => fallback,
   Toast: {
     info: vi.fn(),
     error: vi.fn(),
     success: vi.fn(),
-    promise: (promise: Promise<unknown>) => promise.catch(() => undefined),
+    promise: (promise: Promise<unknown>) => promise,
   },
 }));
 vi.mock('naive-ui', () => ({}));
@@ -150,6 +151,8 @@ afterEach(() => {
 async function mountEditor(
   readThemes: () => Promise<Response> = async () => Response.json(themes),
   themeGlossaryId = 'theme',
+  writeGlossary: () => Promise<Response> = async () =>
+    new Response(null, { status: 204 }),
 ) {
   vi.stubGlobal('window', new EventTarget());
   const puts: { url: string; method: string; body: unknown }[] = [];
@@ -160,7 +163,7 @@ async function mountEditor(
       method: request.method,
       body: await request.json(),
     });
-    return Response.json({});
+    return writeGlossary();
   });
   const source = readFileSync(
     new URL('../src/components/NovelGlossaryEditor.vue', import.meta.url),
@@ -172,10 +175,21 @@ async function mountEditor(
   );
   // Reuse the existing Node host-renderer pattern: real SFC setup and template,
   // with only UI controls replaced by emit-compatible lightweight elements.
+  let controls!: {
+    termsToAdd: Vue.Ref<[string, string]>;
+    glossary: Vue.Ref<Record<string, string>>;
+    showConfirmModal: Vue.Ref<boolean>;
+    isGlossaryChanged(): boolean;
+    confirmLeave(): true | Promise<boolean>;
+    handleModalUpdateShow(show: boolean): void;
+    handleConfirmClose(): void;
+    submitGlossary(): Promise<unknown>;
+  };
   const ClientEditor = {
     ...Editor,
     setup(props: unknown, context: unknown) {
-      return { ...Editor.setup(props, context) };
+      controls = Editor.setup(props, context) as typeof controls;
+      return { ...controls };
     },
     render: Vue.compile(template),
   };
@@ -306,10 +320,42 @@ async function mountEditor(
     app.unmount();
     disposePinia(pinia);
   });
-  return { root, puts, props };
+  return { root, puts, props, controls };
 }
 
 describe('actual novel glossary editor', () => {
+  it('guards unadded input on navigation and clears it after confirmed discard', async () => {
+    const { controls } = await mountEditor();
+    controls.termsToAdd.value = ['未添加', ''];
+    expect(controls.isGlossaryChanged()).toBe(true);
+    const cancelled = controls.confirmLeave();
+    expect(controls.showConfirmModal.value).toBe(true);
+    controls.handleModalUpdateShow(false);
+    await expect(cancelled).resolves.toBe(false);
+    expect(controls.termsToAdd.value).toEqual(['未添加', '']);
+    const leaving = controls.confirmLeave();
+    controls.handleConfirmClose();
+    await expect(leaving).resolves.toBe(true);
+    expect(controls.termsToAdd.value).toEqual(['', '']);
+    expect(controls.isGlossaryChanged()).toBe(false);
+  });
+
+  it('handles rejected saves without marking the draft saved or changing its theme', async () => {
+    const { controls, props } = await mountEditor(
+      undefined,
+      'theme',
+      async () => Response.json({ message: 'save failed' }, { status: 400 }),
+    );
+    controls.glossary.value.猫 = '未儲存';
+    controls.termsToAdd.value = ['另外輸入', ''];
+    await expect(controls.submitGlossary()).resolves.toBeUndefined();
+    expect(props.value.猫).toBe('貓');
+    expect(props.themeGlossaryId).toBe('theme');
+    expect(controls.glossary.value.猫).toBe('未儲存');
+    expect(controls.termsToAdd.value).toEqual(['另外輸入', '']);
+    expect(controls.isGlossaryChanged()).toBe(true);
+  });
+
   it('keeps novel terms visible when a shared/override filter loses its theme', async () => {
     const { root } = await mountEditor();
     await vi.waitFor(() => expect(row(root, '犬')).toBeDefined());

@@ -98,4 +98,21 @@ describe('settings password draft state', () => {
     );
     s.scope.stop();
   });
+  it('handles a failed save without losing the draft or exposing its error detail', async () => {
+    const s = setup();
+    s.get.resolve('mock-old');
+    await s.get.promise;
+    s.draft.edit('mock-new-month');
+    const saving = s.draft.save();
+    s.put.reject(new Error('mock-private-detail'));
+    await expect(saving).resolves.toBeUndefined();
+    expect(s.draft.password.value).toBe('mock-new-month');
+    expect(s.draft.saving.value).toBe(false);
+    expect(s.draft.canSave.value).toBe(true);
+    expect(s.notify).toHaveBeenCalledWith('error', '保存合言葉失败');
+    expect(JSON.stringify(s.notify.mock.calls)).not.toContain(
+      'mock-private-detail',
+    );
+    s.scope.stop();
+  });
 });

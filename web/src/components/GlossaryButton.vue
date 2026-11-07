@@ -1,7 +1,12 @@
 <script lang="ts" setup>
 import { isCurrentAuthor } from '@/identity';
 import { DeleteOutlineOutlined } from '@vicons/material';
-import { copyToClipboard, Toast, XDialog } from '@novelia/web-kit';
+import {
+  copyToClipboard,
+  Toast,
+  XDialog,
+  getApiErrorMessage,
+} from '@novelia/web-kit';
 
 import { WebNovelApi, WenkuNovelApi } from '@/api';
 import { GenericNovelId } from '@/model/Common';
@@ -39,6 +44,7 @@ const toggleGlossaryModal = async () => {
   if (showGlossaryModal.value === false) {
     glossary.value = { ...props.value };
     originalGlossary.value = { ...props.value };
+    termsToAdd.value = ['', ''];
     localThemeGlossaryId.value = props.themeGlossaryId ?? null;
     originalThemeGlossaryId.value = props.themeGlossaryId ?? null;
     try {
@@ -51,6 +57,7 @@ const toggleGlossaryModal = async () => {
 };
 
 const isGlossaryChanged = () => {
+  if (termsToAdd.value.some((term) => term.trim() !== '')) return true;
   if (localThemeGlossaryId.value !== originalThemeGlossaryId.value) return true;
   const cur = glossary.value;
   const orig = originalGlossary.value;
@@ -98,10 +105,13 @@ const submitGlossary = () => {
   const submittedGlossary = { ...toRaw(glossary.value) };
   const submittedThemeGlossaryId = localThemeGlossaryId.value;
   return Toast.promise(
-    updateGlossary(
-      submittedGlossary,
-      submittedThemeGlossaryId ?? undefined,
-    ).then(() => {
+    updateGlossary(submittedGlossary, submittedThemeGlossaryId ?? undefined),
+    {
+      success: '术语表提交成功',
+      error: (reason) => getApiErrorMessage(reason, '术语表提交失败'),
+    },
+  )
+    .then(() => {
       // 触发组件外的术语表本体更新。有点傻，但够用。
       for (const key in props.value) {
         delete props.value[key];
@@ -128,9 +138,8 @@ const submitGlossary = () => {
           });
         }
       }
-    }),
-    { success: '术语表提交成功', error: '术语表提交失败' },
-  );
+    })
+    .catch(() => {});
 };
 
 const handleUpdateShow = (show: boolean) => {
@@ -191,8 +200,8 @@ const addTerm = () => {
 const exportGlossary = () =>
   Toast.promise(copyToClipboard(Glossary.toText(glossary.value)), {
     success: '导出成功：已复制到剪贴板',
-    error: '导出失败',
-  });
+    error: (reason) => getApiErrorMessage(reason, '导出失败'),
+  }).catch(() => {});
 
 const importGlossary = () => {
   const importedGlossary = Glossary.fromText(importGlossaryRaw.value);

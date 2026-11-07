@@ -5,6 +5,8 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 import { readFileSync } from 'node:fs';
 import type { WhoamiUser } from '@novelia/web-kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+// Finish cold SFC/module compilation before cases install pending API fixtures.
+import Home from '../src/pages/home/HomeView.vue';
 
 const account = vi.hoisted(() => ({
   listeners: new Set<(user?: WhoamiUser) => void>(),
@@ -104,7 +106,15 @@ vi.mock('../src/pages/home/PanelWenkuNovel.vue', () => ({
 vi.mock('../src/pages/home/HomeBanner.vue', () => ({
   default: { render: () => Vue.h('div') },
 }));
-vi.mock('@novelia/web-kit', () => ({ XDialog: { render: () => null } }));
+vi.mock('@novelia/web-kit', () => ({
+  XDialog: { render: () => null },
+  XPage: Vue.defineComponent({
+    setup:
+      (_props, { attrs, slots }) =>
+      () =>
+        Vue.h('div', attrs, slots.default?.()),
+  }),
+}));
 vi.mock('../src/components/CButton.vue', () => ({
   default: { render: () => Vue.h('button') },
 }));
@@ -216,7 +226,6 @@ async function setup() {
   });
   await router.push('/');
   app.use(router);
-  const { default: Home } = await import('../src/pages/home/HomeView.vue');
   // Vitest transforms SFCs for SSR. Compile the actual template for reactive
   // host rendering while retaining Home's actual setup and HTTP/query pipeline.
   const source = readFileSync(
@@ -260,6 +269,7 @@ async function setup() {
     'bulletin',
     'section-header',
     'c-button',
+    'XPage',
   ])
     mounted.component(name, pass);
   mounted.component(
@@ -279,14 +289,14 @@ async function setup() {
   mounted.component('PanelWenkuNovel', pass);
   mounted.component('HomeBanner', { render: () => null });
   mounted.component('XDialog', { render: () => null });
-  signIn();
-  mounted.mount(root);
-  await Vue.nextTick();
   cleanups.push(() => {
     signIn();
     mounted.unmount();
     disposePinia(pinia);
   });
+  signIn();
+  mounted.mount(root);
+  await Vue.nextTick();
   return { requests, root };
 }
 const page = (owner: string) =>
@@ -310,6 +320,10 @@ describe('actual home deployment and private-list boundaries', () => {
       't.me/',
       '论坛反馈',
       '加群',
+      '翻译试用',
+      'TrialDialog',
+      'Android',
+      '安卓',
     ])
       expect(text).not.toContain(unwanted);
     expect(requests).toHaveLength(0);

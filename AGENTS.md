@@ -235,6 +235,27 @@ retirements recorded in the 2026-10-20 sync manifest.
 - Verify the source, CI and image revisions separately; preserve rollback images
   and production mounts before replacing application containers on the NAS.
 
+### 12. Approved November Follow-up (2026-11-07)
+
+- Integrate the reviewed upstream range `65f40dc0..0aa0d238`, including bounded
+  prefetch, initialization/source-preparation timeouts and retry, task descriptors,
+  bookshelf/history improvements and Web Kit consumer adaptations.
+- Auto-Novel Web/Admin follows unmodified Web Kit `7af98d68`. Auth remains at
+  fork `4aa104ef` / upstream `cdc91ef1` with its selected SDK `b6277d5`; verify
+  compatibility without changing or redeploying Auth.
+- Follow upstream retirement of the old Sakura page and legacy adapters. Keep
+  `workspace-sakura` and all original workers/jobs/history/cache data intact;
+  Pipeline already consumes the shared Sakura store. Redirect old URLs.
+- Preserve ThemeGlossary bindings/merge order/toolbox/drafts/navigation guards,
+  NAILAIN and scoped GPT Pipeline importer/Web Lock/conflict/confirmed-save
+  protections. Include pending new-term inputs in unsaved-change protection.
+- Adapt every host-owned Toast consumer to the SDK rejection contract, including
+  fork-only glossary management. Use SDK community dialogs behind the existing
+  disabled-community boundary; never enable Trial or upstream destinations.
+- Merge and deploy after full local checks, exact-head CI and image provenance
+  verification. Back up runtime identities/data/mounts and retain rollback images;
+  replace only changed Auto-Novel application containers with `--no-deps`.
+
 ## Upstream Merge Checklist
 
 Use this checklist whenever syncing from upstream:

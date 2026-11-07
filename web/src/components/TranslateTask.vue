@@ -4,11 +4,9 @@ import { Toast } from '@novelia/web-kit';
 import {
   runTranslationTask,
   type SingleTaskTranslatorConfig,
+  type TranslateTaskDesc,
+  type TranslateTaskOptions,
 } from '@/domain/translator';
-import type {
-  TranslateTaskDesc,
-  TranslateTaskParams,
-} from '@/model/Translator';
 import { releaseKeepAlive, requestKeepAlive } from '@/util';
 
 import CTaskCard from './CTaskCard.vue';
@@ -37,7 +35,7 @@ onUnmounted(() => taskController?.abort());
 
 const startTask = async (
   desc: TranslateTaskDesc,
-  params: TranslateTaskParams,
+  params: TranslateTaskOptions,
   translatorDesc: SingleTaskTranslatorConfig,
   callback?: {
     onProgressUpdated: (progress: {

@@ -134,6 +134,13 @@ Assert-FileContains 'web/src/components/GlossaryButton.vue' 'ThemeGlossaryApi\.l
 Assert-FileContains 'web/src/components/GlossaryButton.vue' 'update:themeGlossaryId' 'GlossaryButton themeGlossaryId event'
 Assert-FileContains 'web/src/pages/novel/components/TranslateOptions.vue' 'themeGlossaryId' 'TranslateOptions themeGlossaryId prop'
 Assert-FileContains 'web/src/pages/novel/WenkuNovel.vue' 'theme-glossary-id' 'WenkuNovel ThemeGlossary binding'
+Assert-FileContains 'web/src/pages/toolbox/process/ProcessView.vue' 'ToolboxItemThemeGlossary' 'relocated ThemeGlossary management'
+Assert-FileExists 'web/src/stores/gptPipelinePersistence.ts'
+Assert-FileExists 'web/src/stores/workspaceLock.ts'
+Assert-FileExists 'web/src/stores/migrateGptWorkers.ts'
+Assert-FileContains 'web/src/stores/key.ts' "WorkspaceSakura:\s*'workspace-sakura'" 'preserved shared Sakura storage key'
+Assert-FileContains 'web/src/stores/useWorkspaceStore.ts' 'useSakuraWorkspaceStore' 'shared Sakura Pipeline store'
+Assert-FileContains 'web/src/router.ts' "path:\s*'sakura',\s*redirect:\s*'/workspace/sakura-pipeline'" 'retired Sakura route redirect'
 
 Assert-FileContains 'web/vite.config.ts' 'books\.kotoban\.top' 'production domain books.kotoban.top'
 Assert-FileContains 'web/src/components/markdown/markdown.ts' 'books\.kotoban\.top' 'markdown host fallback domain'
@@ -168,7 +175,13 @@ foreach ($RetiredPath in @(
     'web/src/pages/workspace/GptWorkspace.vue',
     'web/src/pages/workspace/Interactive.vue',
     'web/src/pages/workspace/components/GptWorkerModal.vue',
-    'web/src/domain/translate/TranslatorOpenAi.ts'
+    'web/src/domain/translate/TranslatorOpenAi.ts',
+    'web/src/domain/translate/Translator.ts',
+    'web/src/pages/workspace/legacy/SakuraWorkspace.vue',
+    'web/src/pages/workspace/legacy/components/JobWorker.vue',
+    'web/src/repos/useTranslationCache.ts',
+    'web/src/pages/workspace/worker/TrialTranslationDialog.vue',
+    'web/src/pages/workspace/worker/TrialGlossaryPanel.vue'
 )) {
     if (Test-Path -LiteralPath (Resolve-RepoPath $RetiredPath) -PathType Leaf) {
         Add-Failure "Retired legacy capability was restored: $RetiredPath"

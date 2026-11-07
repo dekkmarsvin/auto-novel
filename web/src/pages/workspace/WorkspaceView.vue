@@ -1,7 +1,7 @@
 <script lang="ts" setup>
+import { XButton, XPage, XPageHeader } from '@novelia/web-kit';
 import { BookOutlined } from '@vicons/material';
 import type { WorkspaceTranslatorId } from '@/model/Translator';
-import WorkspaceActionButton from './WorkspaceActionButton.vue';
 import WorkspaceLog from './WorkspaceLog.vue';
 import LocalVolumeTranslationDrawer from '../toolbox/local-volume/LocalVolumeTranslationDrawer.vue';
 import TaskSection from './task/TaskSection.vue';
@@ -20,6 +20,7 @@ const {
   jobs,
   clearTranslationCache,
   taskStates,
+  taskErrors,
   workerStates,
   workerErrors,
   startWorker,
@@ -27,24 +28,27 @@ const {
   startAllWorkers,
   stopAllWorkers,
   deleteJob,
+  retryTask,
   topJob,
   bottomJob,
-  runProcessLoop,
 } = useWorkspaceRuntime(props.translatorId);
 </script>
 
 <template>
-  <div class="layout-content">
-    <div class="my-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 class="m-0 text-[30px]/[1.6] font-medium text-ink">
-        {{ isSakura ? 'Sakura' : 'GPT' }}工作区
-      </h1>
-      <WorkspaceActionButton
-        label="本地书架"
-        :icon="BookOutlined"
-        @action="showLocalVolumeDrawer = true"
-      />
-    </div>
+  <XPage>
+    <XPageHeader :title="isSakura ? 'Sakura工作区' : 'GPT工作区'">
+      <template #actions>
+        <XButton
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="showLocalVolumeDrawer = true"
+        >
+          <BookOutlined class="size-4" aria-hidden="true" />
+          本地书架
+        </XButton>
+      </template>
+    </XPageHeader>
     <WorkspaceBulletin :translator-id="translatorId" />
 
     <n-alert v-if="persistenceError" type="warning" class="my-4">
@@ -72,12 +76,13 @@ const {
     <TaskSection
       :jobs="jobs"
       :task-states="taskStates"
+      :task-errors="taskErrors"
       @delete="deleteJob"
-      @retry="runProcessLoop"
+      @retry="retryTask"
       @top="topJob"
       @bottom="bottomJob"
     />
-  </div>
+  </XPage>
 
   <LocalVolumeTranslationDrawer
     v-model:show="showLocalVolumeDrawer"

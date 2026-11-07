@@ -97,11 +97,6 @@ const navigationOptions = computed<WebKitMenuOption[]>(() => [
         label: 'Sakura工作区',
         to: '/workspace/sakura-pipeline',
       },
-      {
-        key: '/workspace/sakura',
-        label: 'Sakura工作区（待废弃）',
-        to: '/workspace/sakura',
-      },
     ],
   },
   ...(community.enabled
@@ -150,9 +145,8 @@ const menuKey = computed(() => {
         <keep-alive
           :include="[
             'Index',
-            'BookshelfWeb',
-            'BookshelfWenku',
-            'ReadHistoryList',
+            'BookshelfView',
+            'ReadHistoryView',
             'WebNovelList',
             'WebNovelRank',
             'WenkuNovelList',

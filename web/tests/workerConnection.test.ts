@@ -15,7 +15,22 @@ vi.mock('@auto-novel/translator', async (original) => ({
   }),
 }));
 vi.mock('@novelia/web-kit', () => ({
-  Toast: { success: boundary.success, error: boundary.error },
+  getApiErrorMessage: (error: unknown, prefix: string) =>
+    `${prefix}：${error instanceof Error ? error.message : String(error)}`,
+  Toast: {
+    success: boundary.success,
+    error: boundary.error,
+    // The selected SDK preserves rejection. The actual consumer must handle it
+    // without displaying a successful original-text fallback.
+    promise: <T>(
+      value: Promise<T>,
+      messages: { error: (error: unknown) => string },
+    ) =>
+      value.catch((error: unknown) => {
+        boundary.error(messages.error(error));
+        throw error;
+      }),
+  },
 }));
 vi.mock('../src/pages/workspace/worker/GptWorkerDialog.vue', () => ({
   default: {},

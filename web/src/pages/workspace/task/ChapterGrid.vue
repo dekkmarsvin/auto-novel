@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue';
 import type {
   UnitDetailState,
   UnitStatus,
@@ -15,14 +15,21 @@ const emit = defineEmits<{
 }>();
 
 const root = ref<HTMLElement>();
-const errorsExpanded = ref(false);
+type GroupStatus = 'translating' | 'paused' | 'error';
+const expandedGroups = reactive({ paused: false, error: false });
+const regionClass: Record<GroupStatus, string> = {
+  translating: '[--region-color:var(--color-info)]',
+  paused: '[--region-color:var(--color-warning)]',
+  error: '[--region-color:var(--color-error)]',
+};
 const previewLimit = 6;
 
-const statusLabels: Record<UnitStatus, string> = {
+const statusLabels: Record<UnitStatus | 'paused', string> = {
   pending: '等待',
   translating: '处理中',
   done: '成功',
   error: '失败',
+  paused: '已暂停',
 };
 
 const phaseLabels = {
@@ -75,17 +82,20 @@ const chapters = computed(() =>
       else if (state?.ready && state.completedCount === state.segments.length)
         phase = 'saving';
     }
+    // 展示分区独立于原始任务状态；翻译单元需在分段准备好后显示。
+    let region: GroupStatus | undefined;
+    if (props.taskState?.isPausedUnit(ch)) region = 'paused';
+    else if (ch.status === 'error') region = 'error';
+    else if (ch.status === 'translating' && state?.ready)
+      region = 'translating';
     return {
+      ...ch,
+      region,
       phase,
       compact:
-        phase === 'queued' && (!state || !startedChapters.value.has(state)),
-      ...ch,
-      // 整章分段准备好后持续显示，包含排队、分段间隙和保存阶段。
-      // 完成、失败或中止仍以章节状态为准，不能仅凭 ready 判断。
-      status:
-        ch.status === 'translating' && !state?.ready
-          ? ('pending' as const)
-          : ch.status,
+        region === 'translating' &&
+        phase === 'queued' &&
+        (!state || !startedChapters.value.has(state)),
       segmentProgress: state?.ready
         ? { completed: state.completedCount, total: state.segments.length }
         : ch.segmentProgress,
@@ -96,26 +106,24 @@ const chapters = computed(() =>
 type Chapter = (typeof chapters.value)[number];
 
 const groups = computed(() => {
-  const byStatus: Record<'translating' | 'error', Chapter[]> = {
+  const byStatus: Record<GroupStatus, Chapter[]> = {
     translating: [],
+    paused: [],
     error: [],
   };
   for (const chapter of chapters.value) {
-    if (chapter.status === 'translating' || chapter.status === 'error') {
-      byStatus[chapter.status].push(chapter);
-    }
+    if (chapter.region) byStatus[chapter.region].push(chapter);
   }
-  return (['translating', 'error'] as const).flatMap((status) => {
+  return (['translating', 'paused', 'error'] as const).flatMap((status) => {
     const items = byStatus[status];
     if (!items.length) return [];
+    const expanded = status === 'translating' || expandedGroups[status];
     return {
       status,
+      expanded,
       label: statusLabels[status],
       items,
-      visible:
-        status === 'translating' || errorsExpanded.value
-          ? items
-          : items.slice(0, previewLimit),
+      visible: expanded ? items : items.slice(0, previewLimit),
     };
   });
 });
@@ -131,9 +139,9 @@ function pct(sp: Chapter['segmentProgress']): number {
 function description(ch: Chapter): string {
   const progress = ch.segmentProgress;
   const statusLabel =
-    ch.status === 'translating'
+    ch.region === 'translating'
       ? phaseLabels[ch.phase]
-      : statusLabels[ch.status];
+      : statusLabels[ch.region ?? ch.status];
   return `${ch.kind === 'metadata' ? '小说信息' : `任务内编号 #${ch.order}`} · ${ch.title} · ${statusLabel}${
     progress ? ` · 已完成 ${progress.completed}/${progress.total} 段` : ''
   } · 点击查看预览`;
@@ -147,10 +155,7 @@ function chapterElement(chapterId: string): HTMLElement | undefined {
 
 // 章节移出或跨分区时仅恢复键盘焦点，不播放进出动画。
 watch(
-  () =>
-    (props.taskState?.units ?? []).map(
-      (ch) => [ch.chapterId, ch.status] as const,
-    ),
+  () => chapters.value.map((ch) => [ch.chapterId, ch.region] as const),
   async (current, previous) => {
     if (!root.value || !previous) return;
     if (
@@ -202,11 +207,7 @@ watch(
         :key="group.status"
         :data-region="group.status"
         class="relative min-w-0 border-0 bg-transparent p-0"
-        :class="
-          group.status === 'translating'
-            ? '[--region-color:var(--color-info)]'
-            : '[--region-color:var(--color-error)]'
-        "
+        :class="regionClass[group.status]"
         :aria-label="`${group.label}章节`"
         tabindex="-1"
       >
@@ -235,7 +236,7 @@ watch(
                 : 'text-(--region-color)',
               {
                 'chapter-progress-fill relative isolate':
-                  group.status === 'translating' && !ch.compact,
+                  group.status !== 'error' && !ch.compact,
               },
             ]"
             :style="{ '--chapter-progress': `${pct(ch.segmentProgress)}%` }"
@@ -243,7 +244,7 @@ watch(
             :aria-label="description(ch)"
             @click="emit('preview', ch.chapterId)"
           >
-            <template v-if="group.status === 'translating' && !ch.compact">
+            <template v-if="group.status !== 'error' && !ch.compact">
               <span>
                 {{ ch.kind === 'metadata' ? '信息' : `#${ch.order}` }}
               </span>
@@ -263,7 +264,9 @@ watch(
         </div>
 
         <button
-          v-if="group.status === 'error' && group.items.length > previewLimit"
+          v-if="
+            group.status !== 'translating' && group.items.length > previewLimit
+          "
           type="button"
           :class="[
             'mt-2 block w-full cursor-pointer border-0 bg-transparent py-1.25',
@@ -271,10 +274,10 @@ watch(
             'focus-visible:outline-2 focus-visible:outline-offset-1',
             'focus-visible:outline-(--region-color)',
           ]"
-          :aria-expanded="errorsExpanded"
-          @click="errorsExpanded = !errorsExpanded"
+          :aria-expanded="group.expanded"
+          @click="expandedGroups[group.status] = !group.expanded"
         >
-          {{ errorsExpanded ? '收起' : `查看全部 ${group.items.length} 项` }}
+          {{ group.expanded ? '收起' : `查看全部 ${group.items.length} 项` }}
         </button>
       </section>
     </div>
@@ -294,7 +297,7 @@ watch(
   z-index: -1;
   inset: 0 auto 0 0;
   width: var(--chapter-progress, 0%);
-  background: var(--color-info);
+  background: var(--region-color);
   opacity: 0.14;
   content: '';
   pointer-events: none;

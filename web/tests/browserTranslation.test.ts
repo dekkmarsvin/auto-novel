@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TranslateTaskParams } from '../src/model/Translator';
+import type { TranslateTaskParams } from '../src/domain/translator/tasks/task-descriptor';
 import type { TaskExecutionContext } from '../src/domain/translator/tasks/task';
 
 const boundary = vi.hoisted(() => ({
@@ -218,8 +218,50 @@ describe('pipeline browser crawler and HTTP boundary', () => {
     expect(state.chapters[0].status).toBe('done');
     expect(upload.signal.aborted).toBe(false);
     execution.abort();
-    expect(upload.signal.aborted).toBe(true);
+    // Completed units release their parent cancellation listener.
+    expect(upload.signal.aborted).toBe(false);
   });
+
+  it.each<StopReason>(['stopped', 'replaced', 'permission-revoked'])(
+    'cancels the actual chapter upload while it is still pending after %s',
+    async (reason) => {
+      const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', params);
+      await task.initialize(context);
+      const state = new TaskState();
+      state.initialize(task.chapters, task.metadataUnit);
+      const work = await new WorkPreparer(task).prepareUnit(
+        state.chapters[0],
+        {
+          onUnitStatus: (id, status) => state.updateStatus(id, status),
+          onLog: context.onLog,
+        },
+        context.signal,
+      );
+      const uploadStarted = deferred<Request>();
+      boundary.fetch.mockImplementation(async (input, init) => {
+        const request = new Request(input, init);
+        uploadStarted.resolve(request);
+        return new Promise<Response>((_resolve, reject) => {
+          request.signal.addEventListener(
+            'abort',
+            () => reject(request.signal.reason),
+            { once: true },
+          );
+        });
+      });
+      const saving = work!.onComplete({ lines: ['translated'], failed: [] });
+      const rejected = expect(saving).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      const request = await uploadStarted.promise;
+      expect(request.url).toContain('/translate-v2/gpt/chapter/1');
+      expect(request.signal.aborted).toBe(false);
+      stop(reason);
+      await rejected;
+      expect(request.signal.aborted).toBe(true);
+      expect(state.chapters[0].status).not.toBe('done');
+    },
+  );
 
   it('keeps server sync enabled when browser crawling is disabled', async () => {
     const task = new WebTranslationTask('pixiv', 'fixture', 'gpt', {
