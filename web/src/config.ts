@@ -11,7 +11,7 @@ export const commentsAvailable = (hideComment: boolean) =>
 
 // 本站社区及项目相关的外部链接。
 export const siteUrls = {
-  repository: `https://github.com/${__BUILD_INFO__.gitRepository}`,
+  repository: `https://github.com/${__GIT_REPOSITORY__}`,
   addonRepository: 'https://github.com/dekkmarsvin/addon/releases',
   qqGroup: 'https://qm.qq.com/q/wCCkZFaWC4',
   telegram: 'https://t.me/+hgUSCmuBReQzNmU1',

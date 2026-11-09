@@ -1,4 +1,7 @@
-import { themeBootstrapPlugin } from '@novelia/web-kit/vite';
+import {
+  htmlBootstrapPlugin,
+  type HtmlBootstrapOptions,
+} from '@novelia/web-kit/vite';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(
@@ -8,9 +11,10 @@ const source = readFileSync(
 const storageMigrationScript = `${source.replace('export function', 'function')}\ntry { migrateLegacyStorage(window.localStorage); } catch {}`;
 
 /** One injection keeps migration before the SDK's first-paint theme script. */
-export function storageBootstrapPlugin() {
-  const theme = themeBootstrapPlugin();
+export function storageBootstrapPlugin(options?: HtmlBootstrapOptions) {
+  const bootstrap = htmlBootstrapPlugin(options);
   return {
+    ...bootstrap,
     name: 'auto-novel-storage-bootstrap',
     transformIndexHtml: {
       order: 'pre' as const,
@@ -20,7 +24,7 @@ export function storageBootstrapPlugin() {
           children: storageMigrationScript,
           injectTo: 'head-prepend' as const,
         },
-        ...theme.transformIndexHtml.handler(),
+        ...bootstrap.transformIndexHtml.handler(),
       ],
     },
   };

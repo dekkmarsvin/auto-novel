@@ -6,6 +6,7 @@ import NovelGlossaryEditor from '@/components/NovelGlossaryEditor.vue';
 import CommunityComments from '@/components/CommunityComments.vue';
 import { GenericNovelId } from '@/model/Common';
 import type { Glossary } from '@/model/Glossary';
+import { useHorizontalSwipe } from '@/util';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -84,10 +85,27 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     }
   }
 });
+
+const switchAdjacentTab = (offset: -1 | 1) => {
+  const tabs = availableTabs.value;
+  const index = tabs.indexOf(activeTab.value);
+  if (index < 0) return;
+
+  const target = tabs[index + offset];
+  if (target !== undefined) {
+    void switchTab(target);
+  }
+};
+
+const swipeTarget = useTemplateRef<HTMLElement>('swipeTarget');
+useHorizontalSwipe(swipeTarget, {
+  onSwipeLeft: () => switchAdjacentTab(1),
+  onSwipeRight: () => switchAdjacentTab(-1),
+});
 </script>
 
 <template>
-  <div class="novel-bottom-tabs" style="margin-top: 24px">
+  <div ref="swipeTarget" class="novel-bottom-tabs" style="margin-top: 24px">
     <n-tabs
       v-model:value="activeTab"
       type="line"

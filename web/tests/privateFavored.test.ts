@@ -41,9 +41,8 @@ vi.mock('../src/webKit', async () => {
   };
 });
 
-// The real repository cache is created eagerly from the active Pinia. Give it
-// the same app lifetime as production, and finish cold imports in collection
-// before any case installs its mutable HTTP fixture.
+// Give the queries the same installed app lifetime as production, and finish
+// cold imports in collection before a case installs its mutable HTTP fixture.
 const pinia = createPinia();
 const app = createApp({});
 app.use(pinia);

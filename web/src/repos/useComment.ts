@@ -1,4 +1,5 @@
 import { computed, watch } from 'vue';
+import { getActivePinia } from 'pinia';
 import { useQuery } from '@pinia/colada';
 import type {
   Comment,
@@ -9,7 +10,7 @@ import type {
 import { CommentApi } from '@/api';
 import { webKit } from '@/webKit';
 import { community } from '@/config';
-import { cache } from './cache';
+import { getQueryCache } from './cache';
 
 const ListKey = 'comment-list';
 const ReplyPageSize = 20;
@@ -22,6 +23,10 @@ watch(
   viewerKey,
   (_, previous) => {
     viewerRevision++;
+    // An early SDK refresh can change identity during static module loading.
+    // No query cache exists to clear until the application installs Pinia.
+    if (!getActivePinia()) return;
+    const cache = getQueryCache();
     const filter = { key: [ListKey, previous] };
     cache.cancelQueries(filter);
     for (const entry of cache.getEntries(filter)) cache.remove(entry);
@@ -46,8 +51,9 @@ const replyListKey = (site: string, rootId: number, page: number) => [
 const useCommentList = (
   page: MaybeRefOrGetter<number>,
   site: MaybeRefOrGetter<string>,
-) =>
-  useQuery({
+) => {
+  const cache = getQueryCache();
+  return useQuery({
     enabled: () => community.enabled,
     key: () => commentListKey(toValue(site), toValue(page)),
     query: async ({ signal }) => {
@@ -73,6 +79,7 @@ const useCommentList = (
       return { ...result, items };
     },
   });
+};
 
 const useReplyList = (
   page: MaybeRefOrGetter<number>,
@@ -103,6 +110,7 @@ const mutateComments = async <T>(
   update?: (comment: Comment, result: T) => Comment,
   site?: string,
 ): Promise<T> => {
+  const cache = getQueryCache();
   const revision = viewerRevision;
   const filter = {
     key: site === undefined ? commentsKey() : [...commentsKey(), site],
@@ -136,6 +144,7 @@ export const CommentRepo = {
   replyPageSize: ReplyPageSize,
 
   async setUserBlocked(userId: number, blocked: boolean) {
+    const cache = getQueryCache();
     const revision = viewerRevision;
     await CommentApi.setUserBlocked(userId, blocked);
     if (revision !== viewerRevision) return;

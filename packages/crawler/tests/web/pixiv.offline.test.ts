@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { CrawlerAuthError, CrawlerParseError } from '@/errors';
 import { Pixiv } from '@/web/pixiv';
+import { WebNovelType } from '@/web/types';
 
 describe('Pixiv series pagination', () => {
   let origin: string;
@@ -18,14 +19,19 @@ describe('Pixiv series pagination', () => {
     | 'http-error'
     | 'hidden';
   let total: number | undefined;
-  const createDate = '2026-10-01T00:00:00Z';
-  const uploadTimestamp = 1790812800;
+  let isConcluded: boolean | undefined;
+  const createDate = '2026-10-19T09:00:00+09:00';
+  const uploadTimestamp = 1792454400;
   const chapters = Array.from({ length: 61 }, (_, index) => ({
     id: String(index + 1),
     title: `Chapter ${index + 1}`,
     series: { viewableType: 0 },
     tags: ['series-tag'],
-    ...(index === 0 ? { createDate } : index === 1 ? { uploadTimestamp } : {}),
+    ...(index === 0
+      ? { createDate, uploadTimestamp: 1 }
+      : index === 1
+        ? { uploadTimestamp }
+        : {}),
   }));
   const server = createServer((request, response) => {
     const url = new URL(request.url!, origin);
@@ -34,7 +40,25 @@ describe('Pixiv series pagination', () => {
       response.end('<input name="r18" checked>');
     } else if (url.pathname === '/ajax/novel/series/fixture') {
       response.end(
-        JSON.stringify({ body: { title: 'Series', total, tags: [] } }),
+        JSON.stringify({
+          body: { title: 'Series', total, tags: [], isConcluded },
+        }),
+      );
+    } else if (url.pathname === '/ajax/novel/123') {
+      response.end(
+        JSON.stringify({
+          body: {
+            title: 'Single',
+            userName: 'Author',
+            userId: '7',
+            seriesNavData: null,
+            tags: { tags: [] },
+            xRestrict: 0,
+            characterCount: 10,
+            description: 'Intro',
+            createDate,
+          },
+        }),
       );
     } else if (url.pathname === '/ajax/novel/series_content/fixture') {
       const start = Number(url.searchParams.get('last_order'));
@@ -107,6 +131,7 @@ describe('Pixiv series pagination', () => {
   ) => {
     mode = nextMode;
     total = nextTotal;
+    isConcluded = undefined;
     pageStarts = [];
     return new Pixiv(
       ky.create({
@@ -128,9 +153,36 @@ describe('Pixiv series pagination', () => {
       chapters.map((chapter) => chapter.id),
     );
     expect(metadata.toc.slice(0, 3).map((chapter) => chapter.createAt)).toEqual(
-      [createDate, new Date(uploadTimestamp * 1000).toISOString(), null],
+      ['2026-10-19T00:00:00.000Z', '2026-10-20T00:00:00.000Z', null],
     );
     expect(metadata.keywords).toEqual(['series-tag']);
+  });
+
+  it.each([
+    [true, WebNovelType.Completed],
+    [false, WebNovelType.Ongoing],
+    [undefined, WebNovelType.Ongoing],
+  ] as const)(
+    'maps series completion %s without losing paginated chapters',
+    async (concluded, expected) => {
+      const crawler = provider();
+      isConcluded = concluded;
+      const metadata = await crawler.getMetadata('fixture');
+      expect(metadata.type).toBe(expected);
+      expect(pageStarts).toEqual([0, 30, 60]);
+      expect(metadata.toc.map((chapter) => chapter.chapterId)).toEqual(
+        chapters.map((chapter) => chapter.id),
+      );
+    },
+  );
+
+  it('normalizes a standalone chapter offset timestamp to the server-compatible ISO format', async () => {
+    const metadata = await provider().getMetadata('s123');
+    expect(metadata.type).toBe(WebNovelType.ShortStory);
+    expect(metadata.toc).toEqual([
+      { title: '无名', chapterId: '123', createAt: '2026-10-19T00:00:00.000Z' },
+    ]);
+    expect(pageStarts).toEqual([]);
   });
 
   it.each([
