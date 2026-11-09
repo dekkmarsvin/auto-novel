@@ -1,15 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
 import type { Comment, CommentPage } from '@novelia/web-kit';
 
-const mocks = vi.hoisted(() => ({
-  api: {
-    updateComment: vi.fn(),
-    deleteComment: vi.fn(),
-    setCommentStatus: vi.fn(),
-    getComments: vi.fn(),
-  },
-}));
+const mocks = vi.hoisted(() => {
+  // This repository runs in a browser; model that before Pinia is imported.
+  vi.stubGlobal('window', new EventTarget());
+  return {
+    api: {
+      updateComment: vi.fn(),
+      deleteComment: vi.fn(),
+      setCommentStatus: vi.fn(),
+      getComments: vi.fn(),
+    },
+  };
+});
+afterAll(() => vi.unstubAllGlobals());
 const whoami = ref({ user: { id: 1 } });
 vi.mock('@/webKit', () => ({ webKit: { whoami } }));
 vi.mock('@/api', () => ({ CommentApi: mocks.api }));
@@ -40,7 +46,7 @@ const cache = {
   invalidateQueries: vi.fn(async () => {}),
   remove: vi.fn((entry: Entry) => entries.splice(entries.indexOf(entry), 1)),
 };
-vi.mock('../src/repos/cache', () => ({ cache }));
+vi.mock('../src/repos/cache', () => ({ getQueryCache: () => cache }));
 const { CommentRepo: repo } = await import('../src/repos/useComment');
 const comment = (id: number, authorId = 7): Comment => ({
   id,
@@ -75,6 +81,7 @@ const deferred = <T>() => {
 };
 
 beforeEach(() => {
+  setActivePinia(createPinia());
   whoami.value = { user: { id: 1 } };
   entries.length = 0;
   pending.length = 0;

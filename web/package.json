@@ -67,12 +67,11 @@
     "unplugin-vue-components": "^0.27.5",
     "uuid": "^10.0.0",
     "vite": "^8.0.8",
-    "vite-plugin-html": "^3.2.2",
     "vue": "^3.5.41",
     "vue-draggable-plus": "^0.5.6",
     "vue-router": "^5.2.0",
     "vue-tsc": "^2.2.12",
-    "@novelia/web-kit": "github:auto-novel/web-kit#7af98d68fe97ad1a35add10761b86697e634cef3",
+    "@novelia/web-kit": "github:auto-novel/web-kit#b413db7591ea386c7a971756f1119a0239cd7625",
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3"
   }

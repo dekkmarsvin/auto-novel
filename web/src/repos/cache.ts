@@ -1,6 +1,7 @@
 import { useQueryCache } from '@pinia/colada';
 
-export const cache = useQueryCache();
+/** Static route imports run before main installs Pinia; resolve only on use. */
+export const getQueryCache = () => useQueryCache();
 
 export function withOnSuccess<TArgs extends unknown[], TReturn>(
   apiCall: (...args: TArgs) => Promise<TReturn>,

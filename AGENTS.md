@@ -256,6 +256,29 @@ retirements recorded in the 2026-10-20 sync manifest.
   verification. Back up runtime identities/data/mounts and retain rollback images;
   replace only changed Auto-Novel application containers with `--no-deps`.
 
+### 13. Approved November Feature Sync (2026-11-09)
+
+- Integrate the reviewed range `0aa0d238..9d0013f7`, including Pixiv completion/
+  timestamp fixes, readable Sakura/retry errors, guarded touch navigation,
+  Web Kit HTML bootstrap, build/proxy adaptation and Admin updates.
+- Auto-Novel follows unmodified Web Kit `b413db75`. Auth remains at fork
+  `4aa104ef` / upstream `cdc91ef1` with SDK `b6277d5`; do not change or redeploy it.
+- Keep legacy storage migration before SDK theme/first paint, local/native/
+  remote credential and proxy boundaries, exact Kotoban origins, remote account
+  deep links/assets, fork build provenance and existing browser build target.
+  Removing a plugin export does not authorize removing these host protections.
+- Preserve ThemeGlossary, NAILAIN, P2 settings/importer/Web Lock, original
+  browser data and disabled-community/Trial boundaries. Swipe navigation must
+  pass through the existing glossary unsaved-change guard.
+- Adopt the one-hour public Banner HTTP cache with accurate cache-delay wording;
+  retain Admin's guarded tab changes, upload/save exclusions and race tests.
+- Keep Sakura Share's HTTPS API endpoint. Its health/models/CORS were reachable
+  during review while monitor destinations failed; do not substitute an
+  unverified endpoint or add a new provider/fallback service.
+- Merge and update changed NAS application services only after tests, exact-head
+  CI and published-image verification. Preserve data/Auth containers, mounts,
+  secrets and rollback images; inspect separately deployed crawler consumers.
+
 ## Upstream Merge Checklist
 
 Use this checklist whenever syncing from upstream:

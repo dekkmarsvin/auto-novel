@@ -66,6 +66,21 @@ be merged and deployed after local verification, exact-head CI, image provenance
 and a recoverable rollout of changed Auto-Novel services; Auth/data services stay
 at their verified current identities.
 
+The 2026-11-09 approval integrates the evaluated range `0aa0d238..9d0013f7`
+and Auto-Novel's unmodified SDK `b413db75`. Accept Pixiv completion/time fixes,
+Sakura retry-error propagation, guarded touch navigation and the shared
+bootstrap/build/Admin direction. Keep the existing host storage-migration
+ordering, three API modes, credential/proxy isolation, remote Auth routes/assets,
+browser target and source/image metadata. Adapt the host to the new HTML plugin
+rather than patching SDK source or creating another authentication framework.
+Auth stays at `4aa104ef` with SDK `b6277d5`; its wire contract is unchanged.
+The one-hour public Banner cache is an intentional delay tradeoff, with accurate
+host wording and all Admin save/upload protections retained. Sakura Share's
+working API remains configured independently of its failed monitoring pages.
+No source sync authorizes deleting original data or deploying a new fallback
+provider. Delivery requires full verification, exact-head CI, registry/runtime
+provenance and recoverable updates of only changed NAS services.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.

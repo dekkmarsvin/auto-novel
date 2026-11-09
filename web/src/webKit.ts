@@ -1,5 +1,5 @@
 import { createWebKit } from '@novelia/web-kit';
-import { authProductionUrl } from './config';
+import { authProductionUrl, siteUrls } from './config';
 import { migrateLegacyStorage } from './storageMigration.js';
 
 export const isLocalAuth = ['local', 'native'].includes(
@@ -24,9 +24,9 @@ export const webKit = createWebKit({
   },
   brand: '小说',
   repository: {
-    url: `https://github.com/${__BUILD_INFO__.gitRepository}`,
-    buildTime: __BUILD_INFO__.buildTime,
-    commitSha: __BUILD_INFO__.gitCommit,
+    url: siteUrls.repository,
+    buildTime: __BUILD_TIME__,
+    commitSha: __COMMIT_SHA__,
   },
   strikes: { enabled: !isLocalAuth },
 });

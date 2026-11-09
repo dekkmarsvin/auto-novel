@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { storageBootstrapPlugin } from './storageBootstrap.ts';
 import vue from '@vitejs/plugin-vue';
 import { execFileSync } from 'node:child_process';
-import path from 'path';
+import { fileURLToPath, URL } from 'node:url';
 import { ProxyAgent } from 'proxy-agent';
 import Sonda from 'sonda/vite';
 import AutoImport from 'unplugin-auto-import/vite';
@@ -10,7 +10,7 @@ import { NaiveUiResolver } from 'unplugin-vue-components/resolvers';
 import Components from 'unplugin-vue-components/vite';
 import type { UserConfig } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
-import { createHtmlPlugin } from 'vite-plugin-html';
+const envDirectory = fileURLToPath(new URL('.', import.meta.url));
 
 function resolveGitCommit(env: Record<string, string>) {
   const injectedCommit =
@@ -22,7 +22,7 @@ function resolveGitCommit(env: Record<string, string>) {
 
   try {
     return execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: process.cwd(),
+      cwd: envDirectory,
       encoding: 'utf8',
     }).trim();
   } catch (error) {
@@ -89,9 +89,13 @@ function setupRemoteAuthProxy(config: UserConfig) {
   };
 }
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd());
-  const apiMode = env.VITE_API_MODE;
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, envDirectory, 'VITE_');
+  const isServe = command === 'serve';
+  const apiMode = env.VITE_API_MODE || 'remote';
+  if (!['remote', 'local', 'native'].includes(apiMode)) {
+    throw new Error('VITE_API_MODE must be remote, local or native');
+  }
   const apiUrl = (() => {
     if (apiMode === 'remote') {
       return 'https://books.kotoban.top';
@@ -118,7 +122,9 @@ export default defineConfig(({ mode }) => {
 
   const config: UserConfig = {
     define: {
-      __BUILD_INFO__: JSON.stringify(buildInfo),
+      __BUILD_TIME__: JSON.stringify(buildInfo.buildTime),
+      __COMMIT_SHA__: JSON.stringify(buildInfo.gitCommit),
+      __GIT_REPOSITORY__: JSON.stringify(buildInfo.gitRepository),
     },
     optimizeDeps: {
       // web-kit 发布 Vue 源码，避免预构建与 SFC 分别创建注入标识和单例。
@@ -127,21 +133,26 @@ export default defineConfig(({ mode }) => {
     build: {
       target: ['es2015'],
       cssCodeSplit: false,
-      rollupOptions: {
-        treeshake: true,
+      rolldownOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('web/src')) {
-              return 'chunk';
-            } else if (id.includes('@zip.js')) {
-              return 'dep-zip';
-            } else if (id.includes('opencc')) {
-              return 'dep-opencc';
-            } else if (id.includes('naive')) {
-              return 'dep-naive';
-            } else if (id.includes('node_module')) {
-              return 'dep';
+            const normalizedId = id.replaceAll('\\', '/');
+            if (normalizedId.includes('/node_modules/@novelia/web-kit/')) {
+              return 'web-kit';
             }
+            if (normalizedId.includes('/node_modules/')) {
+              if (normalizedId.includes('/node_modules/@zip.js/')) {
+                return 'dep-zip';
+              }
+              if (normalizedId.includes('/node_modules/opencc-js/')) {
+                return 'dep-opencc';
+              }
+              if (normalizedId.includes('/node_modules/naive-ui/')) {
+                return 'dep-naive';
+              }
+              return 'vendor';
+            }
+            return undefined;
           },
         },
       },
@@ -178,18 +189,14 @@ export default defineConfig(({ mode }) => {
       },
     },
     resolve: {
-      tsconfigPaths: true,
       alias: {
-        '@': path.resolve(__dirname, 'src'),
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
     plugins: [
       vue(),
       tailwindcss(),
-      storageBootstrapPlugin(),
-      createHtmlPlugin({
-        minify: { minifyJS: true },
-      }),
+      storageBootstrapPlugin({ analytics: 'G-QD8MZ90XFJ' }),
       AutoImport({
         dts: 'src/auto-imports.d.ts',
         ignore: ['h'],
@@ -226,25 +233,18 @@ export default defineConfig(({ mode }) => {
     );
   }
 
-  if (apiMode === 'remote') {
+  if (isServe && apiMode === 'remote') {
     setupRemoteAuthProxy(config);
   }
 
-  // 注入代理能力以解决系统代理时的外网访问问题
-  // ProxyAgent 会自动使用系统代理设置，如果没有系统代理则直接连接目标服务器
-  const upstreamAgent = new ProxyAgent();
-  const proxy = config.server!.proxy!;
-  Object.entries(proxy).forEach(([key, proxyConfig]) => {
-    if (typeof proxyConfig === 'object') {
-      proxyConfig.agent = upstreamAgent;
-    } else {
-      proxy[key] = {
-        target: proxyConfig,
-        changeOrigin: true,
-        agent: upstreamAgent,
-      };
+  // Only remote development needs an outbound system proxy. Local credentials
+  // must stay on the direct loopback API path.
+  if (isServe && apiMode === 'remote') {
+    const upstreamAgent = new ProxyAgent();
+    for (const proxyConfig of Object.values(config.server!.proxy!)) {
+      if (typeof proxyConfig === 'object') proxyConfig.agent = upstreamAgent;
     }
-  });
+  }
 
   return config;
 });
