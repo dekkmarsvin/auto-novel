@@ -81,6 +81,18 @@ No source sync authorizes deleting original data or deploying a new fallback
 provider. Delivery requires full verification, exact-head CI, registry/runtime
 provenance and recoverable updates of only changed NAS services.
 
+The 2026-11-15 sync follows `9d0013f7..3cad838a` and unmodified Web Kit
+`0b63d938`. Shared/native/Nuxt UI controls and lazy AI dependencies follow
+upstream; fork glossary and settings protections remain host responsibilities.
+Preserve pending drafts, confirmed persistence, importer locks, credential and
+first-paint boundaries while adopting the new components. Existing community
+draft bytes remain recoverable when the disabled SDK community path replaces
+its local implementation. Auth has no new upstream changes and stays at
+`4aa104ef` with its independent SDK `b6277d5`, subject to wire and browser checks.
+No backend/schema/data changes or new service are implied. Verify actual built
+startup, source/CI/image identities and crawler consumers before replacing only
+changed NAS application containers with rollback images and private backups.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.

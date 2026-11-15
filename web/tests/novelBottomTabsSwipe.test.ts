@@ -148,22 +148,19 @@ async function mount(wenku: boolean) {
   });
   app.provide(Vue.ssrContextKey, {});
   app.component(
-    'n-tabs',
+    'UTabs',
     Vue.defineComponent({
-      props: { value: String },
+      props: { modelValue: String, items: Array },
       setup:
         (props, { slots }) =>
         () =>
-          Vue.h('tabs', { active: props.value }, slots.default?.()),
-    }),
-  );
-  app.component(
-    'n-tab-pane',
-    Vue.defineComponent({
-      setup:
-        (_props, { slots }) =>
-        () =>
-          Vue.h('pane', {}, slots.default?.()),
+          Vue.h(
+            'tabs',
+            { active: props.modelValue },
+            (props.items as { value: string; slot: string }[]).map((item) =>
+              Vue.h('pane', {}, slots[item.slot]?.()),
+            ),
+          ),
     }),
   );
   app.component(
@@ -216,11 +213,11 @@ async function mount(wenku: boolean) {
 
 describe('novel bottom-tab gestures through the actual consumer', () => {
   it('asks before leaving pending ThemeGlossary input, preserves a cancelled draft and switches only after confirmation', async () => {
-    const { root, tabs, editor } = await mount(true);
+    const { root, tabs } = await mount(true);
     expect(tabs.attrs.active).toBe('wenkuToc');
     await swipe(root, 'left');
     expect(tabs.attrs.active).toBe('glossary');
-    expect(editor.attrs.theme).toBe('shared-theme');
+    expect(find(root, 'editor')!.attrs.theme).toBe('shared-theme');
     boundary.draft!.termsToAdd.value = ['未加入的新詞', '草稿'];
     await swipe(root, 'right');
     expect(boundary.confirmLeave).toHaveBeenCalledOnce();

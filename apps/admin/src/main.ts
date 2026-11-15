@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import ui from '@nuxt/ui/vue-plugin';
 import App from './App.vue';
 import router from './router';
 import { bannerApiKey, createBannerApi } from './api';
@@ -9,4 +10,5 @@ createApp(App)
   .provide(bannerApiKey, createBannerApi(createAdminClient()))
   .use(webKit)
   .use(router)
+  .use(ui)
   .mount('#app');

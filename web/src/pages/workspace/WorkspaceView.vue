@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { XButton, XPage, XPageHeader } from '@novelia/web-kit';
+import { XPage } from '@novelia/web-kit';
 import { BookOutlined } from '@vicons/material';
 import type { WorkspaceTranslatorId } from '@/model/Translator';
 import WorkspaceLog from './WorkspaceLog.vue';
@@ -36,25 +36,31 @@ const {
 
 <template>
   <XPage>
-    <XPageHeader :title="isSakura ? 'Sakura工作区' : 'GPT工作区'">
-      <template #actions>
-        <XButton
+    <UPageHeader :title="isSakura ? 'Sakura工作区' : 'GPT工作区'">
+      <template #links>
+        <UButton
+          :icon="BookOutlined"
           color="neutral"
           variant="outline"
-          size="sm"
+          size="md"
           @click="showLocalVolumeDrawer = true"
         >
-          <BookOutlined class="size-4" aria-hidden="true" />
           本地书架
-        </XButton>
+        </UButton>
       </template>
-    </XPageHeader>
+    </UPageHeader>
     <WorkspaceBulletin :translator-id="translatorId" />
 
-    <n-alert v-if="persistenceError" type="warning" class="my-4">
-      {{ persistenceError }}
-    </n-alert>
-    <n-spin v-if="!storageReady" size="small" />
+    <UAlert
+      v-if="persistenceError"
+      color="warning"
+      variant="soft"
+      class="my-4"
+      :description="persistenceError"
+    />
+    <div v-if="!storageReady" role="status" class="my-4 text-muted">
+      正在载入工作区…
+    </div>
     <WorkerSection
       v-else
       :translator-id="translatorId"

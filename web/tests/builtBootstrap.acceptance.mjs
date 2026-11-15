@@ -22,8 +22,16 @@ function browser(values) {
     setItem: (key, value) => data.set(key, value),
     removeItem: (key) => data.delete(key),
   };
+  const classes = new Set(['light']);
   const document = {
-    documentElement: { dataset: {}, style: { setProperty() {} } },
+    documentElement: {
+      classList: {
+        add: (...tokens) => tokens.forEach((token) => classes.add(token)),
+        remove: (...tokens) => tokens.forEach((token) => classes.delete(token)),
+        contains: (token) => classes.has(token),
+      },
+      style: { setProperty() {} },
+    },
     querySelector: () => ({ setAttribute() {} }),
   };
   const context = {
@@ -55,7 +63,11 @@ test('built HTML migrates Unicode uid session and applies legacy dark theme befo
     JSON.parse(state.storage.getItem('web-kit:session:v1')).token,
     jwt,
   );
-  assert.equal(state.document.documentElement.dataset.theme, 'dark');
+  assert.equal(state.document.documentElement.classList.contains('dark'), true);
+  assert.equal(
+    state.document.documentElement.classList.contains('light'),
+    false,
+  );
 });
 test('built HTML gives existing new keys priority', () => {
   const state = browser({
@@ -66,7 +78,14 @@ test('built HTML gives existing new keys priority', () => {
   });
   state.run();
   assert.equal(state.storage.getItem('web-kit:session:v1'), 'invalid-new');
-  assert.equal(state.document.documentElement.dataset.theme, 'light');
+  assert.equal(
+    state.document.documentElement.classList.contains('light'),
+    true,
+  );
+  assert.equal(
+    state.document.documentElement.classList.contains('dark'),
+    false,
+  );
 });
 test('built HTML cannot restore stale legacy storage after logout', () => {
   const state = browser({ 'auth-v2': JSON.stringify({ token: jwt }) });

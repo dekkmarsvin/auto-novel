@@ -18,13 +18,13 @@ export function storageBootstrapPlugin(options?: HtmlBootstrapOptions) {
     name: 'auto-novel-storage-bootstrap',
     transformIndexHtml: {
       order: 'pre' as const,
-      handler: () => [
+      handler: async () => [
         {
           tag: 'script',
           children: storageMigrationScript,
           injectTo: 'head-prepend' as const,
         },
-        ...bootstrap.transformIndexHtml.handler(),
+        ...(await bootstrap.transformIndexHtml.handler()),
       ],
     },
   };

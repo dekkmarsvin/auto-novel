@@ -300,18 +300,19 @@ defineExpose({
 
 <template>
   <div class="novel-glossary-editor">
-    <n-flex vertical size="large" style="max-width: 500px; margin-bottom: 16px">
-      <n-h3 prefix="bar">编辑术语表</n-h3>
+    <div class="mb-4 flex max-w-125 flex-col gap-y-3">
+      <h3 class="heading-bar">编辑术语表</h3>
       <template v-if="gnidHint">
-        <n-text style="font-size: 12px">{{ gnidHint }}</n-text>
+        <span class="text-default text-[12px]">{{ gnidHint }}</span>
 
-        <n-flex v-if="gnid?.type !== 'local'" align="center">
-          <n-text>绑定的共用术语表：</n-text>
-          <n-select
-            v-model:value="localThemeGlossaryId"
+        <div v-if="gnid?.type !== 'local'" class="flex items-center gap-2">
+          <span>绑定的共用术语表：</span>
+          <USelect
+            :model-value="localThemeGlossaryId ?? ''"
+            @update:model-value="localThemeGlossaryId = $event || null"
             :loading="themeGlossariesLoading"
             :disabled="themeGlossariesLoading"
-            :options="[
+            :items="[
               { label: '无', value: '' },
               ...themeGlossaries.map((g) => ({
                 label: isCurrentAuthor(whoami, g.authorUsername)
@@ -320,165 +321,206 @@ defineExpose({
                 value: g.id,
               })),
             ]"
-            size="small"
-            style="width: 200px"
+            size="sm"
+            class="w-50"
+            aria-label="绑定的共用术语表"
           />
-        </n-flex>
-        <n-text v-if="themeGlossariesLoading" depth="3">
+        </div>
+        <span v-if="themeGlossariesLoading" class="text-muted">
           载入共用术语表中…
-        </n-text>
-        <n-flex v-else-if="themeGlossariesError" align="center">
-          <n-text type="error">共用术语表载入失败</n-text>
-          <c-button label="重试" size="small" @action="loadThemeGlossaries" />
-        </n-flex>
-        <n-text v-else-if="selectedThemeMissing" type="warning">
+        </span>
+        <div v-else-if="themeGlossariesError" class="flex items-center gap-2">
+          <span class="text-error">共用术语表载入失败</span>
+          <ActionButton size="sm" :action="loadThemeGlossaries">
+            重试
+          </ActionButton>
+        </div>
+        <span v-else-if="selectedThemeMissing" class="text-warning">
           绑定的共用术语表不存在，请重新选择。
-        </n-text>
+        </span>
       </template>
 
-      <n-input-group>
-        <n-input
-          pair
-          v-model:value="termsToAdd"
-          size="small"
-          separator="=>"
-          :placeholder="['日文', '中文']"
-          :input-props="{ spellcheck: false }"
+      <UFieldGroup size="sm" class="w-full">
+        <UInput
+          v-model="termsToAdd[0]"
+          placeholder="日文"
+          aria-label="日文术语"
+          :spellcheck="false"
+          class="min-w-0 flex-1"
         />
-        <c-button label="添加" :round="false" size="small" @action="addTerm" />
-      </n-input-group>
+        <span
+          class="flex items-center border border-default px-2 text-muted"
+          aria-hidden="true"
+        >
+          =&gt;
+        </span>
+        <UInput
+          v-model="termsToAdd[1]"
+          placeholder="中文"
+          aria-label="中文翻译"
+          :spellcheck="false"
+          class="min-w-0 flex-1"
+        />
+        <UButton
+          color="neutral"
+          variant="outline"
+          @click="addTerm"
+          class="shrink-0 justify-center"
+        >
+          添加
+        </UButton>
+      </UFieldGroup>
 
-      <n-input
-        v-model:value="importGlossaryRaw"
-        type="textarea"
-        size="small"
+      <UTextarea
+        v-model="importGlossaryRaw"
+        size="sm"
         placeholder="批量导入术语表"
-        :input-props="{ spellcheck: false }"
+        :spellcheck="false"
         :rows="1"
+        class="w-full"
       />
 
-      <n-flex align="center" :wrap="false">
-        <c-button
-          label="导出"
-          :round="false"
-          size="small"
-          @action="exportGlossary"
-        />
-        <c-button
-          label="导入"
-          :round="false"
-          size="small"
-          @action="importGlossary"
-        />
-        <c-button
-          label="下载json文件"
-          :round="false"
-          size="small"
-          @action="downloadGlossaryAsJsonFile"
-        />
-        <c-button
+      <div class="flex items-center gap-x-3">
+        <ActionButton
+          class="rounded-md text-sm/4"
+          size="sm"
+          :action="exportGlossary"
+        >
+          导出
+        </ActionButton>
+        <ActionButton
+          class="rounded-md text-sm/4"
+          size="sm"
+          :action="importGlossary"
+        >
+          导入
+        </ActionButton>
+        <ActionButton
+          class="rounded-md text-sm/4"
+          size="sm"
+          :action="downloadGlossaryAsJsonFile"
+        >
+          下载json文件
+        </ActionButton>
+        <UButton
           v-if="whoami.isAdmin"
-          secondary
-          type="error"
-          label="清空"
-          :round="false"
-          size="small"
-          @action="clearTerm"
-        />
-      </n-flex>
+          color="error"
+          size="sm"
+          variant="soft"
+          @click="clearTerm"
+          class="text-sm/4"
+        >
+          清空
+        </UButton>
+      </div>
 
-      <n-flex align="center" :wrap="false">
-        <c-button
+      <div class="flex items-center gap-x-3">
+        <UButton
+          color="neutral"
+          variant="outline"
           :disabled="deletedTerms.length === 0"
-          label="撤销删除"
-          :round="false"
-          size="small"
-          @action="undoDeleteTerm"
-        />
-        <n-text
+          size="sm"
+          @click="undoDeleteTerm"
+          class="text-sm/4"
+        >
+          撤销删除
+        </UButton>
+        <span
+          class="text-muted text-[12px]"
           v-if="lastDeletedTerm !== undefined"
-          depth="3"
-          style="font-size: 12px"
         >
           {{ lastDeletedTerm }}
-        </n-text>
-      </n-flex>
-    </n-flex>
+        </span>
+      </div>
+    </div>
 
-    <c-radio-group
+    <USelect
       v-if="hasSharedTerms"
-      v-model:value="termFilter"
-      :options="termFilterOptions"
-      size="small"
-      style="margin-bottom: 8px"
+      v-model="termFilter"
+      :items="termFilterOptions"
+      size="sm"
+      class="mb-2"
+      aria-label="术语筛选"
     />
-
-    <n-scrollbar
+    <UScrollArea
       v-if="termRows.length !== 0"
-      style="max-height: 400px; max-width: 500px; margin-bottom: 16px"
+      class="mb-4 max-h-[400px] max-w-[500px]"
     >
-      <n-table striped size="small" style="font-size: 12px; width: 100%">
-        <tr v-for="row in visibleTermRows" :key="row.jp">
-          <td>
-            <c-button
-              v-if="row.kind === 'shared'"
-              :icon="EditOutlined"
-              text
-              size="small"
-              title="在本书中覆盖此术语"
-              @action="overrideTerm(row.jp)"
-            />
-            <c-button
-              v-else
-              :icon="DeleteOutlineOutlined"
-              text
-              type="error"
-              size="small"
-              @action="deleteTerm(row.jp)"
-            />
-          </td>
-          <td v-if="hasSharedTerms">
-            <n-tag
-              :type="termKindTag[row.kind].type"
-              size="small"
-              :bordered="false"
-            >
-              {{ termKindTag[row.kind].label }}
-            </n-tag>
-          </td>
-          <td>{{ row.jp }}</td>
-          <td nowrap="nowrap">=></td>
-          <td style="padding-right: 16px">
-            <n-text v-if="row.kind === 'shared'" depth="2">
-              {{ selectedThemeGlossary[row.jp] }}
-            </n-text>
-            <template v-else>
-              <n-input
-                v-model:value="glossary[row.jp]"
-                size="tiny"
-                placeholder="请输入中文翻译"
-                :theme-overrides="{
-                  border: '0',
-                  color: 'transparent',
-                }"
+      <table
+        class="content-table w-full rounded-[3px] border border-default text-[12px] [&>tbody>tr:nth-child(even)]:bg-surface"
+      >
+        <tbody>
+          <tr v-for="row in visibleTermRows" :key="row.jp">
+            <td>
+              <ActionButton
+                v-if="row.kind === 'shared'"
+                size="sm"
+                variant="link"
+                square
+                class="p-0"
+                :action="() => overrideTerm(row.jp)"
+                aria-label="在本书中覆盖此术语"
+                :icon="EditOutlined"
+                :ui="{ leadingIcon: 'size-4.5' }"
               />
-              <n-text
-                v-if="row.kind === 'override'"
-                depth="3"
-                delete
-                style="font-size: 11px"
+              <ActionButton
+                v-else
+                color="error"
+                size="sm"
+                variant="link"
+                square
+                class="p-0"
+                :action="() => deleteTerm(row.jp)"
+                aria-label="删除"
+                :icon="DeleteOutlineOutlined"
+                :ui="{ leadingIcon: 'size-4.5' }"
+              />
+            </td>
+            <td v-if="hasSharedTerms">
+              <UBadge
+                :color="termKindTag[row.kind].type"
+                size="sm"
+                variant="soft"
               >
-                共用：{{ selectedThemeGlossary[row.jp] }}
-              </n-text>
-            </template>
-          </td>
-        </tr>
-      </n-table>
-    </n-scrollbar>
+                {{ termKindTag[row.kind].label }}
+              </UBadge>
+            </td>
+            <td>{{ row.jp }}</td>
+            <td class="whitespace-nowrap">=&gt;</td>
+            <td class="pr-4!">
+              <span v-if="row.kind === 'shared'" class="text-muted">
+                {{ selectedThemeGlossary[row.jp] }}
+              </span>
+              <template v-else>
+                <UInput
+                  v-model="glossary[row.jp]"
+                  size="xs"
+                  placeholder="请输入中文翻译"
+                  variant="none"
+                  class="w-full"
+                />
+                <span
+                  v-if="row.kind === 'override'"
+                  class="text-muted text-[11px] line-through"
+                >
+                  共用：{{ selectedThemeGlossary[row.jp] }}
+                </span>
+              </template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </UScrollArea>
 
-    <n-flex justify="end" style="max-width: 500px">
-      <c-button label="提交" type="primary" @action="submitGlossary()" />
-    </n-flex>
+    <div class="flex max-w-125 flex-wrap justify-end gap-x-3 gap-y-2">
+      <ActionButton
+        color="primary"
+        :action="() => submitGlossary()"
+        variant="solid"
+      >
+        提交
+      </ActionButton>
+    </div>
 
     <XConfirmDialog
       :open="showConfirmModal"

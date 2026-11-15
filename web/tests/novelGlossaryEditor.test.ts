@@ -108,7 +108,7 @@ const findAll = (value: HostNode, tag: string): HostNode[] => [
   ...value.children.flatMap((child) => findAll(child, tag)),
 ];
 const button = (value: HostNode, label: string) =>
-  findAll(value, 'button').find((entry) => text(entry) === label)!;
+  findAll(value, 'button').find((entry) => text(entry).trim() === label)!;
 const row = (value: HostNode, jp: string) =>
   findAll(value, 'tr').find((entry) =>
     entry.children.some((cell) => cell.tag === 'td' && text(cell) === jp),
@@ -214,102 +214,80 @@ async function mountEditor(
       () =>
         Vue.h('span', attrs, slots.default?.()),
   });
-  for (const name of [
-    'n-flex',
-    'n-h3',
-    'n-text',
-    'n-input-group',
-    'n-scrollbar',
-  ])
-    app.component(name, pass);
-  for (const [name, tag] of [
-    ['n-table', 'table'],
-    ['n-tag', 'tag'],
-  ] as const)
+  for (const name of ['UFieldGroup', 'UScrollArea']) app.component(name, pass);
+  app.component(
+    'UBadge',
+    Vue.defineComponent({
+      setup:
+        (_props, { slots }) =>
+        () =>
+          Vue.h('tag', {}, slots.default?.()),
+    }),
+  );
+  app.component('XConfirmDialog', { render: () => null });
+  for (const name of ['UInput', 'UTextarea'])
     app.component(
       name,
       Vue.defineComponent({
+        props: ['modelValue'],
+        emits: ['update:modelValue'],
         setup:
-          (_props, { slots }) =>
+          (props, { emit }) =>
           () =>
-            Vue.h(tag, {}, slots.default?.()),
+            Vue.h('input', {
+              value: props.modelValue,
+              onInput: (event: { target: { value: string } }) =>
+                emit('update:modelValue', event.target.value),
+            }),
       }),
     );
-  app.component('XConfirmDialog', { render: () => null });
   app.component(
-    'n-input',
+    'USelect',
     Vue.defineComponent({
-      props: ['value'],
-      emits: ['update:value'],
-      setup:
-        (props, { emit }) =>
-        () =>
-          Vue.h('input', {
-            value: props.value,
-            onInput: (event: { target: { value: string } }) =>
-              emit('update:value', event.target.value),
-          }),
-    }),
-  );
-  app.component(
-    'n-select',
-    Vue.defineComponent({
-      props: ['value', 'options', 'disabled'],
-      emits: ['update:value'],
+      props: ['modelValue', 'items', 'disabled'],
+      emits: ['update:modelValue'],
       setup:
         (props, { emit }) =>
         () =>
           Vue.h(
             'select',
             {
-              value: props.value,
+              value: props.modelValue,
               disabled: props.disabled,
               onChange: (event: { target: { value: string } }) =>
-                emit('update:value', event.target.value),
+                emit('update:modelValue', event.target.value),
             },
-            props.options.map((option: { value: string; label: string }) =>
+            props.items.map((option: { value: string; label: string }) =>
               Vue.h('option', { value: option.value }, option.label),
             ),
           ),
     }),
   );
   app.component(
-    'c-radio-group',
+    'UButton',
     Vue.defineComponent({
-      props: ['value', 'options'],
-      emits: ['update:value'],
+      props: ['disabled'],
       setup:
-        (props, { emit }) =>
+        (props, { attrs, slots }) =>
         () =>
           Vue.h(
-            'div',
-            {},
-            props.options.map((option: { value: string; label: string }) =>
-              Vue.h(
-                'button',
-                { onClick: () => emit('update:value', option.value) },
-                option.label,
-              ),
-            ),
+            'button',
+            { ...attrs, disabled: props.disabled },
+            slots.default?.(),
           ),
     }),
   );
   app.component(
-    'c-button',
+    'ActionButton',
     Vue.defineComponent({
-      props: ['label', 'disabled', 'title'],
-      emits: ['action'],
+      props: ['action', 'disabled'],
       setup:
-        (props, { emit }) =>
+        (props, { slots }) =>
         () =>
           Vue.h(
             'button',
-            {
-              disabled: props.disabled,
-              title: props.title,
-              onClick: () => emit('action'),
-            },
-            props.label,
+            { disabled: props.disabled, onClick: () => props.action() },
+            slots.default?.(),
           ),
     }),
   );
@@ -360,13 +338,13 @@ describe('actual novel glossary editor', () => {
     const { root } = await mountEditor();
     await vi.waitFor(() => expect(row(root, '犬')).toBeDefined());
     const select = findAll(root, 'select')[0];
-    for (const [label, selection] of [
-      ['共用 3', ''],
-      ['覆盖 1', 'empty'],
+    for (const [filter, selection] of [
+      ['shared', ''],
+      ['override', 'empty'],
     ]) {
       change(select, 'theme');
       await Vue.nextTick();
-      click(button(root, label));
+      change(findAll(root, 'select')[1], filter);
       await Vue.nextTick();
       expect(row(root, '猫')).toBeUndefined();
       change(select, selection);
@@ -417,6 +395,18 @@ describe('actual novel glossary editor', () => {
       'deleted-theme',
     );
     expect(row(missing.root, '猫')).toBeDefined();
+  });
+
+  it('normalizes the empty Nuxt selection to an unbound saved glossary', async () => {
+    const { root, controls, puts } = await mountEditor();
+    await vi.waitFor(() => expect(row(root, '犬')).toBeDefined());
+    change(findAll(root, 'select')[0], '');
+    await Vue.nextTick();
+    expect(row(root, '犬')).toBeUndefined();
+    expect(controls.isGlossaryChanged()).toBe(true);
+    click(button(root, '提交'));
+    await vi.waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ glossary: { 猫: '貓', ウマ: '本書馬' } });
   });
 
   it('overrides a shared term, deletes back to shared, undoes, and saves only novel terms', async () => {

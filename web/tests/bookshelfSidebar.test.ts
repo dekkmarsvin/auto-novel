@@ -5,8 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import BookshelfMenu from '../src/pages/bookshelf/components/BookshelfMenu.vue';
 
 const boundary = vi.hoisted(() => ({ signedIn: true }));
-// Glyphs and closed Naive forms are outside this navigation/SDK contract.
-// Keep the real dropdown and dialog implementations without loading icon assets.
+// Keep real Nuxt menu triggers and dialogs without loading icon assets.
 vi.mock('@vicons/material', () => ({
   MoreVertOutlined: () => Vue.h('svg'),
   CloseOutlined: () => Vue.h('svg'),
@@ -35,6 +34,10 @@ vi.mock('../src/stores', () => ({
       }),
   },
 }));
+vi.mock('../src/stores/useWhoamiStore', () => ({
+  useWhoamiStore: () =>
+    Vue.reactive({ whoami: Vue.ref({ isSignedIn: boundary.signedIn }) }),
+}));
 vi.mock('../src/pages/bookshelf/BookshelfLocalStore', () => ({
   useBookshelfLocalStore: () => ({ volumes: [] }),
 }));
@@ -54,7 +57,7 @@ async function render() {
   );
 }
 
-it('renders real SDK menu triggers beside navigation links and marks only the active folder', async () => {
+it('renders real Nuxt menu triggers beside navigation links and marks only the active folder', async () => {
   const html = await render();
   expect(html).toContain('<nav aria-label="收藏夹"');
   const rows = html.match(/<li\b[^>]*>[\s\S]*?<\/li>/g) ?? [];
