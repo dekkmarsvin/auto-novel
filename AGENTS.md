@@ -22,6 +22,7 @@ The upstream has removed this feature entirely. When merging upstream updates, y
 - `server/src/main/kotlin/api/RouteThemeGlossary.kt` — API routes & service
 - `server/src/main/kotlin/infra/common/ThemeGlossary.kt` — data model
 - `server/src/main/kotlin/infra/common/ThemeGlossaryRepository.kt` — MongoDB repository
+- `server/src/main/kotlin/infra/common/EffectiveTranslationGlossary.kt` — merged terms and content-based translation version
 - `server/src/main/kotlin/Application.kt` — DI registration (`ThemeGlossaryRepository`, `ThemeGlossaryApi`, `routeThemeGlossary()`)
 - `server/src/main/kotlin/api/RouteWebNovel.kt` — `themeGlossaryId` in DTO, `themeGlossaryRepo` in TranslateV2Api, glossary merging logic
 - `server/src/main/kotlin/api/RouteWenkuNovel.kt` — same pattern as RouteWebNovel
@@ -33,6 +34,7 @@ The upstream has removed this feature entirely. When merging upstream updates, y
 
 - `web/src/api/novel/ThemeGlossaryApi.ts` — API client
 - `web/src/model/ThemeGlossary.ts` — TypeScript model
+- `web/src/components/themeGlossarySelection.ts` — non-empty selector value for an unbound glossary
 - `web/src/components/GlossaryButton.vue` — glossary selector with theme glossary support
 - `web/src/pages/workspace/components/ToolboxItemThemeGlossary.vue` — workspace management UI
 - `web/src/pages/novel/components/TranslateOptions.vue` — passes themeGlossaryId prop
@@ -296,6 +298,21 @@ retirements recorded in the 2026-10-20 sync manifest.
 - Verify actual built-browser startup and core flows as well as unit/build/CI
   checks. Inspect crawler consumers before rollout; update only changed NAS
   application containers with verified published images and recoverable backup.
+
+### 15. Approved Post-sync P2 Repairs (2026-11-15)
+
+- Fix the four reviewed P2 issues: real Nuxt ThemeGlossary unbinding, stale GPT
+  modal drafts overwriting another tab, shared-term edits not expiring translated
+  chapters, and NAILAIN missing from homepage favorites.
+- Use real select/form components and competing-editor regressions. Keep the
+  scoped storage lock/importer/confirmed-save protections; reject stale drafts
+  without discarding the user's inputs or overwriting another worker's changes.
+- Invalidate translations against effective shared glossary content for both
+  Web and Wenku, preserving novel-specific term precedence. Do not bulk rewrite
+  production records, delete caches or introduce a second translation framework.
+- Keep Auth and the unmodified SDK pins unchanged. After local/CI/image checks,
+  merge and update only changed NAS application services with rollback images,
+  private runtime/data snapshots and retained-container/mount verification.
 
 ## Upstream Merge Checklist
 

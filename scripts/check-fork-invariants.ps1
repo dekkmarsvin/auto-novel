@@ -78,6 +78,7 @@ $RequiredFiles = @(
     'server/src/main/kotlin/api/RouteThemeGlossary.kt',
     'server/src/main/kotlin/infra/common/ThemeGlossary.kt',
     'server/src/main/kotlin/infra/common/ThemeGlossaryRepository.kt',
+    'server/src/main/kotlin/infra/common/EffectiveTranslationGlossary.kt',
     'server/src/main/kotlin/Application.kt',
     'server/src/main/kotlin/api/RouteWebNovel.kt',
     'server/src/main/kotlin/api/RouteWenkuNovel.kt',
@@ -86,6 +87,7 @@ $RequiredFiles = @(
     'server/src/main/kotlin/infra/MongoClient.kt',
     'web/src/api/novel/ThemeGlossaryApi.ts',
     'web/src/model/ThemeGlossary.ts',
+    'web/src/components/themeGlossarySelection.ts',
     'web/src/components/GlossaryButton.vue',
     'web/src/pages/workspace/components/ToolboxItemThemeGlossary.vue',
     'web/src/pages/novel/components/TranslateOptions.vue',
@@ -123,8 +125,15 @@ Assert-FileContains 'server/src/main/kotlin/api/RouteWebNovel.kt' 'themeGlossary
 Assert-FileContains 'server/src/main/kotlin/api/RouteWenkuNovel.kt' 'themeGlossaryRepo' 'WenkuNovel translate API ThemeGlossary repository dependency'
 Assert-FileContains 'server/src/main/kotlin/api/RouteWebNovel.kt' 'themeGlossaryId' 'WebNovel API themeGlossaryId handling'
 Assert-FileContains 'server/src/main/kotlin/api/RouteWenkuNovel.kt' 'themeGlossaryId' 'WenkuNovel API themeGlossaryId handling'
-Assert-FileContains 'server/src/main/kotlin/api/RouteWebNovel.kt' 'themeGlossaryRepo\.get\(it\)\?\.glossary[\s\S]*\+ novel\.glossary' 'WebNovel theme glossary merge order'
-Assert-FileContains 'server/src/main/kotlin/api/RouteWenkuNovel.kt' 'themeGlossaryRepo\.get\(it\)\?\.glossary[\s\S]*\+ novel\.glossary' 'WenkuNovel theme glossary merge order'
+Assert-FileContains 'server/src/main/kotlin/infra/common/EffectiveTranslationGlossary.kt' 'val merged\s*=\s*themeGlossary\s*\+\s*novelGlossary' 'Theme glossary before novel-specific terms'
+$EffectiveGlossaryInputs = 'effectiveTranslationGlossary\(\s*novel\.glossaryUuid,\s*novel\.glossary,\s*novel\.themeGlossaryId,\s*novel\.themeGlossaryId\?\.let\s*\{\s*themeGlossaryRepo\.get\(it\)\?\.glossary'
+foreach ($TranslationRoute in @('server/src/main/kotlin/api/RouteWebNovel.kt', 'server/src/main/kotlin/api/RouteWenkuNovel.kt')) {
+    Assert-FileContains $TranslationRoute $EffectiveGlossaryInputs 'Effective ThemeGlossary input and novel-specific precedence'
+    $TranslationContent = Get-Content (Join-Path $RepoRoot $TranslationRoute) -Raw
+    if ([regex]::Matches($TranslationContent, $EffectiveGlossaryInputs).Count -ne 3) {
+        Add-Failure "ThemeGlossary content version must be used for selection, preparation and saving in $TranslationRoute"
+    }
+}
 
 Assert-FileContains 'web/src/model/WebNovel.ts' 'themeGlossaryId' 'WebNovel DTO themeGlossaryId field'
 Assert-FileContains 'web/src/model/WenkuNovel.ts' 'themeGlossaryId' 'WenkuNovel DTO themeGlossaryId field'

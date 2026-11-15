@@ -5,6 +5,8 @@ import infra.common.NovelFileMode
 import infra.common.NovelFileTranslationsMode
 import infra.common.Page
 import infra.common.TranslatorId
+import infra.common.canReuseTranslationHistory
+import infra.common.effectiveTranslationGlossary
 import infra.oplog.Operation
 import infra.oplog.OperationHistoryRepository
 import infra.wenku.*
@@ -618,6 +620,11 @@ class WenkuNovelTranslateV2Api(
         val volume = volumeRepo.getVolume(novelId, volumeId)
             ?: throwNotFound("卷不存在")
 
+        val glossary = effectiveTranslationGlossary(
+            novel.glossaryUuid, novel.glossary, novel.themeGlossaryId,
+            novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap(),
+        )
+
         val toc = volume.listChapter().map {
             val chapterGlossary = volume.getChapterGlossary(translatorId, it)
             val translated = volume.translationExist(translatorId, it)
@@ -637,7 +644,7 @@ class WenkuNovelTranslateV2Api(
             )
         }
         return TranslateTaskDto(
-            glossaryId = novel.glossaryUuid ?: "no glossary",
+            glossaryId = glossary.id,
             toc = toc,
         )
     }
@@ -662,6 +669,10 @@ class WenkuNovelTranslateV2Api(
 
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
+        val glossary = effectiveTranslationGlossary(
+            novel.glossaryUuid, novel.glossary, novel.themeGlossaryId,
+            novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap(),
+        )
         val volume = volumeRepo.getVolume(novelId, volumeId)
             ?: throwNotFound("卷不存在")
         val chapter = volume.getChapter(chapterId)
@@ -683,9 +694,11 @@ class WenkuNovelTranslateV2Api(
 
         return ChapterTranslateTaskDto(
             paragraphJp = chapter,
-            oldParagraphZh = oldTranslation.takeIf { !sakuraOutdated },
-            glossaryId = novel.glossaryUuid ?: "no glossary",
-            glossary = (novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap()) + novel.glossary,
+            oldParagraphZh = oldTranslation.takeIf {
+                !sakuraOutdated && canReuseTranslationHistory(chapterGlossary?.uuid, glossary.id)
+            },
+            glossaryId = glossary.id,
+            glossary = glossary.map,
             oldGlossaryId = oldGlossaryId,
             oldGlossary = chapterGlossary?.glossary ?: emptyMap(),
         )
@@ -709,7 +722,11 @@ class WenkuNovelTranslateV2Api(
 
         val novel = metadataRepo.get(novelId)
             ?: throwNovelNotFound()
-        if ((glossaryId ?: "no glossary") != (novel.glossaryUuid ?: "no glossary")) {
+        val glossary = effectiveTranslationGlossary(
+            novel.glossaryUuid, novel.glossary, novel.themeGlossaryId,
+            novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap(),
+        )
+        if ((glossaryId ?: "no glossary") != glossary.id) {
             throwBadRequest("术语表失效")
         }
 
@@ -730,8 +747,8 @@ class WenkuNovelTranslateV2Api(
         volume.setChapterGlossary(
             translatorId = translatorId,
             chapterId = chapterId,
-            glossaryUuid = glossaryId,
-            glossary = novel.glossary,
+            glossaryUuid = glossary.id,
+            glossary = glossary.map,
             sakuraVersion = sakuraVersion?.takeIf { translatorId == TranslatorId.Sakura }
         )
 

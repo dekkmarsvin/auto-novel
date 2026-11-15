@@ -1025,6 +1025,11 @@ class WebNovelTranslateV2Api(
         val novel = metadataRepo.getNovelAndSave(providerId, novelId, 10)
             .getOrElse { throwInternalServerError("从源站获取失败:" + it.message) }
 
+        val glossary = effectiveTranslationGlossary(
+            novel.glossaryUuid, novel.glossary, novel.themeGlossaryId,
+            novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap(),
+        )
+
         val chapterTranslationOutlines = chapterRepo.getTranslationOutlines(
             providerId = providerId,
             novelId = novelId,
@@ -1064,8 +1069,8 @@ class WebNovelTranslateV2Api(
             titleZh = novel.titleZh,
             introductionJp = novel.introductionJp,
             introductionZh = novel.introductionZh,
-            glossaryUuid = novel.glossaryUuid ?: "no glossary",
-            glossary = (novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap()) + novel.glossary,
+            glossaryUuid = glossary.id,
+            glossary = glossary.map,
             toc = toc,
         )
     }
@@ -1089,6 +1094,11 @@ class WebNovelTranslateV2Api(
     ): ChapterTranslateTaskDto {
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
+
+        val glossary = effectiveTranslationGlossary(
+            novel.glossaryUuid, novel.glossary, novel.themeGlossaryId,
+            novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap(),
+        )
 
         val chapter = chapterRepo.getOrSyncRemote(
             providerId = providerId,
@@ -1120,9 +1130,11 @@ class WebNovelTranslateV2Api(
 
         return ChapterTranslateTaskDto(
             paragraphJp = chapter.paragraphs,
-            oldParagraphZh = oldTranslation.takeIf { !sakuraOutdated },
-            glossaryId = novel.glossaryUuid ?: "no glossary",
-            glossary = (novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap()) + novel.glossary,
+            oldParagraphZh = oldTranslation.takeIf {
+                !sakuraOutdated && canReuseTranslationHistory(oldGlossaryIdRaw, glossary.id)
+            },
+            glossaryId = glossary.id,
+            glossary = glossary.map,
             oldGlossaryId = oldGlossaryId,
             oldGlossary = oldGlossary ?: emptyMap(),
         )
@@ -1181,7 +1193,11 @@ class WebNovelTranslateV2Api(
 
         val novel = metadataRepo.get(providerId, novelId)
             ?: throwNovelNotFound()
-        if ((glossaryId ?: "no glossary") != (novel.glossaryUuid ?: "no glossary")) {
+        val glossary = effectiveTranslationGlossary(
+            novel.glossaryUuid, novel.glossary, novel.themeGlossaryId,
+            novel.themeGlossaryId?.let { themeGlossaryRepo.get(it)?.glossary } ?: emptyMap(),
+        )
+        if ((glossaryId ?: "no glossary") != glossary.id) {
             throwBadRequest("术语表失效")
         }
 
@@ -1196,7 +1212,7 @@ class WebNovelTranslateV2Api(
             novelId = novelId,
             chapterId = chapterId,
             translatorId = translatorId,
-            glossary = novel.glossaryUuid?.let { Glossary(it, novel.glossary) },
+            glossary = glossary,
             paragraphsZh = paragraphsZh,
         )
         return TranslateStateDto(jp = novel.jp, zh = zh)

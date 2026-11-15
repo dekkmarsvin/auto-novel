@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GenericNovelId } from '../src/model/Common';
 import Editor from '../src/components/NovelGlossaryEditor.vue';
+import { NO_THEME_GLOSSARY_ID } from '../src/components/themeGlossarySelection';
 
 const transport = vi.hoisted(() => {
   // Compile the SFC during collection, before a case installs its fetch
@@ -400,7 +401,7 @@ describe('actual novel glossary editor', () => {
   it('normalizes the empty Nuxt selection to an unbound saved glossary', async () => {
     const { root, controls, puts } = await mountEditor();
     await vi.waitFor(() => expect(row(root, '犬')).toBeDefined());
-    change(findAll(root, 'select')[0], '');
+    change(findAll(root, 'select')[0], NO_THEME_GLOSSARY_ID);
     await Vue.nextTick();
     expect(row(root, '犬')).toBeUndefined();
     expect(controls.isGlossaryChanged()).toBe(true);
