@@ -31,7 +31,7 @@ const { data: favoriteList, error: favoriteError } = usePrivateFavoredQuery(
         page: 0,
         pageSize: 8,
         query: '',
-        provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
+        provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis,nailain',
         type: 0,
         level: 0,
         translate: 0,

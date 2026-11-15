@@ -11,7 +11,10 @@ import Home from '../src/pages/home/HomeView.vue';
 const account = vi.hoisted(() => ({
   listeners: new Set<(user?: WhoamiUser) => void>(),
 }));
-const transport = vi.hoisted(() => ({ fetch: vi.fn() }));
+const transport = vi.hoisted(() => ({
+  fetch: vi.fn(),
+  publicWebQuery: vi.fn(),
+}));
 vi.mock('@vicons/material', () => ({
   BookOutlined: {},
   LanguageOutlined: {},
@@ -56,7 +59,9 @@ vi.mock('../src/repos', async () => {
   const { ref } = await import('vue');
   const publicPage = () => ({ data: ref({ items: [] }), error: ref(null) });
   return {
-    WebNovelRepo: { useWebNovelList: publicPage },
+    WebNovelRepo: {
+      useWebNovelList: transport.publicWebQuery.mockImplementation(publicPage),
+    },
     WenkuNovelRepo: { useWenkuNovelList: publicPage },
   };
 });
@@ -201,6 +206,7 @@ const content = (value: HostNode): string =>
     .filter((item) => typeof item === 'string')
     .join(' ')} ${value.children.map(content).join(' ')}`;
 async function setup() {
+  transport.publicWebQuery.mockClear();
   const requests: { request: Request; resolve: (value: Response) => void }[] =
     [];
   transport.fetch.mockReset().mockImplementation(
@@ -270,6 +276,11 @@ async function setup() {
     'section-header',
     'c-button',
     'XPage',
+    'UButton',
+    'ULink',
+    'StarBorderOutlined',
+    'LanguageOutlined',
+    'BookOutlined',
   ])
     mounted.component(name, pass);
   mounted.component(
@@ -289,6 +300,7 @@ async function setup() {
   mounted.component('PanelWenkuNovel', pass);
   mounted.component('HomeBanner', { render: () => null });
   mounted.component('XDialog', { render: () => null });
+  mounted.component('UModal', { render: () => null });
   cleanups.push(() => {
     signIn();
     mounted.unmount();
@@ -327,6 +339,28 @@ describe('actual home deployment and private-list boundaries', () => {
     ])
       expect(text).not.toContain(unwanted);
     expect(requests).toHaveLength(0);
+  });
+  it('includes NAILAIN in signed-in favorites without broadening public most-visited policy', async () => {
+    const { root, requests } = await setup();
+    signIn(1);
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const query = new URL(requests[0].request.url).searchParams;
+    expect(query.get('provider')?.split(',')).toContain('nailain');
+    expect(query.get('level')).toBe('0');
+    requests[0].resolve(
+      Response.json({
+        total: 1,
+        items: [
+          { providerId: 'nailain', novelId: 'fixture', titleJp: 'NAILAIN收藏' },
+        ],
+      }),
+    );
+    await vi.waitFor(() => expect(content(root)).toContain('NAILAIN收藏'));
+    expect(transport.publicWebQuery).toHaveBeenCalledExactlyOnceWith(1, {
+      provider: 'kakuyomu,syosetu,novelup,hameln,pixiv,alphapolis',
+      sort: 1,
+      level: 1,
+    });
   });
   it('clears rendered Alice data during direct Bob switch and logout/relogin pending', async () => {
     const { root, requests } = await setup();

@@ -93,6 +93,16 @@ No backend/schema/data changes or new service are implied. Verify actual built
 startup, source/CI/image identities and crawler consumers before replacing only
 changed NAS application containers with rollback images and private backups.
 
+The post-sync review on 2026-11-15 identified four P2 defects. The maintainer
+approved repairing real Nuxt unbinding, stale worker-editor conflicts, shared
+glossary expiry and homepage NAILAIN favorites together. Select boundaries need
+real-component regressions; worker saves compare their opening snapshot against
+the current worker as well as retaining the existing persistence transaction.
+Translation expiry must reflect effective shared terms without bulk data writes
+or a parallel cache framework. Preserve novel-specific overrides and verify Web
+and Wenku consumers. Auth and SDK sources remain unchanged; deliver only changed
+application containers after exact-head checks and recoverable rollout evidence.
+
 Consequences:
 
 - Upstream merges must preserve fork invariants and run `.\scripts\check-fork-invariants.ps1`.

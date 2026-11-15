@@ -23,6 +23,7 @@ import {
   useGlossaryDraft,
 } from './glossaryDraft';
 import { useGlossaryNavigationGuard } from './glossaryNavigation';
+import { NO_THEME_GLOSSARY_ID } from './themeGlossarySelection';
 
 const props = defineProps<{
   gnid?: GenericNovelId;
@@ -308,12 +309,15 @@ defineExpose({
         <div v-if="gnid?.type !== 'local'" class="flex items-center gap-2">
           <span>绑定的共用术语表：</span>
           <USelect
-            :model-value="localThemeGlossaryId ?? ''"
-            @update:model-value="localThemeGlossaryId = $event || null"
+            :model-value="localThemeGlossaryId || NO_THEME_GLOSSARY_ID"
+            @update:model-value="
+              localThemeGlossaryId =
+                $event === NO_THEME_GLOSSARY_ID ? null : $event || null
+            "
             :loading="themeGlossariesLoading"
             :disabled="themeGlossariesLoading"
             :items="[
-              { label: '无', value: '' },
+              { label: '无', value: NO_THEME_GLOSSARY_ID },
               ...themeGlossaries.map((g) => ({
                 label: isCurrentAuthor(whoami, g.authorUsername)
                   ? g.name

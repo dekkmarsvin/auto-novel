@@ -1,12 +1,17 @@
 <script lang="ts" setup>
 import { Toast } from '@novelia/web-kit';
 import type { Form, FormSchema } from '@nuxt/ui';
+import { toRaw } from 'vue';
 
 import {
   parseWorkerLines,
   validateGptWorker,
   validateGptWorkerBatch,
 } from './gptWorkerForm';
+import {
+  captureGptWorkerBaseline,
+  matchesGptWorkerBaseline,
+} from './gptWorkerBaseline';
 
 import type { GptPipelineWorker } from '@/model/Translator';
 import { useGptPipelineWorkspaceStore } from '@/stores';
@@ -104,6 +109,7 @@ const initFormValue = (
 const formRef = useTemplateRef<Form<FormSchema>>('form');
 
 const formValue = ref(initFormValue(props.worker));
+const editBaseline = shallowRef(captureGptWorkerBaseline(props.worker));
 
 /** 已保存或手动输入的 API 端点不随接口格式切换而覆盖。 */
 const preserveEndpoint = ref(Boolean(props.worker?.endpoint.trim()));
@@ -162,7 +168,9 @@ const onProfileChange = (value: string) => {
 };
 
 const otherWorkers = computed(() =>
-  workspaceRef.value.workers.filter((worker) => worker.id !== props.worker?.id),
+  workspaceRef.value.workers.filter(
+    (worker) => worker.id !== editBaseline.value?.id,
+  ),
 );
 const duplicateKeyWarning = computed(() =>
   formValue.value.key.trim() &&
@@ -197,6 +205,7 @@ watch(
   (show) => {
     if (!show) return;
     formValue.value = initFormValue(props.worker);
+    editBaseline.value = captureGptWorkerBaseline(props.worker);
     preserveEndpoint.value = Boolean(props.worker?.endpoint.trim());
     if (props.worker === undefined) {
       keyIds.clear();
@@ -344,15 +353,35 @@ const save = async (continueAdding = false) => {
         concurrency,
         profile,
       };
+      const baseline = editBaseline.value;
       const index = workspaceRef.value.workers.findIndex(
-        (w) => w.id === props.worker?.id,
+        (w) => w.id === baseline?.id,
       );
       if (index < 0) {
         Toast.warning('翻译器已被其他标签页移除，请重新打开设置');
         return;
       }
+      if (
+        !baseline ||
+        !matchesGptWorkerBaseline(baseline, workspaceRef.value.workers[index])
+      ) {
+        Toast.warning('翻译器已被其他标签页更新，草稿已保留，请重新打开设置');
+        return;
+      }
+      // No await between the comparison and replacement. The existing storage
+      // Web Lock/CAS still rejects a remote write racing this local mutation.
       workspaceRef.value.workers[index] = worker;
-      if (!(await workspace.persisted())) return;
+      if (!(await workspace.persisted())) {
+        // Quota/lock failure can leave our own unsaved object in the ref. Permit
+        // its retry, but never adopt a replacement delivered by another tab.
+        const current = workspaceRef.value.workers.find(
+          (w) => w.id === worker.id,
+        );
+        if (current && toRaw(current) === worker) {
+          editBaseline.value = captureGptWorkerBaseline(worker);
+        }
+        return;
+      }
       Toast.success(`已更新翻译器「${worker.id}」`);
     }
     if (!continueAdding) emit('update:show', false);
