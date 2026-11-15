@@ -99,13 +99,10 @@ async function modal(
   let controls!: Controls;
   const form = Vue.defineComponent({
     setup(_props, { expose }) {
-      // Only Naive UI's field validation boundary is stubbed; submit and store
+      // Only Nuxt UI's field validation boundary is stubbed; submit and store
       // writes execute the production SFC, including its reactive prop watcher.
       expose({
-        validate: (done?: (errors?: unknown) => void) => {
-          done?.();
-          return Promise.resolve();
-        },
+        validate: () => Promise.resolve(true),
       });
       return () => null;
     },
@@ -155,6 +152,31 @@ describe('GPT worker profile compatibility', () => {
     await submit;
     expect(records.value.workers[0].key).toBe('synthetic-edited-key');
     expect(persisted).toHaveBeenCalledOnce();
+  });
+
+  it('shares one pending save between native-form and footer actions', async () => {
+    const { controls, persisted, emit, records } = await modal();
+    controls.modelText.value = 'new-model';
+    controls.keyText.value = 'synthetic-key';
+    let finish!: (value: boolean) => void;
+    persisted.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const submit = controls.submit();
+    await vi.waitFor(() => expect(persisted).toHaveBeenCalledOnce());
+    await controls.submitAndContinue();
+    await controls.submit();
+    expect(records.value.workers).toHaveLength(1);
+    expect(persisted).toHaveBeenCalledOnce();
+    expect(emit).not.toHaveBeenCalled();
+    expect(Toast.success).not.toHaveBeenCalled();
+    finish(true);
+    await submit;
+    expect(Toast.success).toHaveBeenCalledOnce();
+    expect(emit).toHaveBeenCalledExactlyOnceWith('update:show', false);
   });
 
   it('keeps the modal open and does not report success when saving is rejected', async () => {

@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import {
   WebKitLayout,
-  XButton,
   useWebKitViewport,
   type WebKitMenuOption,
 } from '@novelia/web-kit';
@@ -129,15 +128,15 @@ const menuKey = computed(() => {
   >
     <template v-if="isMobile" #header-actions>
       <RouterLink :to="favoriteTo" aria-label="我的收藏">
-        <XButton
-          size="icon"
+        <UButton
+          :icon="StarBorderOutlined"
+          size="md"
+          square
           color="neutral"
           variant="ghost"
-          class="text-ink hover:bg-divider/40 hover:text-ink"
+          class="text-default hover:bg-muted hover:text-default"
           aria-label="我的收藏"
-        >
-          <StarBorderOutlined class="size-5" aria-hidden="true" />
-        </XButton>
+        />
       </RouterLink>
     </template>
     <div class="novel-page-content">
@@ -158,10 +157,3 @@ const menuKey = computed(() => {
     </div>
   </component>
 </template>
-
-<style scoped>
-.novel-page-content {
-  min-height: calc(100vh - 50px);
-  padding-bottom: 64px;
-}
-</style>

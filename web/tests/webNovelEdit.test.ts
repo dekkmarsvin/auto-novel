@@ -31,6 +31,9 @@ vi.mock('../src/repos', async () => {
 });
 vi.mock('../src/pages/util', () => ({ useIsWideScreen: () => Vue.ref(true) }));
 vi.mock('../src/stores', () => ({ useWhoamiStore: () => ({}) }));
+vi.mock('../src/stores/useWhoamiStore', () => ({
+  useWhoamiStore: () => ({ whoami: { isSignedIn: true } }),
+}));
 vi.mock('@novelia/web-kit', () => ({
   Toast: { promise: (promise: Promise<unknown>) => promise, warning: vi.fn() },
 }));

@@ -2,7 +2,7 @@ import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { storageBootstrapPlugin } from '../storageBootstrap';
 
-function bootstrap(values: Record<string, string> = {}) {
+async function bootstrap(values: Record<string, string> = {}) {
   const data = new Map(Object.entries(values));
   const storage = {
     getItem: (key: string) => data.get(key) ?? null,
@@ -12,8 +12,17 @@ function bootstrap(values: Record<string, string> = {}) {
   const handlers: Record<string, ((event: unknown) => void)[]> = {};
   const messages: string[] = [];
   let mounted = false;
+  const classes = new Set<string>(['light']);
   const document = {
-    documentElement: { dataset: {} as Record<string, string> },
+    documentElement: {
+      classList: {
+        add: (...tokens: string[]) =>
+          tokens.forEach((token) => classes.add(token)),
+        remove: (...tokens: string[]) =>
+          tokens.forEach((token) => classes.delete(token)),
+        contains: (token: string) => classes.has(token),
+      },
+    },
     getElementById: () =>
       mounted ? null : { appendChild: (text: string) => messages.push(text) },
     createTextNode: (text: string) => text,
@@ -31,7 +40,7 @@ function bootstrap(values: Record<string, string> = {}) {
   };
   const plugin = storageBootstrapPlugin();
   plugin.configResolved({ command: 'build', isProduction: true });
-  for (const tag of plugin.transformIndexHtml.handler()) {
+  for (const tag of await plugin.transformIndexHtml.handler()) {
     runInNewContext(tag.children, context);
   }
   return {
@@ -47,26 +56,31 @@ function bootstrap(values: Record<string, string> = {}) {
 }
 
 describe('host storage and immutable SDK HTML bootstrap', () => {
-  it('migrates legacy dark preference before the real SDK theme script runs', () => {
-    const state = bootstrap({ setting: '{"theme":"dark"}' });
-    expect(state.document.documentElement.dataset.theme).toBe('dark');
+  it('migrates legacy dark preference before the real SDK theme script runs', async () => {
+    const state = await bootstrap({ setting: '{"theme":"dark"}' });
+    expect(state.document.documentElement.classList.contains('dark')).toBe(
+      true,
+    );
+    expect(state.document.documentElement.classList.contains('light')).toBe(
+      false,
+    );
     expect(state.storage.getItem('web-kit:theme:v1')).toBe('"dark"');
     expect(state.storage.getItem('auto-novel:web-kit-migration:v1')).toBe('1');
   });
 
-  it('forwards SDK lifecycle configuration so analytics only runs in production builds', () => {
+  it('forwards SDK lifecycle configuration so analytics only runs in production builds', async () => {
     const plugin = storageBootstrapPlugin({ analytics: 'G-TEST123' });
     plugin.configResolved({ command: 'serve', isProduction: false });
-    expect(plugin.transformIndexHtml.handler()).toHaveLength(3);
+    expect(await plugin.transformIndexHtml.handler()).toHaveLength(3);
     plugin.configResolved({ command: 'build', isProduction: true });
-    const tags = plugin.transformIndexHtml.handler();
+    const tags = await plugin.transformIndexHtml.handler();
     expect(tags).toHaveLength(4);
     expect(tags[3].children).toContain('G-TEST123');
     expect(tags[0].children).toContain('auto-novel:web-kit-migration:v1');
   });
 
-  it('preserves the SDK startup reporter without writing errors after app mount', () => {
-    const state = bootstrap();
+  it('preserves the SDK startup reporter without writing errors after app mount', async () => {
+    const state = await bootstrap();
     state.emit('error', {
       message: '<img onerror=alert(1)>',
       lineno: 1,

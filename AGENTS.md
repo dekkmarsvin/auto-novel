@@ -279,6 +279,24 @@ retirements recorded in the 2026-10-20 sync manifest.
   CI and published-image verification. Preserve data/Auth containers, mounts,
   secrets and rollback images; inspect separately deployed crawler consumers.
 
+### 14. Approved November UI Sync (2026-11-15)
+
+- Integrate `9d0013f7..3cad838a`: shared/native/Nuxt UI controls, lazy AI
+  dependencies, safe initial query-cache access and Amazon cover normalization.
+- Auto-Novel follows unmodified Web Kit `0b63d938`. Auth stays at fork
+  `4aa104ef` / upstream `cdc91ef1`, SDK `b6277d5`; validate its wire compatibility
+  without changing or redeploying Auth.
+- Adapt fork-only ThemeGlossary controls to the shared UI direction, preserving
+  bindings, merge order, drafts, pending inputs and navigation guards. Preserve
+  NAILAIN, Pipeline importer/Web Lock/conflict/confirmed-save and original data.
+- Preserve host bootstrap/migration ordering, local/native/remote credential
+  boundaries, Kotoban origins, browser target and build provenance. Reuse SDK
+  drafts only behind the disabled-community boundary; keep original stored
+  drafts recoverable. Never mount Trial or upstream-only destinations.
+- Verify actual built-browser startup and core flows as well as unit/build/CI
+  checks. Inspect crawler consumers before rollout; update only changed NAS
+  application containers with verified published images and recoverable backup.
+
 ## Upstream Merge Checklist
 
 Use this checklist whenever syncing from upstream:

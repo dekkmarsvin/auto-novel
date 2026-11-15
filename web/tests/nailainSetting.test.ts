@@ -125,12 +125,18 @@ const renderer = Vue.createRenderer<HostNode, HostNode>({
     value.parent = undefined;
   },
 });
+function textContent(value: HostNode): string {
+  return value.text ?? value.children.map(textContent).join('');
+}
 function find(
   value: HostNode,
   tag: string,
   text?: string,
 ): HostNode | undefined {
-  if (value.tag === tag && (text === undefined || value.text === text))
+  if (
+    value.tag === tag &&
+    (text === undefined || textContent(value).trim() === text)
+  )
     return value;
   for (const child of value.children) {
     const match = find(child, tag, text);
@@ -189,36 +195,38 @@ describe('NAILAIN Setting.vue input and save integration', () => {
       'c-radio-group',
       'translator-check',
       'XPage',
-      'XPageHeader',
+      'UPageHeader',
+      'UCheckbox',
+      'UTooltip',
+      'UButton',
     ])
       app.component(name, pass);
     app.component(
-      'n-input',
+      'UInput',
       Vue.defineComponent({
-        props: ['value'],
-        emits: ['update:value'],
+        props: ['modelValue'],
+        emits: ['update:modelValue'],
         setup:
           (props, { emit }) =>
           () =>
             Vue.h('input', {
-              value: props.value,
+              value: props.modelValue,
               onInput: (event: { target: { value: string } }) =>
-                emit('update:value', event.target.value),
+                emit('update:modelValue', event.target.value),
             }),
       }),
     );
     app.component(
-      'c-button',
+      'ActionButton',
       Vue.defineComponent({
-        props: ['label', 'disabled'],
-        emits: ['action'],
+        props: ['action', 'disabled'],
         setup:
-          (props, { emit }) =>
+          (props, { slots }) =>
           () =>
             Vue.h(
               'button',
-              { disabled: props.disabled, onClick: () => emit('action') },
-              props.label,
+              { disabled: props.disabled, onClick: () => props.action() },
+              slots.default?.(),
             ),
       }),
     );
